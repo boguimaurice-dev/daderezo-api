@@ -11,6 +11,15 @@ app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True, 
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
+
+def sanitize_limit(limit: int, max_limit: int = 100) -> int:
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        return 20
+    return max(1, min(limit, max_limit))
+
+
 if DATABASE_URL:
     import psycopg2
     def get_conn():
@@ -86,12 +95,14 @@ def list_agents():
 
 @app.get('/probes/{agent_id}')
 def get_probes(agent_id: str, limit: int = 20):
-    conn = get_conn(); c = conn.cursor(); c.execute(f'SELECT * FROM probes WHERE agent_id={PH} ORDER BY id DESC LIMIT {limit}', (agent_id,)); rows = c.fetchall(); cols = [d[0] for d in c.description]; conn.close()
+    safe_limit = sanitize_limit(limit)
+    conn = get_conn(); c = conn.cursor(); c.execute(f'SELECT * FROM probes WHERE agent_id={PH} ORDER BY id DESC LIMIT {PH}', (agent_id, safe_limit)); rows = c.fetchall(); cols = [d[0] for d in c.description]; conn.close()
     return [dict(zip(cols, r)) for r in rows]
 
 @app.get('/alerts/{agent_id}')
 def get_alerts(agent_id: str, limit: int = 20):
-    conn = get_conn(); c = conn.cursor(); c.execute(f'SELECT * FROM alerts WHERE agent_id={PH} ORDER BY id DESC LIMIT {limit}', (agent_id,)); rows = c.fetchall(); cols = [d[0] for d in c.description]; conn.close()
+    safe_limit = sanitize_limit(limit)
+    conn = get_conn(); c = conn.cursor(); c.execute(f'SELECT * FROM alerts WHERE agent_id={PH} ORDER BY id DESC LIMIT {PH}', (agent_id, safe_limit)); rows = c.fetchall(); cols = [d[0] for d in c.description]; conn.close()
     return [dict(zip(cols, r)) for r in rows]
 
 @app.get('/state/{agent_id}')

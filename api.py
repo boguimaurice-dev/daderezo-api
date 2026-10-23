@@ -86,12 +86,12 @@ def list_agents():
 
 @app.get('/probes/{agent_id}')
 def get_probes(agent_id: str, limit: int = 20):
-    conn = get_conn(); c = conn.cursor(); c.execute(f'SELECT * FROM probes WHERE agent_id={PH} ORDER BY id DESC LIMIT {limit}', (agent_id,)); rows = c.fetchall(); cols = [d[0] for d in c.description]; conn.close()
+    conn = get_conn(); c = conn.cursor(); c.execute(f'SELECT * FROM probes WHERE agent_id={PH} ORDER BY id DESC LIMIT {PH}', (agent_id, limit)); rows = c.fetchall(); cols = [d[0] for d in c.description]; conn.close()
     return [dict(zip(cols, r)) for r in rows]
 
 @app.get('/alerts/{agent_id}')
 def get_alerts(agent_id: str, limit: int = 20):
-    conn = get_conn(); c = conn.cursor(); c.execute(f'SELECT * FROM alerts WHERE agent_id={PH} ORDER BY id DESC LIMIT {limit}', (agent_id,)); rows = c.fetchall(); cols = [d[0] for d in c.description]; conn.close()
+    conn = get_conn(); c = conn.cursor(); c.execute(f'SELECT * FROM alerts WHERE agent_id={PH} ORDER BY id DESC LIMIT {PH}', (agent_id, limit)); rows = c.fetchall(); cols = [d[0] for d in c.description]; conn.close()
     return [dict(zip(cols, r)) for r in rows]
 
 @app.get('/state/{agent_id}')

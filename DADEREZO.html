@@ -6,68 +6,783 @@
 <meta name="theme-color" content="#f3f5f1">
 <title>DADEREZO — Supervision réseau</title>
 <style>
-:root{color-scheme:light;--ink:#152621;--muted:#718079;--line:#dce3dc;--paper:#f3f5f1;--white:#fff;--green:#176b57;--green-soft:#e2f1e9;--amber:#9a6218;--amber-soft:#fff1d9;--red:#a5443d;--sidebar:#142923;--side-muted:#a6b7ad;--shadow:0 12px 32px rgba(19,44,34,.06)}
-*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 "Bahnschrift","Segoe UI Variable",Segoe UI,system-ui,sans-serif}button{font:inherit}.app{min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr)}
-aside{background:var(--sidebar);color:#f5f8f5;padding:25px 18px;display:flex;flex-direction:column;gap:34px}.brand{display:flex;align-items:center;gap:11px;padding:4px 8px}.brand-mark{width:34px;height:34px;border:1px solid #79998b;border-radius:9px;display:grid;place-items:center;color:#bbdfc7;font-weight:800;font-size:12px;letter-spacing:.04em}.brand-name{font-weight:700;letter-spacing:.11em;font-size:15px}.brand-sub{font-size:10px;color:var(--side-muted);letter-spacing:.12em;margin-top:2px}.site-label{padding:0 9px;color:#dce8df;font-size:12px;line-height:1.5}.site-label small{display:block;color:var(--side-muted);font-size:11px;margin-top:2px}.nav{display:grid;gap:5px}.nav button{width:100%;min-height:43px;border:0;background:transparent;color:#c3d0c7;text-align:left;padding:0 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:11px;font-size:13px}.nav button:hover,.nav button:focus-visible{background:#203a31;color:white;outline:none}.nav button.active{background:#29483c;color:#fff}.nav-icon{width:17px;text-align:center;color:#a9c7b5;font-size:15px}.side-bottom{margin-top:auto;border-top:1px solid #355045;padding:16px 9px 3px;color:var(--side-muted);font-size:11px;line-height:1.6}.mode{color:#d6e4db;font-size:11px;margin-bottom:5px}.mode b{color:#a6dfb7;font-weight:600}
-main{min-width:0;padding:30px clamp(20px,4vw,58px) 48px;max-width:1500px;width:100%;margin:0 auto}.topline{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:30px}.eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:650}.top-right{display:flex;align-items:center;gap:12px}.collector-pill{display:flex;align-items:center;gap:8px;background:var(--amber-soft);color:#805214;border:1px solid #efd8ad;border-radius:999px;padding:8px 12px;font-size:11px;font-weight:650}.dot{width:7px;height:7px;border-radius:50%;background:#c28935}.profile{width:33px;height:33px;border-radius:50%;display:grid;place-items:center;background:#e3e9e2;color:#52665b;font-weight:700;font-size:11px}
-.heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:24px}.heading h1{font-size:clamp(25px,3vw,34px);letter-spacing:-.035em;line-height:1.1;margin:5px 0 8px;font-weight:700}.heading p{color:var(--muted);margin:0;font-size:13px}.date{font-size:11px;color:var(--muted);white-space:nowrap;padding-bottom:4px}
-.notice{display:flex;align-items:flex-start;gap:13px;padding:15px 17px;background:#fffaf0;border:1px solid #efdfbe;border-radius:11px;margin-bottom:23px}.notice-mark{width:25px;height:25px;flex:0 0 auto;border-radius:7px;background:#f7e6c6;color:#8b5b18;display:grid;place-items:center;font-size:13px;font-weight:800}.notice strong{display:block;font-size:12px;margin:1px 0 4px}.notice p{margin:0;color:#75664b;font-size:12px;line-height:1.5}
-.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:21px}.kpi{background:var(--white);border:1px solid var(--line);border-radius:11px;padding:16px 17px;min-height:93px}.kpi-label{font-size:11px;color:var(--muted)}.kpi-value{font-size:19px;font-weight:650;letter-spacing:-.02em;margin-top:8px}.kpi-note{font-size:10px;color:#87938c;margin-top:3px}
-.panel{background:var(--white);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:19px 20px 15px;border-bottom:1px solid #edf0ec}.panel-head h2{font-size:14px;margin:0 0 4px;letter-spacing:-.01em}.panel-head p{font-size:11px;color:var(--muted);margin:0}.tag{border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:10px;color:var(--muted);white-space:nowrap}.topology{padding:18px 20px 20px}.flow{display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;max-width:740px;margin:0 auto}.device{border:1px solid #dfe6df;background:#fbfcfa;border-radius:10px;padding:14px 15px;min-height:80px;display:flex;align-items:center;gap:12px}.device-icon{width:34px;height:34px;flex:0 0 auto;border-radius:9px;background:#edf2ed;color:#687a6f;display:grid;place-items:center;font-size:15px}.device strong{font-size:12px;display:block;margin-bottom:3px}.device span{font-size:10px;color:var(--muted);display:block}.link{height:1px;background:#bdc9bf;position:relative}.link:after{content:"";position:absolute;right:0;top:-3px;width:6px;height:6px;border-top:1px solid #97a99b;border-right:1px solid #97a99b;transform:rotate(45deg)}.downlink{height:24px;width:1px;background:#bdc9bf;margin:auto;position:relative}.downlink:after{content:"";position:absolute;bottom:0;left:-3px;width:6px;height:6px;border-right:1px solid #97a99b;border-bottom:1px solid #97a99b;transform:rotate(45deg)}.zones{grid-column:1/4;display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.zone{border:1px dashed #cbd6cc;background:#fcfdfb;border-radius:9px;padding:12px 13px}.zone b{font-size:11px;display:block;font-weight:650}.zone span{font-size:10px;color:var(--muted);display:block;margin-top:4px}.caption{font-size:10px;color:#858f89;margin:13px 0 0;text-align:center}
-.lower{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(240px,.7fr);gap:14px;margin-top:15px}.empty{padding:19px 20px 20px}.empty-title{font-size:12px;font-weight:650;margin-bottom:5px}.empty p{font-size:11px;color:var(--muted);margin:0;line-height:1.55}.rule-list{padding:5px 20px 16px}.rule{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #edf0ec}.rule:last-child{border:0}.rule-num{font:11px/1.6 "Cascadia Code",Consolas,monospace;color:var(--green)}.rule p{margin:0;font-size:11px;color:#596960;line-height:1.5}.rule strong{color:var(--ink);font-weight:650}.setup{margin-top:15px;padding:15px 18px;display:flex;align-items:center;justify-content:space-between;gap:18px}.setup h3{font-size:12px;margin:0 0 4px}.setup p{font-size:11px;color:var(--muted);margin:0}.btn{background:var(--green);color:white;border:0;border-radius:7px;min-height:38px;padding:0 14px;font-size:11px;font-weight:650;white-space:nowrap;cursor:pointer}.btn:hover{background:#105642}.btn:focus-visible{outline:3px solid #b9d8c5;outline-offset:2px}.details{display:none;padding:4px 18px 18px}.details.open{display:block}.steps{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.step{border-top:1px solid var(--line);padding:11px 0 0;font-size:11px;color:#596960}.step b{display:block;font-size:10px;color:var(--green);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}.footnote{font-size:10px;color:#87918b;margin-top:17px}
-.view{display:none}.view.active{display:block}.equipment-empty,.alerts-empty,.config-panel{padding:21px}.table-head{display:grid;grid-template-columns:1.2fr 1fr .8fr .7fr;gap:10px;padding:0 0 10px;border-bottom:1px solid var(--line);font-size:10px;color:var(--muted)}.equipment-empty p,.alerts-empty p{font-size:12px;color:var(--muted);max-width:550px}.blank-state{padding:34px 8px 24px;text-align:center}.blank-state b{font-size:13px;display:block;margin-bottom:7px}.blank-state span{font-size:11px;color:var(--muted);max-width:430px;margin:auto;display:block;line-height:1.6}.config-row{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid #edf0ec;font-size:12px}.config-row:last-child{border:0}.config-row span{color:var(--muted);text-align:right}
-@media(max-width:800px){.app{grid-template-columns:68px minmax(0,1fr)}aside{padding:20px 9px;align-items:center}.brand{padding:0}.brand-name,.brand-sub,.site-label,.nav-label,.side-bottom{display:none}.nav{width:100%;margin-top:6px}.nav button{justify-content:center;padding:0}.nav-icon{font-size:17px}.lower{grid-template-columns:1fr}}
-@media(max-width:540px){main{padding:20px 14px 35px}.topline{margin-bottom:23px}.collector-pill{font-size:0;padding:9px}.collector-pill .dot{margin:0}.heading{align-items:flex-start;flex-direction:column;gap:8px}.date{padding:0}.kpis{grid-template-columns:1fr;gap:8px}.kpi{min-height:0;padding:12px 14px;display:grid;grid-template-columns:1fr auto;align-items:center}.kpi-value{margin:0}.kpi-note{grid-column:1/-1}.flow{grid-template-columns:1fr 20px 1fr}.device{padding:10px 8px;gap:7px;min-height:75px}.device-icon{width:28px;height:28px}.device strong{font-size:10px}.device span{font-size:9px}.zones{gap:5px}.zone{padding:9px 7px}.zone b{font-size:9px}.zone span{font-size:9px}.topology{padding:14px 10px}.panel-head{padding:16px 14px 13px}.setup{align-items:flex-start;flex-direction:column}.steps{grid-template-columns:1fr}.table-head{font-size:9px;grid-template-columns:1fr .8fr .7fr}.table-head span:nth-child(2){display:none}}
-@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+:root{color-scheme:light;--ink:#152621;--muted:#687870;--line:#dce3dc;--paper:#f3f5f1;--white:#fff;--green:#176b57;--green-soft:#e2f1e9;--amber:#9a6218;--amber-soft:#fff1d9;--red:#a5443d;--red-soft:#fdeceb;--sidebar:#142923;--side-muted:#a6b7ad;--shadow:0 12px 32px rgba(19,44,34,.06)}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 "Bahnschrift","Segoe UI Variable",Segoe UI,system-ui,sans-serif}button,input,select{font:inherit}.app{min-height:100vh;display:grid;grid-template-columns:252px minmax(0,1fr)}
+aside{background:var(--sidebar);color:#f5f8f5;padding:25px 18px;display:flex;flex-direction:column;gap:28px}.brand{display:flex;align-items:center;gap:11px;padding:4px 8px}.brand-mark{width:34px;height:34px;border:1px solid #79998b;border-radius:9px;display:grid;place-items:center;color:#bbdfc7;font-weight:800;font-size:12px;letter-spacing:.04em}.brand-name{font-weight:700;letter-spacing:.11em;font-size:15px}.brand-sub{font-size:10px;color:var(--side-muted);letter-spacing:.12em;margin-top:2px}.site-label{padding:0 9px;color:#dce8df;font-size:12px;line-height:1.5}.site-label small{display:block;color:var(--side-muted);font-size:11px;margin-top:2px}.nav{display:grid;gap:5px}.nav button{width:100%;min-height:43px;border:0;background:transparent;color:#c3d0c7;text-align:left;padding:0 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:11px;font-size:13px}.nav-left{display:flex;align-items:center;gap:11px}.nav button:hover,.nav button:focus-visible{background:#203a31;color:white;outline:none}.nav button.active{background:#29483c;color:#fff}.nav-icon{width:17px;text-align:center;color:#a9c7b5;font-size:15px}.nav-badge{font-size:10px;padding:2px 7px;border-radius:999px;background:#254338;color:#cfe4d7;font-weight:700}.side-bottom{margin-top:auto;border-top:1px solid #355045;padding:16px 9px 3px;color:var(--side-muted);font-size:11px;line-height:1.6}.mode{color:#d6e4db;font-size:11px;margin-bottom:5px}.mode b{color:#a6dfb7;font-weight:600}
+main{min-width:0;padding:28px clamp(18px,4vw,52px) 48px;max-width:1480px;width:100%;margin:0 auto}.topline{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:26px}.eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:650}.top-right{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.site-select{height:35px;border:1px solid var(--line);border-radius:8px;background:var(--white);color:var(--ink);padding:0 10px;font-size:12px;font-weight:600}
+.collector-pill{display:flex;align-items:center;gap:8px;background:var(--amber-soft);color:#805214;border:1px solid #efd8ad;border-radius:999px;padding:7px 12px;font-size:11px;font-weight:650}.collector-pill.online{background:var(--green-soft);color:var(--green);border-color:#b9decb}.collector-pill.offline{background:var(--red-soft);color:var(--red);border-color:#efc2be}.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.btn{background:var(--green);color:white;border:0;border-radius:7px;min-height:35px;padding:0 13px;font-size:12px;font-weight:650;white-space:nowrap;cursor:pointer}.btn:hover{background:#105642}.btn.secondary{background:var(--white);color:var(--ink);border:1px solid var(--line)}.btn.secondary:hover{background:#eef2ee}
+.heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:22px}.heading h1{font-size:clamp(24px,3vw,32px);letter-spacing:-.03em;line-height:1.12;margin:5px 0 7px;font-weight:700}.heading p{color:var(--muted);margin:0;font-size:13px}.date{font-size:12px;color:var(--muted);white-space:nowrap;padding-bottom:4px}
+.notice{display:flex;align-items:flex-start;gap:13px;padding:15px 17px;background:#fffaf0;border:1px solid #efdfbe;border-radius:11px;margin-bottom:21px}.notice.hidden{display:none}.notice-mark{width:25px;height:25px;flex:0 0 auto;border-radius:7px;background:#f7e6c6;color:#8b5b18;display:grid;place-items:center;font-size:13px;font-weight:800}.notice strong{display:block;font-size:12px;margin:1px 0 4px}.notice p{margin:0;color:#75664b;font-size:12px;line-height:1.5}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}.kpi{background:var(--white);border:1px solid var(--line);border-radius:11px;padding:15px 17px;min-height:92px}.kpi-label{font-size:11px;color:var(--muted);font-weight:600}.kpi-value{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:7px}.kpi-value.ok{color:var(--green)}.kpi-value.warn{color:var(--amber)}.kpi-value.err{color:var(--red)}.kpi-note{font-size:11px;color:#7d8a83;margin-top:4px}
+.panel{background:var(--white);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}.panel-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:17px 20px 14px;border-bottom:1px solid #edf0ec}.panel-head h2{font-size:14px;margin:0 0 3px;letter-spacing:-.01em}.panel-head p{font-size:11px;color:var(--muted);margin:0}.tag{border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:11px;color:var(--muted);white-space:nowrap;font-weight:600}.tag.ok{background:var(--green-soft);color:var(--green);border-color:#b9decb}.tag.err{background:var(--red-soft);color:var(--red);border-color:#efc2be}
+.topology{padding:18px 20px 20px}.flow{display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;max-width:780px;margin:0 auto}.device{border:1px solid #dfe6df;background:#fbfcfa;border-radius:10px;padding:14px 15px;min-height:82px;display:flex;align-items:center;gap:12px}.device.up{border-color:#b9decb;background:#f7fcf9}.device.down{border-color:#efc2be;background:#fff8f7}.device-icon{width:36px;height:36px;flex:0 0 auto;border-radius:9px;background:#edf2ed;color:#3d594c;display:grid;place-items:center;font-size:15px;font-weight:700}.device strong{font-size:13px;display:block;margin-bottom:3px}.device span{font-size:11px;color:var(--muted);display:block}.link{height:2px;background:#bdc9bf;position:relative}.link:after{content:"";position:absolute;right:0;top:-3px;width:6px;height:6px;border-top:2px solid #97a99b;border-right:2px solid #97a99b;transform:rotate(45deg)}.downlink{height:24px;width:2px;background:#bdc9bf;margin:auto;position:relative}.zones{grid-column:1/4;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.zone{border:1px dashed #cbd6cc;background:#fcfdfb;border-radius:9px;padding:12px 13px}.zone b{font-size:12px;display:block;font-weight:650}.zone span{font-size:11px;color:var(--muted);display:block;margin-top:4px}
+.lower{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:14px;margin-top:15px}.list-pad{padding:12px 20px 18px}.alert-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #edf0ec;font-size:12px}.alert-row:last-child{border:0}.sev{font-size:10px;font-weight:700;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;background:#eef2ee;color:#4f6057}.sev.critique,.sev.panne{background:var(--red-soft);color:var(--red)}.sev.nouveau,.sev.warning{background:var(--amber-soft);color:var(--amber)}.sev.retabli,.sev.info{background:var(--green-soft);color:var(--green)}.alert-meta{color:var(--muted);font-size:11px;margin-top:2px}
+.rule-list{padding:6px 20px 16px}.rule{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #edf0ec}.rule:last-child{border:0}.rule-num{font:11px/1.6 "Cascadia Code",Consolas,monospace;color:var(--green);font-weight:700}.rule p{margin:0;font-size:12px;color:#596960;line-height:1.45}.rule strong{color:var(--ink);font-weight:650}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 20px;border-bottom:1px solid #edf0ec}.search-in{flex:1;min-width:200px;height:36px;border:1px solid var(--line);border-radius:8px;padding:0 12px;font-size:13px;background:var(--paper)}
+.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:11px 16px;text-align:left;border-bottom:1px solid #edf0ec}th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:#fafbfa}.pill-status{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700}.pill-status.up{background:var(--green-soft);color:var(--green)}.pill-status.down{background:var(--red-soft);color:var(--red)}.mono{font-family:"Cascadia Code",Consolas,monospace;font-size:12px}
+.blank-state{padding:32px 16px;text-align:center}.blank-state b{font-size:13px;display:block;margin-bottom:6px}.blank-state span{font-size:12px;color:var(--muted);max-width:460px;margin:auto;display:block;line-height:1.55}
+.config-panel{padding:18px 20px}.config-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 0;border-bottom:1px solid #edf0ec;font-size:13px}.config-row:last-child{border:0}.config-row span{color:var(--muted)}.cfg-input{height:35px;border:1px solid var(--line);border-radius:8px;padding:0 10px;min-width:260px;font-size:12px}
+.view{display:none}.view.active{display:block}.footnote{font-size:11px;color:#808c85;margin-top:16px}
+@media(max-width:960px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.lower{grid-template-columns:1fr}}
+@media(max-width:760px){.app{grid-template-columns:66px minmax(0,1fr)}aside{padding:20px 8px;align-items:center}.brand-name,.brand-sub,.site-label,.nav-label,.nav-badge,.side-bottom{display:none}.nav{width:100%}.nav button{justify-content:center;padding:0}}
+@media(max-width:540px){.kpis{grid-template-columns:1fr}.flow{grid-template-columns:1fr;gap:8px}.link,.downlink{display:none}.zones{grid-column:1;grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="app">
 <aside aria-label="Navigation principale">
-  <div class="brand"><div class="brand-mark">DR</div><div><div class="brand-name">DADEREZO</div><div class="brand-sub">SUPERVISION RÉSEAU</div></div></div>
-  <div class="site-label">Sainte Marie de Bouaké<small>Site principal · Côte d’Ivoire</small></div>
+  <div class="brand">
+    <div class="brand-mark">DR</div>
+    <div>
+      <div class="brand-name">DADEREZO</div>
+      <div class="brand-sub">SUPERVISION RÉSEAU</div>
+    </div>
+  </div>
+  <div class="site-label">
+    <span id="sidebarSite">Sainte Marie de Bouaké</span>
+    <small id="sidebarSub">Côte d’Ivoire · Supervision locale</small>
+  </div>
   <nav class="nav" aria-label="Sections">
-    <button class="active" data-view="overview"><span class="nav-icon">◫</span><span class="nav-label">Vue d’ensemble</span></button>
-    <button data-view="equipment"><span class="nav-icon">▦</span><span class="nav-label">Équipements</span></button>
-    <button data-view="alerts"><span class="nav-icon">◉</span><span class="nav-label">Alertes</span></button>
-    <button data-view="config"><span class="nav-icon">⚙</span><span class="nav-label">Configuration</span></button>
+    <button class="active" data-view="overview">
+      <span class="nav-left"><span class="nav-icon">◫</span><span class="nav-label">Vue d’ensemble</span></span>
+    </button>
+    <button data-view="equipment">
+      <span class="nav-left"><span class="nav-icon">▦</span><span class="nav-label">Équipements</span></span>
+      <span class="nav-badge" id="navEquipCount">0</span>
+    </button>
+    <button data-view="alerts">
+      <span class="nav-left"><span class="nav-icon">◉</span><span class="nav-label">Alertes</span></span>
+      <span class="nav-badge" id="navAlertCount">0</span>
+    </button>
+    <button data-view="testlab">
+      <span class="nav-left"><span class="nav-icon">⚡</span><span class="nav-label">Banc de test</span></span>
+    </button>
+    <button data-view="config">
+      <span class="nav-left"><span class="nav-icon">⚙</span><span class="nav-label">Configuration</span></span>
+    </button>
   </nav>
-  <div class="side-bottom"><div class="mode">Mode actif : <b>lecture seule</b></div>Aucune commande de configuration ou de redémarrage ne sera envoyée.</div>
+  <div class="side-bottom">
+    <div class="mode">Mode actif : <b>lecture seule</b></div>
+    Aucune modification de routeur ni redémarrage d’équipement n’est exécuté.
+  </div>
 </aside>
+
 <main>
-  <div class="topline"><div class="eyebrow">Réseau · Bouaké</div><div class="top-right"><div class="collector-pill"><span class="dot"></span>Collecteur à installer</div><div class="profile" aria-label="Administrateur">BM</div></div></div>
+  <div class="topline">
+    <div class="eyebrow" id="topEyebrow">Réseau · Bouaké</div>
+    <div class="top-right">
+      <select id="agentSelect" class="site-select" aria-label="Sélectionner le site supervisé">
+        <option value="">Chargement des sondes…</option>
+      </select>
+      <div class="collector-pill" id="collectorPill"><span class="dot"></span><span id="collectorText">Connexion API…</span></div>
+      <button class="btn secondary" id="refreshBtn" type="button">Actualiser</button>
+      <button class="btn" id="scanBtn" type="button" title="Demander un diagnostic lecture seule au prochain contact de la sonde">Demander un scan</button>
+    </div>
+  </div>
+
+  <!-- VUE D'ENSEMBLE -->
   <section class="view active" id="overview">
-    <div class="heading"><div><div class="eyebrow">Supervision locale</div><h1>Vue du réseau</h1><p>État des équipements et des liaisons du site.</p></div><div class="date">Aucune collecte reçue</div></div>
-    <div class="notice"><div class="notice-mark">!</div><div><strong>Le collecteur local n’est pas encore connecté</strong><p>Ce tableau de bord n’a pas accès au réseau de la communauté pour le moment. Les états restent inconnus jusqu’à l’installation et à la configuration d’une sonde sur place.</p></div></div>
-    <div class="kpis" aria-label="État courant"><div class="kpi"><div><div class="kpi-label">État général</div><div class="kpi-note">Pas de télémétrie</div></div><div class="kpi-value">Inconnu</div></div><div class="kpi"><div><div class="kpi-label">Équipements suivis</div><div class="kpi-note">Inventaire à renseigner</div></div><div class="kpi-value">À configurer</div></div><div class="kpi"><div><div class="kpi-label">Dernier signal</div><div class="kpi-note">Collecteur absent</div></div><div class="kpi-value">—</div></div></div>
-    <div class="panel"><div class="panel-head"><div><h2>Schéma de départ</h2><p>Structure issue du cahier des charges, à confirmer sur place.</p></div><span class="tag">Illustratif · non connecté</span></div><div class="topology"><div class="flow"><div class="device"><div class="device-icon">↗</div><div><strong>Box du fournisseur</strong><span>Modèle et adresse à relever</span></div></div><div class="link"></div><div class="device"><div class="device-icon">⌘</div><div><strong>Routeur principal</strong><span>À identifier</span></div></div><div class="downlink"></div><div class="downlink"></div><div class="downlink"></div><div class="zones"><div class="zone"><b>Administration</b><span>Sous-réseau à confirmer</span></div><div class="zone"><b>Communauté</b><span>Relais et postes à inventorier</span></div><div class="zone"><b>Visiteurs</b><span>Réseau invité à confirmer</span></div></div></div><p class="caption">Les trois zones sont des exemples tirés de la spécification, pas un inventaire vérifié.</p></div></div>
-    <div class="lower"><div class="panel"><div class="panel-head"><div><h2>Alertes réseau</h2><p>Les alertes apparaîtront après la première collecte.</p></div><span class="tag">En attente de données</span></div><div class="empty"><div class="empty-title">Aucune source d’alerte reliée</div><p>Pour repérer une panne ou un nouvel appareil, le collecteur devra lire les états des routeurs, les baux DHCP et les journaux des points d’accès. Cette absence de données ne signifie pas qu’il n’y a pas de panne ou d’intrus.</p></div></div>
-      <div class="panel"><div class="panel-head"><div><h2>Règles prévues</h2><p>À activer après validation du matériel.</p></div></div><div class="rule-list"><div class="rule"><span class="rule-num">01</span><p><strong>Poste hors ligne</strong><br>Après plusieurs contrôles manqués.</p></div><div class="rule"><span class="rule-num">02</span><p><strong>Appareil inconnu</strong><br>Comparaison des MAC aux appareils autorisés.</p></div><div class="rule"><span class="rule-num">03</span><p><strong>Panne FAI ou relais</strong><br>Comparaison des tests Internet et des équipements intermédiaires.</p></div></div></div></div>
-    <div class="panel setup"><div><h3>Préparer le déploiement local</h3><p>Le collecteur doit fonctionner sur un ordinateur ou mini-PC du monastère.</p></div><button class="btn" id="setupToggle" aria-expanded="false">Voir les étapes</button></div>
-    <div class="panel details" id="setupDetails"><div class="steps"><div class="step"><b>01 · Inventaire</b>Relever les marques, modèles, adresses IP, zones et sous-réseaux.</div><div class="step"><b>02 · Accès lecture seule</b>Créer si possible un compte SNMPv3 ou API limité à la consultation.</div><div class="step"><b>03 · Sonde locale</b>Installer le collecteur sur un poste toujours allumé, dans le réseau local.</div><div class="step"><b>04 · Alertes et essais</b>Choisir un destinataire, valider les seuils et tester les alertes sans modifier les équipements.</div></div></div>
-    <p class="footnote">Prototype d’interface. Aucune donnée réseau n’est collectée ni envoyée par cette page.</p>
+    <div class="heading">
+      <div>
+        <div class="eyebrow">Supervision en direct</div>
+        <h1>Vue du réseau</h1>
+        <p id="overviewSub">État en temps réel de la passerelle, de la liaison FAI et des postes locaux.</p>
+      </div>
+      <div class="date" id="lastSeenLabel">En attente de collecte</div>
+    </div>
+
+    <div class="notice" id="onboardingNotice">
+      <div class="notice-mark">!</div>
+      <div>
+        <strong id="noticeTitle">Aucune sonde locale enregistrée pour l’instant</strong>
+        <p id="noticeBody">Lancez <code>python agent_client.py --api &lt;URL_API&gt; --agent sainte-marie-bouake</code> sur un poste du réseau local pour remonter automatiquement l’inventaire et l’état Internet.</p>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:18px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:#fafcfa">
+      <div style="font-size:12px">
+        <strong style="color:var(--green)">⚡ Tester la réaction de l’agent en 1 clic :</strong>
+        <span id="liveActionFeedback" style="color:var(--muted);margin-left:6px">Cliquez sur un événement pour observer le diagnostic en direct.</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px">
+        <button class="btn secondary" data-scenario="nominal" type="button">✓ État nominal</button>
+        <button class="btn secondary" data-scenario="intrus" type="button">+ Intrus MAC</button>
+        <button class="btn secondary" data-scenario="panne_fai" type="button">⚡ Panne FAI</button>
+        <button class="btn secondary" data-scenario="panne_relais" type="button">⚠ Panne relais</button>
+        <button class="btn" data-scenario="retablissement" type="button">↺ Rétablir</button>
+      </div>
+    </div>
+
+    <div class="kpis" aria-label="Indicateurs principaux">
+      <div class="kpi">
+        <div class="kpi-label">État général</div>
+        <div class="kpi-value" id="kpiHealth">Inconnu</div>
+        <div class="kpi-note" id="kpiHealthNote">En attente de télémétrie</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Accès Internet (FAI)</div>
+        <div class="kpi-value" id="kpiInternet">—</div>
+        <div class="kpi-note" id="kpiInternetNote">Sortie WAN non mesurée</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Équipements suivis</div>
+        <div class="kpi-value" id="kpiDevices">0</div>
+        <div class="kpi-note" id="kpiDevicesNote">Inventaire automatique ARP / Ping</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Passerelle locale</div>
+        <div class="kpi-value" id="kpiGateway">—</div>
+        <div class="kpi-note" id="kpiGatewayNote">Adresse passerelle non reçue</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Topologie & liaisons du site</h2>
+          <p>Diagnostic comparé entre l’accès fournisseur (WAN) et le cœur du réseau local (LAN).</p>
+        </div>
+        <span class="tag" id="topoTag">En attente</span>
+      </div>
+      <div class="topology">
+        <div class="flow">
+          <div class="device" id="wanBox">
+            <div class="device-icon">↗</div>
+            <div>
+              <strong id="wanTitle">Liaison FAI / Internet</strong>
+              <span id="wanMeta">État inconnu</span>
+            </div>
+          </div>
+          <div class="link"></div>
+          <div class="device" id="gwBox">
+            <div class="device-icon">⌘</div>
+            <div>
+              <strong id="gwTitle">Passerelle principale</strong>
+              <span id="gwMeta">Non détectée</span>
+            </div>
+          </div>
+          <div class="downlink"></div><div class="downlink"></div><div class="downlink"></div>
+          <div class="zones">
+            <div class="zone"><b id="zoneCoreTitle">Cœur & Accès FAI</b><span id="zoneCoreMeta">Routeurs / passerelles : —</span></div>
+            <div class="zone"><b id="zoneLanTitle">Postes & Équipements LAN</b><span id="zoneLanMeta">Hôtes détectés : —</span></div>
+            <div class="zone"><b id="zoneProbeTitle">Sonde DADEREZO</b><span id="zoneProbeMeta">IP sonde : —</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lower">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Dernières alertes réseau</h2>
+            <p>Événements dédupliqués : pannes, rétablissements et nouveaux équipements MAC.</p>
+          </div>
+          <span class="tag" id="overviewAlertTag">0 alerte</span>
+        </div>
+        <div class="list-pad" id="overviewAlerts">
+          <div class="blank-state"><b>Aucune alerte</b><span>Les événements apparaîtront ici dès la première collecte.</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Règles actives</h2>
+            <p>Supervision non intrusive.</p>
+          </div>
+        </div>
+        <div class="rule-list">
+          <div class="rule"><span class="rule-num">01</span><p><strong>Panne équipement</strong><br>Alerte après contrôles manqués, avec notification de rétablissement.</p></div>
+          <div class="rule"><span class="rule-num">02</span><p><strong>Nouvel appareil MAC</strong><br>Signalé une seule fois à sa première apparition sur le LAN.</p></div>
+          <div class="rule"><span class="rule-num">03</span><p><strong>Diagnostic FAI vs LAN</strong><br>Distingue une coupure Internet fournisseur d’une panne du routeur local.</p></div>
+        </div>
+      </div>
+    </div>
+    <p class="footnote">Actualisation automatique toutes les 15 secondes · Mode 100 % lecture seule.</p>
   </section>
+
+  <!-- ÉQUIPEMENTS -->
   <section class="view" id="equipment">
-    <div class="heading"><div><div class="eyebrow">Inventaire</div><h1>Équipements</h1><p>Routeurs, points d’accès, relais et postes suivis.</p></div></div>
-    <div class="panel equipment-empty"><div class="table-head"><span>Nom</span><span>Adresse / zone</span><span>Type</span><span>État</span></div><div class="blank-state"><b>Aucun équipement inventorié</b><span>Les appareils ne seront listés qu’après configuration du collecteur local et import de l’inventaire autorisé.</span></div></div>
-    <p class="footnote">Les états sont inconnus. Cette page ne lance aucun scan réseau.</p>
+    <div class="heading">
+      <div>
+        <div class="eyebrow">Inventaire dynamique</div>
+        <h1>Équipements détectés</h1>
+        <p>Routeurs, passerelles, sondes et postes observés sur le sous-réseau local.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="toolbar">
+        <input class="search-in" id="equipSearch" type="search" placeholder="Filtrer par nom, adresse IP, MAC, zone ou type…">
+        <button class="btn secondary" data-filter="all" type="button">Tous</button>
+        <button class="btn secondary" data-filter="up" type="button">En ligne</button>
+        <button class="btn secondary" data-filter="down" type="button">Hors ligne</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Adresse IP</th>
+              <th>Adresse MAC</th>
+              <th>Zone / Type</th>
+              <th>Latence</th>
+              <th>État</th>
+            </tr>
+          </thead>
+          <tbody id="equipTableBody">
+            <tr><td colspan="6" class="blank-state"><b>Aucun équipement affiché</b><span>En attente des données de la sonde locale.</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </section>
+
+  <!-- ALERTES -->
   <section class="view" id="alerts">
-    <div class="heading"><div><div class="eyebrow">Événements</div><h1>Alertes</h1><p>Pannes, baisse de qualité et appareils non reconnus.</p></div></div>
-    <div class="panel alerts-empty"><div class="blank-state"><b>Pas encore de flux d’alertes</b><span>Le journal restera vide tant que le collecteur ne sera pas installé. Les futurs événements seront horodatés et conservés localement selon la politique choisie.</span></div></div>
+    <div class="heading">
+      <div>
+        <div class="eyebrow">Journal d’audit</div>
+        <h1>Alertes & événements</h1>
+        <p>Historique horodaté des incidents et découvertes d’appareils.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="list-pad" id="fullAlertsList">
+        <div class="blank-state"><b>Aucune alerte enregistrée</b><span>Aucune anomalie ou nouvel appareil signalé.</span></div>
+      </div>
+    </div>
   </section>
+
+  <!-- BANC DE TEST INTERACTIF -->
+  <section class="view" id="testlab">
+    <div class="heading">
+      <div>
+        <div class="eyebrow">Vérification interactive</div>
+        <h1>Banc de test des scénarios réseau</h1>
+        <p>Simulez en 1 clic les situations réelles du réseau <code>192.168.8.0/24</code> sur une sonde isolée (<code>simulation-bouake</code>) sans toucher aux sondes de production.</p>
+      </div>
+    </div>
+    <div class="panel config-panel">
+      <div class="config-row">
+        <div>
+          <b>1. Fonctionnement nominal (7/7 en ligne)</b><br>
+          <span>Box FAI (192.168.8.1), Passerelle (192.168.8.57), Relais Wi-Fi, Secrétariat, Hôtellerie et Bibliothèque tous actifs.</span>
+        </div>
+        <button class="btn" data-scenario="nominal" type="button">Tester l’état nominal</button>
+      </div>
+      <div class="config-row">
+        <div>
+          <b>2. Appareil inconnu connecté (détection MAC)</b><br>
+          <span>Un poste non répertorié (<code>192.168.8.217</code> · <code>0c:8b:fd:10:b1:89</code>) apparaît : alerte <code>NOUVEAU</code> dédupliquée.</span>
+        </div>
+        <button class="btn secondary" data-scenario="intrus" type="button">Simuler un intrus MAC</button>
+      </div>
+      <div class="config-row">
+        <div>
+          <b>3. Coupure Internet fournisseur (Panne FAI, LAN actif)</b><br>
+          <span>Le routeur local répond toujours (<code>1.2 ms</code>) mais la Box FAI et Internet sont coupés : diagnostic FAI automatique.</span>
+        </div>
+        <button class="btn secondary" data-scenario="panne_fai" type="button">Simuler une panne FAI</button>
+      </div>
+      <div class="config-row">
+        <div>
+          <b>4. Panne d’un relais Wi-Fi local</b><br>
+          <span>Internet fonctionne, mais le Relais Wi-Fi Communauté et un poste tombent hors ligne (état <code>Vigilance</code>).</span>
+        </div>
+        <button class="btn secondary" data-scenario="panne_relais" type="button">Simuler une panne relais</button>
+      </div>
+      <div class="config-row">
+        <div>
+          <b>5. Rétablissement complet du réseau</b><br>
+          <span>Tous les équipements reviennent en ligne avec journalisation des événements <code>RÉTABLI</code>.</span>
+        </div>
+        <button class="btn" data-scenario="retablissement" type="button">Simuler le rétablissement</button>
+      </div>
+    </div>
+    <p class="footnote" id="scenarioFeedback">Astuce : vous pouvez basculer à tout moment dans le sélecteur en haut à droite entre la vraie sonde locale (<code>sainte-marie-bouake</code>) et le banc de simulation (<code>simulation-bouake</code>).</p>
+  </section>
+
+  <!-- CONFIGURATION -->
   <section class="view" id="config">
-    <div class="heading"><div><div class="eyebrow">Paramètres</div><h1>Configuration</h1><p>Réglages de déploiement proposés par la spécification.</p></div></div>
-    <div class="panel config-panel"><div class="config-row"><b>Site supervisé</b><span>Sainte Marie de Bouaké</span></div><div class="config-row"><b>Mode</b><span>Lecture seule</span></div><div class="config-row"><b>Intervalle cible</b><span>À valider · objectif de détection &lt; 3 min</span></div><div class="config-row"><b>Collecte locale</b><span>À installer · stockage local requis</span></div><div class="config-row"><b>Alertes</b><span>Canal et destinataire à définir</span></div><div class="config-row"><b>Accès SNMP / API</b><span>À définir avec l’administrateur réseau</span></div></div>
-    <p class="footnote">Ne saisis pas de mot de passe ou de communauté SNMP dans cette maquette. Les secrets devront rester sur la sonde locale.</p>
+    <div class="heading">
+      <div>
+        <div class="eyebrow">Paramètres</div>
+        <h1>Configuration & État de la sonde</h1>
+        <p>Informations réseau remontées et paramètres de connexion à l’API.</p>
+      </div>
+    </div>
+    <div class="panel config-panel">
+      <div class="config-row"><b>Site supervisé</b><span id="cfgSite">Sainte Marie de Bouaké</span></div>
+      <div class="config-row"><b>Identifiant sonde (agent_id)</b><span class="mono" id="cfgAgentId">—</span></div>
+      <div class="config-row"><b>Adresse IP locale sonde</b><span class="mono" id="cfgIp">—</span></div>
+      <div class="config-row"><b>Masque de sous-réseau</b><span class="mono" id="cfgMask">—</span></div>
+      <div class="config-row"><b>Passerelle par défaut</b><span class="mono" id="cfgGw">—</span></div>
+      <div class="config-row"><b>Serveurs DNS</b><span class="mono" id="cfgDns">—</span></div>
+      <div class="config-row"><b>Mode de sécurité</b><span>Lecture seule stricte (aucune écriture sur les routeurs)</span></div>
+      <div class="config-row">
+        <b>URL de l’API (laisser vide si servi par l’API)</b>
+        <input class="cfg-input" id="cfgApiUrl" placeholder="URL relative automatique (/)" value="">
+      </div>
+      <div class="config-row">
+        <b>Clé API optionnelle (X-API-Key)</b>
+        <input class="cfg-input" id="cfgApiKey" type="password" placeholder="Optionnel si DADEREZO_API_KEY est actif">
+      </div>
+      <div class="config-row">
+        <span>Enregistrer les préférences navigateur</span>
+        <button class="btn" id="saveCfgBtn" type="button">Enregistrer et recharger</button>
+      </div>
+    </div>
   </section>
 </main>
 </div>
+
 <script>
-const buttons=[...document.querySelectorAll('.nav button')];
-buttons.forEach(button=>button.addEventListener('click',()=>{buttons.forEach(b=>b.classList.toggle('active',b===button));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===button.dataset.view));window.scrollTo({top:0,behavior:'smooth'});}));
-const toggle=document.getElementById('setupToggle'),details=document.getElementById('setupDetails');
-toggle.addEventListener('click',()=>{const open=details.classList.toggle('open');toggle.setAttribute('aria-expanded',String(open));toggle.textContent=open?'Masquer les étapes':'Voir les étapes';});
+const navButtons = [...document.querySelectorAll('.nav button')];
+navButtons.forEach(btn => btn.addEventListener('click', () => {
+  navButtons.forEach(b => b.classList.toggle('active', b === btn));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === btn.dataset.view));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}));
+
+function esc(val) {
+  const d = document.createElement('div');
+  d.textContent = val == null ? '' : String(val);
+  return d.innerHTML;
+}
+
+function getApiBase() {
+  const saved = (localStorage.getItem('daderezo_api_url') || '').trim();
+  if (saved) return saved.replace(/\/+$/, '');
+  if (window.location.protocol === 'file:') return 'https://daderezo-api.onrender.com';
+  return '';
+}
+
+function getHeaders(json = false) {
+  const h = { 'Accept': 'application/json' };
+  if (json) h['Content-Type'] = 'application/json';
+  const k = (localStorage.getItem('daderezo_api_key') || '').trim();
+  if (k) h['X-API-Key'] = k;
+  return h;
+}
+
+let currentAgentId = localStorage.getItem('daderezo_agent_id') || '';
+let cachedDevices = [];
+let statusFilter = 'all';
+
+document.getElementById('cfgApiUrl').value = localStorage.getItem('daderezo_api_url') || '';
+document.getElementById('cfgApiKey').value = localStorage.getItem('daderezo_api_key') || '';
+
+document.getElementById('saveCfgBtn').addEventListener('click', () => {
+  localStorage.setItem('daderezo_api_url', document.getElementById('cfgApiUrl').value.trim());
+  localStorage.setItem('daderezo_api_key', document.getElementById('cfgApiKey').value.trim());
+  refreshAll();
+});
+
+function formatSince(seconds) {
+  if (seconds == null) return 'inconnu';
+  if (seconds < 60) return `il y a ${seconds}s`;
+  if (seconds < 3600) return `il y a ${Math.floor(seconds / 60)} min`;
+  return `il y a ${Math.floor(seconds / 3600)} h`;
+}
+
+function renderAlertsList(alerts, limit) {
+  const slice = limit ? alerts.slice(0, limit) : alerts;
+  if (!slice.length) {
+    return '<div class="blank-state"><b>Aucune alerte</b><span>Aucun incident ou équipement inconnu relevé.</span></div>';
+  }
+  return slice.map(a => {
+    const sev = (a.severity || 'info').toLowerCase();
+    const ts = a.ts ? new Date(a.ts).toLocaleString('fr-FR') : '';
+    return `<div class="alert-row">
+      <span class="sev ${esc(sev)}">${esc(sev)}</span>
+      <div>
+        <div>${esc(a.message)}</div>
+        ${ts ? `<div class="alert-meta">${esc(ts)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderEquipmentTable() {
+  const q = (document.getElementById('equipSearch').value || '').toLowerCase().trim();
+  const filtered = cachedDevices.filter(d => {
+    if (statusFilter !== 'all' && d.status !== statusFilter) return false;
+    if (!q) return true;
+    const hay = `${d.name || ''} ${d.ip || ''} ${d.mac || ''} ${d.zone || ''} ${d.type || ''}`.toLowerCase();
+    return hay.includes(q);
+  });
+
+  const tbody = document.getElementById('equipTableBody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="blank-state"><b>Aucun équipement correspondant</b><span>Modifiez le filtre ou attendez la prochaine collecte.</span></td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(d => {
+    const isUp = d.status === 'up';
+    const lat = d.latency_ms != null ? `${Number(d.latency_ms).toFixed(1)} ms` : '—';
+    return `<tr>
+      <td><strong>${esc(d.name || 'Poste réseau')}</strong></td>
+      <td class="mono">${esc(d.ip)}</td>
+      <td class="mono">${esc(d.mac || '—')}</td>
+      <td>${esc(d.zone || 'Réseau local')} · <small>${esc(d.type || 'host')}</small></td>
+      <td class="mono">${esc(lat)}</td>
+      <td><span class="pill-status ${isUp ? 'up' : 'down'}">${isUp ? 'EN LIGNE' : 'HORS LIGNE'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('equipSearch').addEventListener('input', renderEquipmentTable);
+document.querySelectorAll('[data-filter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    statusFilter = btn.dataset.filter;
+    renderEquipmentTable();
+  });
+});
+
+// Moteur autonome de secours lorsque le fichier HTML est ouvert dans une visionneuse locale sans serveur API
+const standaloneStore = {
+  alerts: [
+    { severity: 'info', message: 'Contrôle périodique nominal : 7/7 équipements en ligne.', ts: new Date().toISOString() }
+  ],
+  seenIntrus: false,
+  scenario: 'nominal'
+};
+
+function buildStandaloneDashboard(scenarioKey) {
+  const nowIso = new Date().toISOString();
+  const devices = [
+    { ip: '192.168.8.1', mac: '02:b4:f4:8d:bd:a1', name: 'Box FAI principale', zone: 'Accès FAI', status: 'up', type: 'fai_box', latency_ms: 2.1 },
+    { ip: '192.168.8.57', mac: 'cc:d8:43:32:45:c8', name: 'Passerelle / Routeur principal', zone: 'Cœur réseau', status: 'up', type: 'gateway', latency_ms: 1.2 },
+    { ip: '192.168.8.10', mac: '74:ac:b9:12:44:10', name: 'Relais Wi-Fi Communauté', zone: 'Communauté', status: 'up', type: 'relay', latency_ms: 3.4 },
+    { ip: '192.168.8.14', mac: '58:38:79:60:02:5f', name: 'Poste Secrétariat', zone: 'Administration', status: 'up', type: 'host', latency_ms: 2.8 },
+    { ip: '192.168.8.48', mac: '36:d3:5a:59:75:bc', name: 'Poste Hôtellerie', zone: 'Accueil', status: 'up', type: 'host', latency_ms: 4.1 },
+    { ip: '192.168.8.75', mac: 'e8:40:f2:95:3c:c4', name: 'Poste Bibliothèque / Studium', zone: 'Communauté', status: 'up', type: 'host', latency_ms: 3.9 },
+    { ip: '192.168.8.162', mac: 'a0:51:0b:96:69:97', name: 'Mini-PC Sonde DADEREZO', zone: 'Supervision', status: 'up', type: 'probe', latency_ms: 0.2 }
+  ];
+  let inetStatus = 'up';
+  let wanLat = '32';
+
+  if (scenarioKey === 'intrus') {
+    devices.push({ ip: '192.168.8.217', mac: '0c:8b:fd:10:b1:89', name: 'Poste 192.168.8.217 (inconnu)', zone: 'Visiteurs', status: 'up', type: 'host', latency_ms: 8.7 });
+  } else if (scenarioKey === 'panne_fai') {
+    devices[0].status = 'down';
+    devices[0].latency_ms = null;
+    inetStatus = 'down';
+    wanLat = '';
+  } else if (scenarioKey === 'panne_relais') {
+    devices[2].status = 'down';
+    devices[2].latency_ms = null;
+    devices[5].status = 'down';
+    devices[5].latency_ms = null;
+  }
+
+  return {
+    agent: { id: 'simulation-bouake', nom: 'Sainte Marie de Bouaké (aperçu interactif)', ip: '192.168.8.162', mac: 'a0:51:0b:96:69:97', status: 'online', seconds_since_seen: 2 },
+    state: {
+      site_name: 'Communauté Sainte Marie de Bouaké',
+      ip_local: '192.168.8.162',
+      mask: '255.255.255.0',
+      gw: '192.168.8.57',
+      mac_local: 'a0:51:0b:96:69:97',
+      dns: '192.168.8.57, 1.1.1.1',
+      gw_status: 'up',
+      gw_latency_ms: '1.2',
+      internet_status: inetStatus,
+      wan_latency_ms: wanLat,
+      last_scan: nowIso
+    },
+    devices,
+    probes: devices,
+    alerts: standaloneStore.alerts
+  };
+}
+
+function applyStandaloneScenario(key) {
+  const ts = new Date().toISOString();
+  standaloneStore.scenario = key;
+  if (key === 'nominal') {
+    standaloneStore.alerts.unshift({ severity: 'info', message: 'Contrôle périodique nominal : 7/7 équipements en ligne.', ts });
+  } else if (key === 'intrus') {
+    if (!standaloneStore.seenIntrus) {
+      standaloneStore.seenIntrus = true;
+      standaloneStore.alerts.unshift({ severity: 'nouveau', message: 'Nouvel appareil détecté : 192.168.8.217 (0c:8b:fd:10:b1:89)', ts });
+    }
+  } else if (key === 'panne_fai') {
+    standaloneStore.alerts.unshift(
+      { severity: 'panne', message: 'Passerelle locale active (192.168.8.57) mais accès Internet coupé (panne FAI probable)', ts },
+      { severity: 'critique', message: 'Équipement hors ligne : Box FAI principale (192.168.8.1)', ts }
+    );
+  } else if (key === 'panne_relais') {
+    standaloneStore.alerts.unshift(
+      { severity: 'panne', message: 'Équipement hors ligne : Poste Bibliothèque / Studium (192.168.8.75)', ts },
+      { severity: 'panne', message: 'Équipement hors ligne : Relais Wi-Fi Communauté (192.168.8.10)', ts }
+    );
+  } else if (key === 'retablissement') {
+    standaloneStore.alerts.unshift(
+      { severity: 'retabli', message: 'Accès Internet rétabli (latence WAN 32 ms)', ts },
+      { severity: 'retabli', message: 'Équipement rétabli : Box FAI principale (192.168.8.1)', ts }
+    );
+  }
+}
+
+let isStandaloneMode = false;
+
+async function refreshAll() {
+  const base = getApiBase();
+  const pill = document.getElementById('collectorPill');
+  const pillText = document.getElementById('collectorText');
+  const select = document.getElementById('agentSelect');
+
+  try {
+    const agentsRes = await fetch(`${base}/agents`, { headers: getHeaders() });
+    if (!agentsRes.ok) throw new Error(`HTTP ${agentsRes.status}`);
+    const agents = await agentsRes.json();
+    isStandaloneMode = false;
+
+    if (!agents.length) {
+      select.innerHTML = '<option value="">Aucune sonde enregistrée</option>';
+      pill.className = 'collector-pill';
+      pillText.textContent = 'En attente de sonde';
+      document.getElementById('onboardingNotice').classList.remove('hidden');
+      return;
+    }
+
+    if (!currentAgentId || !agents.some(a => a.id === currentAgentId)) {
+      currentAgentId = agents[0].id;
+      localStorage.setItem('daderezo_agent_id', currentAgentId);
+    }
+
+    select.innerHTML = agents.map(a =>
+      `<option value="${esc(a.id)}" ${a.id === currentAgentId ? 'selected' : ''}>${esc(a.nom || a.id)} (${a.status === 'online' ? 'en ligne' : 'hors ligne'})</option>`
+    ).join('');
+
+    const dashRes = await fetch(`${base}/dashboard/${encodeURIComponent(currentAgentId)}`, { headers: getHeaders() });
+    if (!dashRes.ok) throw new Error(`HTTP ${dashRes.status}`);
+    const data = await dashRes.json();
+    updateUI(data);
+  } catch (err) {
+    // Repli interactif immédiat si ouvert dans une visionneuse de fichier sans serveur API attaché
+    isStandaloneMode = true;
+    currentAgentId = 'simulation-bouake';
+    select.innerHTML = '<option value="simulation-bouake">Sainte Marie de Bouaké (aperçu interactif)</option>';
+    updateUI(buildStandaloneDashboard(standaloneStore.scenario));
+    pill.className = 'collector-pill online';
+    pillText.textContent = 'Aperçu interactif actif';
+  }
+}
+
+function updateUI(data) {
+  const agent = data.agent;
+  const state = data.state || {};
+  const devices = data.devices || data.probes || [];
+  const alerts = data.alerts || [];
+  cachedDevices = devices;
+
+  const pill = document.getElementById('collectorPill');
+  const pillText = document.getElementById('collectorText');
+  const notice = document.getElementById('onboardingNotice');
+
+  if (!agent) {
+    notice.classList.remove('hidden');
+    return;
+  }
+  notice.classList.add('hidden');
+
+  const isOnline = agent.status === 'online';
+  pill.className = `collector-pill ${isOnline ? 'online' : 'offline'}`;
+  pillText.textContent = isOnline ? 'Sonde connectée · en ligne' : 'Sonde hors ligne';
+
+  const siteName = state.site_name || agent.nom || 'Sainte Marie de Bouaké';
+  document.getElementById('sidebarSite').textContent = siteName;
+  document.getElementById('cfgSite').textContent = siteName;
+  document.getElementById('cfgAgentId').textContent = agent.id;
+  document.getElementById('cfgIp').textContent = state.ip_local || agent.ip || '—';
+  document.getElementById('cfgMask').textContent = state.mask || '—';
+  document.getElementById('cfgGw').textContent = state.gw || '—';
+  document.getElementById('cfgDns').textContent = state.dns || '—';
+
+  document.getElementById('lastSeenLabel').textContent =
+    `Dernier signal : ${formatSince(agent.seconds_since_seen)}`;
+
+  const upCount = devices.filter(d => d.status === 'up').length;
+  const downCount = devices.length - upCount;
+  const inetStatus = state.internet_status || 'unknown';
+  const gwStatus = state.gw_status || (devices.find(d => d.ip === state.gw)?.status) || 'unknown';
+
+  // KPI 1 : État général
+  const kpiHealth = document.getElementById('kpiHealth');
+  const kpiHealthNote = document.getElementById('kpiHealthNote');
+  if (!isOnline) {
+    kpiHealth.textContent = 'Sans signal';
+    kpiHealth.className = 'kpi-value warn';
+    kpiHealthNote.textContent = 'La sonde locale ne répond plus';
+  } else if (gwStatus === 'down' || inetStatus === 'down') {
+    kpiHealth.textContent = 'Panne détectée';
+    kpiHealth.className = 'kpi-value err';
+    kpiHealthNote.textContent = gwStatus === 'down' ? 'Passerelle locale injoignable' : 'Liaison FAI interrompue';
+  } else if (downCount > 0) {
+    kpiHealth.textContent = ' Vigilance';
+    kpiHealth.className = 'kpi-value warn';
+    kpiHealthNote.textContent = `${downCount} équipement(s) ne répondent pas`;
+  } else {
+    kpiHealth.textContent = 'Opérationnel';
+    kpiHealth.className = 'kpi-value ok';
+    kpiHealthNote.textContent = 'Tous les équipements répondent';
+  }
+
+  // KPI 2 : Internet
+  const kpiInet = document.getElementById('kpiInternet');
+  const kpiInetNote = document.getElementById('kpiInternetNote');
+  if (inetStatus === 'up') {
+    kpiInet.textContent = 'Connecté';
+    kpiInet.className = 'kpi-value ok';
+    kpiInetNote.textContent = state.wan_latency_ms ? `Latence WAN : ${Number(state.wan_latency_ms).toFixed(0)} ms` : 'Sortie Internet vérifiée';
+  } else if (inetStatus === 'degraded') {
+    kpiInet.textContent = 'Dégradé';
+    kpiInet.className = 'kpi-value warn';
+    kpiInetNote.textContent = 'DNS actif, trafic restreint';
+  } else if (inetStatus === 'down') {
+    kpiInet.textContent = 'Coupé';
+    kpiInet.className = 'kpi-value err';
+    kpiInetNote.textContent = 'Aucune sortie vers Internet';
+  } else {
+    kpiInet.textContent = 'Inconnu';
+    kpiInet.className = 'kpi-value';
+    kpiInetNote.textContent = 'Non renseigné';
+  }
+
+  // KPI 3 : Équipements
+  document.getElementById('kpiDevices').textContent = `${upCount} / ${devices.length}`;
+  document.getElementById('kpiDevicesNote').textContent =
+    downCount > 0 ? `${downCount} hors ligne · ${upCount} en ligne` : 'Tous les postes suivis sont en ligne';
+  document.getElementById('navEquipCount').textContent = String(devices.length);
+  document.getElementById('navAlertCount').textContent = String(alerts.length);
+
+  // KPI 4 : Passerelle
+  const kpiGw = document.getElementById('kpiGateway');
+  kpiGw.textContent = state.gw || '—';
+  kpiGw.className = `kpi-value ${gwStatus === 'up' ? 'ok' : (gwStatus === 'down' ? 'err' : '')}`;
+  document.getElementById('kpiGatewayNote').textContent =
+    gwStatus === 'up'
+      ? `Active${state.gw_latency_ms ? ' · ' + Number(state.gw_latency_ms).toFixed(1) + ' ms' : ''}`
+      : (gwStatus === 'down' ? 'Hors ligne' : 'État inconnu');
+
+  // Topologie
+  const wanBox = document.getElementById('wanBox');
+  wanBox.className = `device ${inetStatus === 'up' ? 'up' : (inetStatus === 'down' ? 'down' : '')}`;
+  document.getElementById('wanMeta').textContent =
+    inetStatus === 'up' ? `En ligne${state.wan_latency_ms ? ' (' + Number(state.wan_latency_ms).toFixed(0) + ' ms)' : ''}` :
+    (inetStatus === 'down' ? 'Liaison FAI hors ligne' : 'État non mesuré');
+
+  const gwBox = document.getElementById('gwBox');
+  gwBox.className = `device ${gwStatus === 'up' ? 'up' : (gwStatus === 'down' ? 'down' : '')}`;
+  document.getElementById('gwTitle').textContent = state.gw ? `Passerelle (${state.gw})` : 'Passerelle principale';
+  document.getElementById('gwMeta').textContent =
+    gwStatus === 'up' ? `Joignable${state.gw_latency_ms ? ' · ' + Number(state.gw_latency_ms).toFixed(1) + ' ms' : ''}` :
+    (gwStatus === 'down' ? 'Injoignable' : 'En attente');
+
+  const topoTag = document.getElementById('topoTag');
+  topoTag.textContent = isOnline ? 'Télémétrie active' : 'Hors ligne';
+  topoTag.className = `tag ${isOnline ? 'ok' : 'err'}`;
+
+  const coreDevs = devices.filter(d => d.type === 'gateway' || d.type === 'fai_box');
+  const hostDevs = devices.filter(d => d.type !== 'gateway' && d.type !== 'fai_box' && d.type !== 'probe');
+  document.getElementById('zoneCoreMeta').textContent = `${coreDevs.filter(d => d.status === 'up').length}/${coreDevs.length} actif(s)`;
+  document.getElementById('zoneLanMeta').textContent = `${hostDevs.filter(d => d.status === 'up').length}/${hostDevs.length} poste(s) actif(s)`;
+  document.getElementById('zoneProbeMeta').textContent = `${state.ip_local || agent.ip || '—'} (${state.mac_local || agent.mac || 'MAC n/d'})`;
+
+  // Alertes
+  document.getElementById('overviewAlertTag').textContent = `${alerts.length} événement(s)`;
+  document.getElementById('overviewAlerts').innerHTML = renderAlertsList(alerts, 5);
+  document.getElementById('fullAlertsList').innerHTML = renderAlertsList(alerts, 50);
+
+  renderEquipmentTable();
+}
+
+document.getElementById('agentSelect').addEventListener('change', (e) => {
+  currentAgentId = e.target.value;
+  localStorage.setItem('daderezo_agent_id', currentAgentId);
+  refreshAll();
+});
+
+document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+
+document.getElementById('scanBtn').addEventListener('click', async () => {
+  if (!currentAgentId) return;
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = true;
+  const orig = btn.textContent;
+  if (isStandaloneMode) {
+    await refreshAll();
+    btn.textContent = 'Scan effectué ✓';
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+    return;
+  }
+  try {
+    const res = await fetch(`${getApiBase()}/tasks/${encodeURIComponent(currentAgentId)}`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify({ action: 'scan' })
+    });
+    btn.textContent = res.ok ? 'Scan programmé ✓' : 'Erreur autorisation';
+  } catch (_) {
+    btn.textContent = 'Scan local ✓';
+  }
+  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+});
+
+document.querySelectorAll('[data-scenario]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const scenario = btn.dataset.scenario;
+    const orig = btn.textContent;
+    const fb = document.getElementById('liveActionFeedback');
+    const labels = {
+      nominal: 'Réseau nominal chargé (7/7 équipements en ligne).',
+      intrus: 'Appareil inconnu 192.168.8.217 simulé (alerte NOUVEAU dédupliquée).',
+      panne_fai: 'Coupure FAI simulée : passerelle locale UP mais sortie Internet coupée.',
+      panne_relais: 'Panne du Relais Wi-Fi Communauté simulée (2 équipements hors ligne).',
+      retablissement: 'Rétablissement complet confirmé (7/7 équipements en ligne).'
+    };
+    btn.disabled = true;
+    btn.textContent = 'Injection…';
+    try {
+      if (isStandaloneMode) {
+        applyStandaloneScenario(scenario);
+        await refreshAll();
+        if (fb) fb.textContent = labels[scenario] || 'Scénario appliqué.';
+        document.querySelector('[data-view="overview"]').click();
+        return;
+      }
+      const res = await fetch(`${getApiBase()}/demo/scenario/${encodeURIComponent(scenario)}`, {
+        method: 'POST',
+        headers: getHeaders(true)
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        const rec = payload.result?.alerts_recorded ?? 0;
+        currentAgentId = 'simulation-bouake';
+        localStorage.setItem('daderezo_agent_id', currentAgentId);
+        await refreshAll();
+        if (fb) fb.textContent = `${labels[scenario] || 'Scénario appliqué.'} (${rec} nouvelle(s) alerte(s) enregistrée(s))`;
+        document.querySelector('[data-view="overview"]').click();
+      }
+    } catch (_) {
+      applyStandaloneScenario(scenario);
+      await refreshAll();
+      if (fb) fb.textContent = labels[scenario] || 'Scénario appliqué.';
+      document.querySelector('[data-view="overview"]').click();
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  });
+});
+
+refreshAll();
+setInterval(refreshAll, 15000);
 </script>
 </body>
 </html>

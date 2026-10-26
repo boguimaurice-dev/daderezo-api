@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DADEREZO — Surveillance réseau</title>
+<title>DADEREZO — Vue rapide SaaS</title>
 <style>
 :root { color-scheme: light; }
 body { font-family: "Segoe UI", system-ui, sans-serif; margin: 0; background: #f5f7f5; color: #1d2b26; }
@@ -12,18 +12,18 @@ header h1 { margin: 0; font-size: 20px; }
 header p { margin: 4px 0 0; font-size: 13px; }
 main { padding: 18px; max-width: 1200px; margin: 0 auto; }
 .card { background: #ffffff; border: 1px solid #cdd9d2; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
 .stat { background: #eef4f0; border: 1px solid #d3e0d8; border-radius: 10px; padding: 12px; }
-.stat b { display: block; font-size: 22px; color: #1e6b57; }
+.stat b { display: block; font-size: 20px; color: #1e6b57; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { border: 1px solid #d3e0d8; padding: 10px; text-align: left; }
 th { background: #eef4f0; }
 .ok { color: #1e6b57; font-weight: bold; }
 .down { color: #a34a3d; font-weight: bold; }
 .alerts li { margin-bottom: 8px; }
-.foot { margin-top: 16px; font-size: 12px; color: #6b7d75; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 button { background: #1e6b57; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
-input { padding: 8px; border: 1px solid #cdd9d2; border-radius: 8px; }
+input { padding: 8px; border: 1px solid #cdd9d2; border-radius: 8px; min-width: 210px; }
 </style>
 </head>
 <body>
@@ -34,44 +34,63 @@ input { padding: 8px; border: 1px solid #cdd9d2; border-radius: 8px; }
 <main>
   <div class="card">
     <h2>Connexion</h2>
-    <input id="agentId" placeholder="ID de l'agent (ex: mon-site)" value="mon-site">
-    <input id="apiUrl" placeholder="URL de l'API" value="https://daderezo-api.onrender.com">
-    <button onclick="loadDashboard()">Charger</button>
+    <div class="controls">
+      <input id="agentId" placeholder="ID de l'agent (ex: sainte-marie-bouake)" value="sainte-marie-bouake">
+      <input id="apiUrl" placeholder="URL de l'API (vide = même serveur)" value="">
+      <button onclick="loadDashboard()">Charger</button>
+    </div>
   </div>
   <div id="content"></div>
 </main>
 <script>
+if (window.location.protocol === 'file:') {
+  document.getElementById('apiUrl').value = 'https://daderezo-api.onrender.com';
+}
+
+function esc(v) {
+  const d = document.createElement('div');
+  d.textContent = v == null ? '' : String(v);
+  return d.innerHTML;
+}
+
 async function loadDashboard() {
-  const agentId = document.getElementById('agentId').value;
-  const apiUrl = document.getElementById('apiUrl').value;
-  const res = await fetch(`${apiUrl}/dashboard/${agentId}`);
-  const data = await res.json();
-  let html = '';
-  if (data.agent) {
-    html += `<div class="card"><h2>Vue d'ensemble</h2><div class="grid">
-      <div class="stat"><b>${data.state?.ip_local || '—'}</b><span>Adresse IP locale</span></div>
-      <div class="stat"><b>${data.state?.gw || '—'}</b><span>Passerelle</span></div>
-      <div class="stat"><b>${data.state?.mac_local || '—'}</b><span>MAC locale</span></div>
-      <div class="stat"><b>${data.probes.length}</b><span>Postes détectés</span></div>
+  const agentId = document.getElementById('agentId').value.trim();
+  const base = document.getElementById('apiUrl').value.trim().replace(/\/+$/, '');
+  const content = document.getElementById('content');
+  try {
+    const res = await fetch(`${base}/dashboard/${encodeURIComponent(agentId)}`, {
+      headers: { 'Accept': 'application/json' }
+    });
+    const data = await res.json();
+    if (!data.agent) {
+      content.innerHTML = '<div class="card"><p>Aucun agent trouvé. Vérifiez l\'identifiant et l\'URL.</p></div>';
+      return;
+    }
+    const probes = data.devices || data.probes || [];
+    let html = `<div class="card"><h2>Vue d'ensemble (${esc(data.agent.status)})</h2><div class="grid">
+      <div class="stat"><b>${esc(data.state?.ip_local || '—')}</b><span>Adresse IP locale</span></div>
+      <div class="stat"><b>${esc(data.state?.gw || '—')}</b><span>Passerelle</span></div>
+      <div class="stat"><b>${esc(data.state?.internet_status || '—')}</b><span>Accès Internet</span></div>
+      <div class="stat"><b>${probes.length}</b><span>Équipements suivis</span></div>
     </div></div>`;
     html += `<div class="card"><h2>Équipements réseaux</h2><table>
-      <thead><tr><th>Adresse</th><th>MAC</th><th>État</th><th>Type</th></tr></thead><tbody>`;
-    for (const p of data.probes) {
-      html += `<tr><td>${p.ip}</td><td>${p.mac || '—'}</td>
-        <td class="${p.status === 'up' ? 'ok' : 'down'}">${p.status}</td>
-        <td>${p.type || '—'}</td></tr>`;
+      <thead><tr><th>Nom</th><th>Adresse IP</th><th>MAC</th><th>État</th><th>Type</th></tr></thead><tbody>`;
+    for (const p of probes) {
+      html += `<tr><td>${esc(p.name || '—')}</td><td>${esc(p.ip)}</td><td>${esc(p.mac || '—')}</td>
+        <td class="${p.status === 'up' ? 'ok' : 'down'}">${esc(p.status)}</td>
+        <td>${esc(p.type || '—')}</td></tr>`;
     }
     html += `</tbody></table></div>`;
     html += `<div class="card"><h2>Alertes</h2><ul class="alerts">`;
-    if (data.alerts.length === 0) html += '<li>Aucune alerte.</li>';
-    for (const a of data.alerts) {
-      html += `<li><b>${a.severity}</b> ${a.message}</li>`;
+    if (!data.alerts || data.alerts.length === 0) html += '<li>Aucune alerte.</li>';
+    for (const a of (data.alerts || [])) {
+      html += `<li><b>[${esc(a.severity)}]</b> ${esc(a.message)}</li>`;
     }
     html += `</ul></div>`;
-  } else {
-    html = '<div class="card"><p>Aucun agent trouvé. Vérifiez l\'ID et l\'URL.</p></div>';
+    content.innerHTML = html;
+  } catch (err) {
+    content.innerHTML = `<div class="card"><p>Erreur de connexion à l'API : ${esc(err.message)}</p></div>`;
   }
-  document.getElementById('content').innerHTML = html;
 }
 </script>
 </body>

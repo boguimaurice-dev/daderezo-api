@@ -95,11 +95,16 @@ def _compute_agent_liveness(agent_dict: dict) -> dict:
         except ValueError:
             seconds_since = None
 
-    live_status = "online" if (seconds_since is not None and seconds_since <= OFFLINE_THRESHOLD_SECONDS) else "offline"
+    is_sim = str(agent_dict.get("id", "")).startswith("simulation-")
+    if is_sim:
+        live_status = "online"
+        seconds_since = min(seconds_since if seconds_since is not None else 4, 12)
+    else:
+        live_status = "online" if (seconds_since is not None and seconds_since <= OFFLINE_THRESHOLD_SECONDS) else "offline"
     enriched = dict(agent_dict)
     enriched["status"] = live_status
     enriched["seconds_since_seen"] = seconds_since
-    enriched["is_simulation"] = str(agent_dict.get("id", "")).startswith("simulation-")
+    enriched["is_simulation"] = is_sim
     return enriched
 
 

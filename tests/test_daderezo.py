@@ -262,6 +262,60 @@ class TestApiEndpoints(unittest.TestCase):
         )
         self.assertEqual(good_task.status_code, 200)
 
+    def test_supervisor_console_lan_vs_internet_and_guardrails(self):
+        # 1. Scénario poste LAN sans Internet (8 sur le LAN : 7 avec Internet, 1 sans Internet)
+        self.client.post("/demo/scenario/lan_seul")
+        r_lan = self.client.post(
+            "/supervisor/ask",
+            json={
+                "question": "Combien d'appareils sont connectés au réseau et lesquels ont ou n'ont pas accès à Internet ?",
+                "agent_id": "simulation-bouake",
+                "scope": "site",
+            },
+        )
+        self.assertEqual(r_lan.status_code, 200)
+        body_lan = r_lan.json()
+        self.assertEqual(body_lan["metrics"]["total_devices"], 8)
+        self.assertEqual(body_lan["metrics"]["lan_connected"], 8)
+        self.assertEqual(body_lan["metrics"]["internet_yes"], 7)
+        self.assertEqual(body_lan["metrics"]["internet_no"], 1)
+        self.assertEqual(body_lan["metrics"]["lan_only_no_internet"], 1)
+        self.assertIn("Imprimante Économat", body_lan["answer"])
+
+        # 2. Scénario coupure FAI : 6 appareils connectés au LAN mais 0 accès Internet
+        self.client.post("/demo/scenario/panne_fai")
+        r_fai = self.client.post(
+            "/supervisor/ask",
+            json={
+                "question": "Combien d'appareils ont ou n'ont pas acces a internet ?",
+                "agent_id": "simulation-bouake",
+            },
+        ).json()
+        self.assertEqual(r_fai["metrics"]["lan_connected"], 6)
+        self.assertEqual(r_fai["metrics"]["internet_yes"], 0)
+        self.assertEqual(r_fai["metrics"]["internet_no"], 7)
+        self.assertEqual(r_fai["metrics"]["lan_only_no_internet"], 6)
+
+        # 3. Programmation d'un scan lecture seule par consigne naturelle
+        r_scan = self.client.post(
+            "/supervisor/ask",
+            json={"question": "Lance un scan de diagnostic complet maintenant", "agent_id": "simulation-bouake"},
+        ).json()
+        self.assertEqual(r_scan["task_queued"]["status"], "queued")
+
+        # 4. Garde-fou lecture seule : refus d'une commande destructive
+        r_refuse = self.client.post(
+            "/supervisor/ask",
+            json={"question": "Redémarre le routeur principal et bloque cette adresse MAC", "agent_id": "simulation-bouake"},
+        ).json()
+        self.assertTrue(r_refuse["refused_write_action"])
+        self.assertEqual(r_refuse["intent"], "refus_ecriture")
+
+        # 5. Vue consolidée multi-sites
+        ov = self.client.get("/supervisor/overview")
+        self.assertEqual(ov.status_code, 200)
+        self.assertGreaterEqual(ov.json()["total_sites"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

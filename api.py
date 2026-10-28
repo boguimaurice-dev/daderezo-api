@@ -8,6 +8,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import hmac
 import os
+import re
+import unicodedata
 from typing import Dict, List, Optional, Union
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
@@ -256,6 +258,53 @@ class DiagnosticTaskRequest(BaseModel):
     action: str = Field(default="scan", description="Action lecture seule : scan, sweep, diagnostic ou rapport")
 
 
+class SupervisorAskRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=1000, description="Question ou consigne écrite/vocale du superviseur")
+    agent_id: Optional[str] = Field(default=None, description="Identifiant du site ciblé (ou vide / 'all' pour tous les sites)")
+    scope: str = Field(default="site", description="Portée : 'site' (site sélectionné) ou 'global' (tous les sites)")
+
+
+def _enrich_devices_internet(devices: List[dict], state: dict) -> List[dict]:
+    """Calcule pour chaque équipement s'il est connecté au LAN ET s'il dispose d'un accès Internet effectif."""
+    gw = state.get("gw") or ""
+    gw_dev = next((d for d in devices if d.get("ip") == gw), None)
+    gw_status = state.get("gw_status") or (gw_dev.get("status") if gw_dev else "unknown")
+    inet_status = state.get("internet_status") or "unknown"
+
+    enriched: List[dict] = []
+    for d in devices:
+        item = dict(d)
+        is_lan_up = item.get("status") == "up"
+        dev_type = (item.get("type") or "host").lower()
+        dev_name = item.get("name") or ""
+        is_lan_only_policy = dev_type in ("local_only", "printer_lan") or "(lan seul)" in dev_name.lower()
+
+        item["lan_connected"] = is_lan_up
+        if not is_lan_up:
+            item["internet_access"] = "non"
+            item["internet_reason"] = "Hors ligne sur le réseau local (LAN)"
+        elif is_lan_only_policy:
+            item["internet_access"] = "non"
+            item["internet_reason"] = "Connecté au LAN uniquement (sortie Internet désactivée)"
+        elif gw_status == "down":
+            item["internet_access"] = "non"
+            item["internet_reason"] = f"Connecté au LAN, mais passerelle locale ({gw or 'routeur'}) hors ligne"
+        elif inet_status == "down":
+            item["internet_access"] = "non"
+            item["internet_reason"] = "Connecté au LAN, mais liaison FAI / Internet coupée en amont"
+        elif inet_status == "degraded":
+            item["internet_access"] = "degrade"
+            item["internet_reason"] = "Connecté au LAN, accès Internet dégradé"
+        elif inet_status == "up":
+            item["internet_access"] = "oui"
+            item["internet_reason"] = "Connecté au LAN avec accès Internet actif"
+        else:
+            item["internet_access"] = "inconnu"
+            item["internet_reason"] = "Connecté au LAN (état WAN non mesuré)"
+        enriched.append(item)
+    return enriched
+
+
 def _status_payload() -> dict:
     return {
         "service": "DADEREZO API",
@@ -455,7 +504,10 @@ def get_devices(agent_id: str):
         )
         rows = c.fetchall()
         cols = [d[0] for d in c.description]
-    return [dict(zip(cols, r)) for r in rows]
+        c.execute(f"SELECT key, value FROM state WHERE agent_id = {PH}", (agent_id,))
+        state = {r[0]: r[1] for r in c.fetchall()}
+    raw_devices = [dict(zip(cols, r)) for r in rows]
+    return _enrich_devices_internet(raw_devices, state)
 
 
 @app.get("/probes/{agent_id}", dependencies=[Depends(require_read_auth)])
@@ -550,8 +602,12 @@ def dashboard(agent_id: str):
         for r in alert_rows
     ]
     state = {r[0]: r[1] for r in state_rows}
+    devices = _enrich_devices_internet(devices, state)
     up_count = sum(1 for d in devices if d["status"] == "up")
     down_count = sum(1 for d in devices if d["status"] != "up")
+    with_inet = sum(1 for d in devices if d.get("internet_access") in ("oui", "degrade"))
+    without_inet = len(devices) - with_inet
+    lan_only_no_inet = sum(1 for d in devices if d["status"] == "up" and d.get("internet_access") == "non")
 
     return {
         "agent": agent,
@@ -563,6 +619,9 @@ def dashboard(agent_id: str):
             "total_devices": len(devices),
             "devices_up": up_count,
             "devices_down": down_count,
+            "devices_with_internet": with_inet,
+            "devices_without_internet": without_inet,
+            "devices_lan_only_no_internet": lan_only_no_inet,
             "internet_status": state.get("internet_status", "unknown"),
         },
     }
@@ -661,13 +720,34 @@ def run_demo_scenario(scenario: str):
             AlertInput(severity="panne", message="Équipement hors ligne : Relais Wi-Fi Communauté (192.168.8.10)"),
             AlertInput(severity="panne", message="Équipement hors ligne : Poste Bibliothèque / Studium (192.168.8.75)"),
         ]
+    elif key == "lan_seul":
+        base_probes.append(
+            Probe(
+                ip="192.168.8.120",
+                mac="a4:bb:6d:21:09:44",
+                name="Imprimante Économat (LAN seul)",
+                zone="Administration",
+                status="up",
+                type="printer_lan",
+                latency_ms=1.9,
+            )
+        )
+        alerts = [
+            AlertInput(
+                severity="info",
+                message="Inventaire mis à jour : 8 appareils connectés au LAN (7 avec Internet, 1 restreint au LAN seul).",
+            )
+        ]
     elif key == "retablissement":
         alerts = [
             AlertInput(severity="retabli", message="Équipement rétabli : Box FAI principale (192.168.8.1)"),
             AlertInput(severity="retabli", message="Accès Internet rétabli (latence WAN 32 ms)"),
         ]
     else:
-        raise HTTPException(status_code=400, detail="Scénario inconnu (nominal, intrus, panne_fai, panne_relais, retablissement).")
+        raise HTTPException(
+            status_code=400,
+            detail="Scénario inconnu (nominal, intrus, panne_fai, panne_relais, lan_seul, retablissement).",
+        )
 
     payload = AgentData(
         agent_id="simulation-bouake",
@@ -687,6 +767,450 @@ def run_demo_scenario(scenario: str):
     )
     res = receive_data(payload)
     return {"status": "ok", "agent_id": "simulation-bouake", "scenario": key, "result": res}
+
+
+def _normalize_fr(text: str) -> str:
+    nfkd = unicodedata.normalize("NFKD", text or "")
+    stripped = "".join(ch for ch in nfkd if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", stripped.lower()).strip()
+
+
+def _collect_sites_dashboards(target_agent_id: Optional[str], force_global: bool) -> List[dict]:
+    agents = list_agents()
+    if not agents:
+        return []
+    if force_global or (target_agent_id and target_agent_id.lower() == "all"):
+        return [dashboard(a["id"]) for a in agents]
+    chosen_id = target_agent_id if any(a["id"] == target_agent_id for a in agents) else agents[0]["id"]
+    return [dashboard(chosen_id)]
+
+
+@app.get("/supervisor/overview", dependencies=[Depends(require_read_auth)])
+def supervisor_overview():
+    """Vue consolidée multi-sites pour l'Administrateur Superviseur Général."""
+    agents = list_agents()
+    sites = []
+    tot_dev = tot_up = tot_down = tot_inet_yes = tot_inet_no = tot_lan_only = tot_alerts = 0
+    for a in agents:
+        d = dashboard(a["id"])
+        s = d["summary"]
+        tot_dev += s["total_devices"]
+        tot_up += s["devices_up"]
+        tot_down += s["devices_down"]
+        tot_inet_yes += s["devices_with_internet"]
+        tot_inet_no += s["devices_without_internet"]
+        tot_lan_only += s["devices_lan_only_no_internet"]
+        tot_alerts += len(d["alerts"])
+        sites.append(
+            {
+                "agent_id": a["id"],
+                "site_name": d["state"].get("site_name") or a.get("nom") or a["id"],
+                "agent_status": a["status"],
+                "internet_status": s["internet_status"],
+                "gw": d["state"].get("gw"),
+                "gw_status": d["state"].get("gw_status", "unknown"),
+                "summary": s,
+                "alerts_count": len(d["alerts"]),
+            }
+        )
+    return {
+        "total_sites": len(agents),
+        "sites_online": sum(1 for a in agents if a["status"] == "online"),
+        "sites_offline": sum(1 for a in agents if a["status"] != "online"),
+        "total_devices": tot_dev,
+        "devices_up": tot_up,
+        "devices_down": tot_down,
+        "devices_with_internet": tot_inet_yes,
+        "devices_without_internet": tot_inet_no,
+        "devices_lan_only_no_internet": tot_lan_only,
+        "total_alerts": tot_alerts,
+        "sites": sites,
+    }
+
+
+@app.post("/supervisor/ask", dependencies=[Depends(require_read_auth)])
+def supervisor_ask(
+    req: SupervisorAskRequest,
+    x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+    authorization: Optional[str] = Header(default=None, alias="Authorization"),
+):
+    """Console écrite & vocale de l'Administrateur Superviseur Général (100 % lecture seule)."""
+    q_raw = req.question.strip()
+    q = _normalize_fr(q_raw)
+
+    wants_global = (
+        req.scope.strip().lower() == "global"
+        or (req.agent_id or "").strip().lower() == "all"
+        or any(
+            kw in q
+            for kw in (
+                "tous les sites",
+                "toutes les sondes",
+                "multi-site",
+                "multisite",
+                "vue globale",
+                "bilan global",
+                "ensemble des sites",
+                "partout",
+            )
+        )
+    )
+
+    dashboards = _collect_sites_dashboards(req.agent_id, force_global=wants_global)
+    if not dashboards:
+        msg = (
+            "Aucune sonde réseau n'est enregistrée pour le moment. "
+            "Démarrez `agent_client.py` sur le réseau local ou activez un scénario du banc de test."
+        )
+        return {
+            "status": "ok",
+            "intent": "aucune_sonde",
+            "scope": "global" if wants_global else "site",
+            "site_label": "Aucun site enregistré",
+            "answer": msg,
+            "spoken_text": msg,
+            "metrics": {
+                "sites_count": 0,
+                "total_devices": 0,
+                "lan_connected": 0,
+                "offline": 0,
+                "internet_yes": 0,
+                "internet_no": 0,
+                "lan_only_no_internet": 0,
+            },
+            "devices": [],
+            "with_internet": [],
+            "without_internet": [],
+            "unknown_devices": [],
+            "task_queued": None,
+            "refused_write_action": False,
+        }
+
+    # Consolidation des équipements, états et alertes sur le périmètre demandé
+    all_devices: List[dict] = []
+    all_alerts: List[dict] = []
+    site_names: List[str] = []
+    for d in dashboards:
+        ag = d["agent"] or {}
+        sname = d["state"].get("site_name") or ag.get("nom") or ag.get("id") or "Site"
+        site_names.append(sname)
+        for dev in d["devices"]:
+            enriched_dev = dict(dev)
+            enriched_dev["site_name"] = sname
+            enriched_dev["agent_id"] = ag.get("id", "")
+            all_devices.append(enriched_dev)
+        for al in d["alerts"]:
+            al_copy = dict(al)
+            al_copy["site_name"] = sname
+            all_alerts.append(al_copy)
+
+    scope_label = (
+        f"Tous les sites ({len(dashboards)} sonde(s))"
+        if len(dashboards) > 1
+        else site_names[0]
+    )
+
+    total_dev = len(all_devices)
+    lan_up_devs = [d for d in all_devices if d.get("status") == "up"]
+    offline_devs = [d for d in all_devices if d.get("status") != "up"]
+    inet_yes_devs = [d for d in all_devices if d.get("internet_access") in ("oui", "degrade")]
+    inet_no_devs = [d for d in all_devices if d.get("internet_access") not in ("oui", "degrade")]
+    lan_only_no_inet_devs = [
+        d for d in all_devices if d.get("status") == "up" and d.get("internet_access") == "non"
+    ]
+    unknown_devs = [
+        d for d in all_devices if "inconnu" in (d.get("name") or "").lower()
+    ]
+
+    metrics = {
+        "sites_count": len(dashboards),
+        "total_devices": total_dev,
+        "lan_connected": len(lan_up_devs),
+        "offline": len(offline_devs),
+        "internet_yes": len(inet_yes_devs),
+        "internet_no": len(inet_no_devs),
+        "lan_only_no_internet": len(lan_only_no_inet_devs),
+        "unknown_count": len(unknown_devs),
+    }
+
+    # 1. Garde-fou strict : refus de toute commande destructive / d'écriture sur les équipements
+    write_patterns = (
+        r"\b(redemarr\w*|reboot\w*|bloqu\w*|banni\w*|desactiv\w*|reinitialis\w*|reset\w*|"
+        r"modifi\w*|etein\w*|ferm\w*\s+le\s+port|coup\w*\s+le\s+wifi|chang\w*\s+le\s+mot\s+de\s+passe)\b"
+    )
+    if re.search(write_patterns, q):
+        answer = (
+            f"⛔ Action d'écriture refusée (Charte de sécurité DADEREZO — mode 100 % lecture seule).\n"
+            f"En tant qu'agent de supervision non intrusif sur « {scope_label} », je ne redémarre aucun routeur, "
+            f"ne bloque aucune adresse MAC et ne modifie aucune configuration réseau à distance.\n\n"
+            f"État observé actuellement : {len(lan_up_devs)}/{total_dev} appareil(s) connecté(s) au réseau local, "
+            f"dont {len(inet_yes_devs)} avec accès Internet actif et {len(inet_no_devs)} sans accès Internet."
+        )
+        spoken = (
+            f"Action refusée par sécurité. DADEREZO fonctionne exclusivement en lecture seule et ne modifie aucun routeur. "
+            f"Actuellement sur {scope_label}, {len(lan_up_devs)} appareils sur {total_dev} sont connectés au réseau local, "
+            f"et {len(inet_yes_devs)} ont accès à Internet."
+        )
+        return {
+            "status": "ok",
+            "intent": "refus_ecriture",
+            "scope": "global" if len(dashboards) > 1 else "site",
+            "site_label": scope_label,
+            "answer": answer,
+            "spoken_text": spoken,
+            "metrics": metrics,
+            "devices": all_devices,
+            "with_internet": inet_yes_devs,
+            "without_internet": inet_no_devs,
+            "unknown_devices": unknown_devs,
+            "task_queued": None,
+            "refused_write_action": True,
+        }
+
+    # 2. Ordre de tâche de diagnostic en lecture seule (scan, balayage, diagnostic, rapport)
+    task_queued = None
+    task_triggers = (
+        "lance un scan",
+        "lancer un scan",
+        "demande un scan",
+        "scanner",
+        "scanne",
+        "balayage",
+        "lance un diagnostic",
+        "fais un diagnostic",
+        "faire un diagnostic",
+        "verifie maintenant",
+        "actualise la sonde",
+        "genere un rapport",
+        "produis un rapport",
+    )
+    if any(t in q for t in task_triggers):
+        action = "scan"
+        if "rapport" in q:
+            action = "rapport"
+        elif "balayage" in q or "sweep" in q:
+            action = "sweep"
+        elif "diagnostic" in q:
+            action = "diagnostic"
+
+        expected_key = get_api_key()
+        provided_key = _extract_token(x_api_key, authorization)
+        can_write = (not expected_key) or (bool(provided_key) and hmac.compare_digest(provided_key, expected_key))
+
+        if can_write:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            queued_targets = []
+            with db_cursor() as (_, c):
+                for d in dashboards:
+                    aid = (d["agent"] or {}).get("id")
+                    if aid:
+                        c.execute(
+                            f"INSERT INTO tasks (agent_id, action, status, created_at) VALUES ({PH},{PH},{PH},{PH})",
+                            (aid, action, "pending", now_iso),
+                        )
+                        queued_targets.append(aid)
+            task_queued = {"action": action, "targets": queued_targets, "status": "queued"}
+        else:
+            task_queued = {"action": action, "targets": [], "status": "auth_required"}
+
+    # Helpers de formatage lisible
+    def _fmt_dev_list(devs: List[dict], include_reason: bool = False) -> str:
+        if not devs:
+            return "Aucun"
+        items = []
+        for d in devs[:10]:
+            label = f"{d.get('name') or 'Poste'} ({d.get('ip')})"
+            if len(dashboards) > 1 and d.get("site_name"):
+                label += f" [{d['site_name']}]"
+            if include_reason and d.get("internet_reason"):
+                label += f" — {d['internet_reason']}"
+            items.append(f"• {label}")
+        if len(devs) > 10:
+            items.append(f"• … et {len(devs) - 10} autre(s) équipement(s)")
+        return "\n".join(items)
+
+    # 3. Détection de l'intention principale
+    asks_intrus = any(w in q for w in ("intrus", "inconnu", "suspect", "autoris", "mac", "visiteur", "securite"))
+    asks_alerts = any(w in q for w in ("alerte", "incident", "historique", "journal", "evenement"))
+    asks_outage = any(
+        w in q for w in ("panne", "coupure", "fai", "passerelle", "routeur", "relais", "latence", "lent", "pourquoi")
+    )
+    asks_inventory_or_inet = any(
+        w in q
+        for w in (
+            "combien",
+            "nombre",
+            "appareil",
+            "poste",
+            "equipement",
+            "connect",
+            "internet",
+            "acces",
+            "en ligne",
+            "hors ligne",
+            "inventaire",
+            "lesquels",
+            "qui a",
+            "n'ont pas",
+            "sans internet",
+        )
+    )
+
+    lines: List[str] = []
+    spoken_parts: List[str] = []
+    intent = "bilan_superviseur"
+
+    if task_queued:
+        intent = f"tache_{task_queued['action']}"
+        if task_queued["status"] == "queued":
+            t_list = ", ".join(task_queued["targets"])
+            lines.append(
+                f"✅ Tâche lecture seule « {task_queued['action']} » programmée pour la sonde : {t_list}."
+            )
+            spoken_parts.append(
+                f"Tâche de diagnostic {task_queued['action']} programmée en lecture seule."
+            )
+        else:
+            lines.append(
+                "🔒 Programmation de tâche protégée : renseignez la clé X-API-Key dans Configuration pour envoyer un ordre actif à la sonde."
+            )
+            spoken_parts.append("Une clé API est requise pour programmer une tâche distante, voici néanmoins l'état en direct.")
+
+    if asks_inventory_or_inet or (not asks_intrus and not asks_alerts and not asks_outage):
+        if intent == "bilan_superviseur" and asks_inventory_or_inet:
+            intent = "inventaire_internet"
+
+        lines.append(f"📊 Synthèse Superviseur Général — {scope_label} :")
+        lines.append(f"• Appareils répertoriés au total : {total_dev}")
+        lines.append(
+            f"• Connectés au réseau local (LAN actif) : {len(lan_up_devs)} sur {total_dev}"
+            + (f" ({len(offline_devs)} hors ligne)" if offline_devs else " (100 % en ligne)")
+        )
+        lines.append(f"• Ayant accès à Internet (WAN actif) : {len(inet_yes_devs)} appareil(s)")
+        if lan_only_no_inet_devs and offline_devs:
+            lines.append(
+                f"• Sans accès à Internet : {len(inet_no_devs)} appareil(s) "
+                f"(dont {len(lan_only_no_inet_devs)} connecté(s) au LAN mais privé(s) d'Internet, "
+                f"et {len(offline_devs)} hors ligne)"
+            )
+        elif lan_only_no_inet_devs:
+            lines.append(
+                f"• Sans accès à Internet : {len(inet_no_devs)} appareil(s) "
+                f"(tous connectés au réseau local mais sans sortie Internet)"
+            )
+        elif offline_devs:
+            lines.append(
+                f"• Sans accès à Internet : {len(inet_no_devs)} appareil(s) (équipements hors ligne sur le LAN)"
+            )
+        else:
+            lines.append("• Sans accès à Internet : 0 appareil (tous les postes connectés disposent d'Internet)")
+
+        lines.append("\n✅ Appareils AVEC accès Internet (" + str(len(inet_yes_devs)) + ") :\n" + _fmt_dev_list(inet_yes_devs))
+        if inet_no_devs:
+            lines.append(
+                "\n⚠️ Appareils SANS accès Internet (" + str(len(inet_no_devs)) + ") :\n"
+                + _fmt_dev_list(inet_no_devs, include_reason=True)
+            )
+
+        spoken_parts.append(
+            f"Sur {scope_label}, on compte {total_dev} appareils répertoriés. "
+            f"{len(lan_up_devs)} appareils sont actuellement connectés au réseau local, "
+            f"dont {len(inet_yes_devs)} ont accès à Internet et {len(inet_no_devs)} n'ont pas accès à Internet."
+        )
+        if lan_only_no_inet_devs:
+            spoken_parts.append(
+                f"Attention : {len(lan_only_no_inet_devs)} appareil connecté au réseau local est privé de sortie Internet."
+                if len(lan_only_no_inet_devs) == 1
+                else f"Attention : {len(lan_only_no_inet_devs)} appareils connectés au réseau local sont privés de sortie Internet."
+            )
+
+    if asks_outage:
+        if intent == "bilan_superviseur":
+            intent = "diagnostic_panne"
+        for d in dashboards:
+            st = d["state"]
+            sname = st.get("site_name") or (d["agent"] or {}).get("nom") or "Site"
+            gw = st.get("gw") or "passerelle"
+            gw_st = st.get("gw_status", "unknown")
+            gw_lat = st.get("gw_latency_ms")
+            inet_st = st.get("internet_status", "unknown")
+            wan_lat = st.get("wan_latency_ms")
+
+            if gw_st == "up" and inet_st == "down":
+                diag = (
+                    f"Diagnostic {sname} : la passerelle locale ({gw}) répond normalement "
+                    f"({gw_lat or '?'} ms), mais la sortie Internet est coupée. "
+                    f"Il s'agit d'une panne FAI en amont et non d'une panne du réseau interne."
+                )
+            elif gw_st == "down":
+                diag = (
+                    f"Diagnostic {sname} : la passerelle principale ({gw}) est injoignable. "
+                    f"Vérifiez l'alimentation électrique et le câblage du routeur principal."
+                )
+            elif offline_devs:
+                down_names = ", ".join(f"{x.get('name') or x.get('ip')}" for x in offline_devs[:4])
+                diag = (
+                    f"Diagnostic {sname} : l'accès FAI est actif ({wan_lat or '?'} ms) et la passerelle ({gw}) répond, "
+                    f"mais {len(offline_devs)} équipement(s) local/locaux ne répondent plus : {down_names}."
+                )
+            else:
+                diag = (
+                    f"Diagnostic {sname} : aucune panne détectée. Passerelle ({gw}) active "
+                    f"({gw_lat or '1'} ms) et sortie Internet opérationnelle ({wan_lat or '32'} ms)."
+                )
+            lines.append("\n🩺 " + diag)
+            if not spoken_parts or intent == "diagnostic_panne":
+                spoken_parts.append(diag)
+
+    if asks_intrus:
+        if intent == "bilan_superviseur":
+            intent = "securite_intrus"
+        if unknown_devs:
+            u_desc = ", ".join(f"{u.get('ip')} (MAC {u.get('mac') or 'n/d'})" for u in unknown_devs)
+            lines.append(
+                f"\n🕵️ Sécurité MAC : {len(unknown_devs)} appareil(s) non répertorié(s) détecté(s) sur le LAN : {u_desc}."
+            )
+            spoken_parts.append(
+                f"Alerte sécurité : {len(unknown_devs)} appareil inconnu détecté sur le réseau local, adresse {unknown_devs[0].get('ip')}."
+            )
+        else:
+            lines.append("\n🛡️ Sécurité MAC : aucun appareil inconnu ou non autorisé détecté sur le réseau.")
+            spoken_parts.append("Aucun appareil inconnu n'est détecté sur le réseau.")
+
+    if asks_alerts:
+        if intent == "bilan_superviseur":
+            intent = "alertes"
+        if all_alerts:
+            top_alerts = "\n".join(
+                f"• [{(a.get('severity') or 'info').upper()}] {a.get('message')}"
+                for a in all_alerts[:5]
+            )
+            lines.append(f"\n🔔 Dernières alertes enregistrées ({len(all_alerts)} au total) :\n{top_alerts}")
+            spoken_parts.append(
+                f"Le journal contient {len(all_alerts)} événements. Dernier événement : {all_alerts[0].get('message')}."
+            )
+        else:
+            lines.append("\n🔔 Journal d'alertes : aucune alerte active.")
+            spoken_parts.append("Aucune alerte active dans le journal.")
+
+    answer_text = "\n".join(lines).strip()
+    spoken_summary = " ".join(spoken_parts).strip()
+
+    return {
+        "status": "ok",
+        "intent": intent,
+        "scope": "global" if len(dashboards) > 1 else "site",
+        "site_label": scope_label,
+        "answer": answer_text,
+        "spoken_text": spoken_summary,
+        "metrics": metrics,
+        "devices": all_devices,
+        "with_internet": inet_yes_devs,
+        "without_internet": inet_no_devs,
+        "unknown_devices": unknown_devs,
+        "task_queued": task_queued,
+        "refused_write_action": False,
+    }
 
 
 if os.environ.get("VERCEL") or os.environ.get("DADEREZO_SEED_DEMO") == "1":

@@ -375,6 +375,31 @@ class TestApiEndpoints(unittest.TestCase):
         sess = self.client.get("/supervisor/session/sess-redteam").json()
         self.assertGreaterEqual(len(sess["turns"]), 6)
 
+    def test_saas_landing_light_mode_and_download_whitelist(self):
+        # 1. Landing SaaS sur / (HTML) + bascule Mode Clair / Sombre
+        r_land = self.client.get("/", headers={"Accept": "text/html"})
+        self.assertEqual(r_land.status_code, 200)
+        self.assertIn('data-theme="dark"', r_land.text)
+        self.assertIn('html[data-theme="light"]', r_land.text)
+        self.assertIn("live-demo", r_land.text)
+        self.assertIn("pricing", r_land.text)
+
+        # 2. Poste Superviseur sur /ui et /app avec Mode Clair / Sombre
+        for route in ("/ui", "/app"):
+            r_ui = self.client.get(route)
+            self.assertEqual(r_ui.status_code, 200)
+            self.assertIn('html[data-theme="light"]', r_ui.text)
+            self.assertIn("themeToggleBtn", r_ui.text)
+            self.assertIn("Orchestrateur DADEREZO", r_ui.text)
+
+        # 3. Téléchargement sécurisé de la sonde (whitelist stricte)
+        dl_ok = self.client.get("/download/agent_client.py")
+        self.assertEqual(dl_ok.status_code, 200)
+        self.assertIn("fetch_pending_tasks", dl_ok.text)
+
+        dl_blocked = self.client.get("/download/api.py")
+        self.assertEqual(dl_blocked.status_code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()

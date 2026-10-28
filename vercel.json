@@ -8,8 +8,12 @@
         "includeFiles": [
           "storage.py",
           "agent_engine.py",
+          "landing.html",
           "DADEREZO.html",
           "frontend.html",
+          "agent_client.py",
+          "collector.py",
+          "make_dashboard.py",
           "devices.json"
         ]
       }

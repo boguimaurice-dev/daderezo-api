@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 import agent_engine
@@ -210,14 +210,29 @@ def _status_payload() -> dict:
     }
 
 
+ALLOWED_DOWNLOADS = {"agent_client.py", "collector.py", "devices.json", "make_dashboard.py"}
+
+
 @app.api_route("/", methods=["GET", "HEAD"])
 def root(request: Request):
     accept = request.headers.get("accept", "").lower()
+    landing_path = os.path.join(HERE, "landing.html")
     ui_path = os.path.join(HERE, "DADEREZO.html")
-    if "application/json" not in accept and os.path.exists(ui_path):
-        with open(ui_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(f.read())
+    if "application/json" not in accept:
+        target = landing_path if os.path.exists(landing_path) else ui_path
+        if os.path.exists(target):
+            with open(target, "r", encoding="utf-8") as f:
+                return HTMLResponse(f.read())
     return JSONResponse(_status_payload())
+
+
+@app.api_route("/landing", methods=["GET", "HEAD"], response_class=HTMLResponse)
+def saas_landing():
+    landing_path = os.path.join(HERE, "landing.html")
+    if not os.path.exists(landing_path):
+        raise HTTPException(status_code=404, detail="Page landing.html introuvable")
+    with open(landing_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(f.read())
 
 
 @app.api_route("/health", methods=["GET", "HEAD"])
@@ -226,12 +241,28 @@ def health():
 
 
 @app.api_route("/ui", methods=["GET", "HEAD"], response_class=HTMLResponse)
+@app.api_route("/app", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def supervision_ui():
     ui_path = os.path.join(HERE, "DADEREZO.html")
     if not os.path.exists(ui_path):
         raise HTTPException(status_code=404, detail="Interface DADEREZO.html introuvable")
     with open(ui_path, "r", encoding="utf-8") as f:
         return HTMLResponse(f.read())
+
+
+@app.get("/download/{filename}")
+def download_probe_file(filename: str):
+    if filename not in ALLOWED_DOWNLOADS:
+        raise HTTPException(status_code=404, detail="Fichier non autorisé au téléchargement.")
+    fpath = os.path.join(HERE, filename)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail="Fichier introuvable.")
+    with open(fpath, "r", encoding="utf-8") as f:
+        content = f.read()
+    return PlainTextResponse(
+        content,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.api_route("/simple", methods=["GET", "HEAD"], response_class=HTMLResponse)

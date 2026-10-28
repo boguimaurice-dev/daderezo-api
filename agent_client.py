@@ -106,6 +106,35 @@ def ack_task(api_url: str, agent_id: str, task_id: int, result_msg: str, api_key
         pass
 
 
+def fetch_pending_tasks(api_url: str, agent_id: str, api_key: Optional[str] = None) -> list:
+    req = urllib.request.Request(
+        f"{api_url.rstrip('/')}/tasks/{urllib.parse.quote(agent_id)}?limit=5",
+        headers=_build_headers(api_key),
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=15) as rep:
+        rows = json.loads(rep.read().decode("utf-8"))
+        return [r for r in rows if isinstance(r, dict) and r.get("status") == "pending"]
+
+
+def execute_pending_tasks(api_url: str, agent_id: str, nom: str, tasks: list, api_key: Optional[str] = None) -> None:
+    for task in tasks:
+        t_id = task.get("id")
+        action = task.get("action", "scan")
+        print(f"[TACHE TEMPS RÉEL] Exécution lecture seule : {action} (#{t_id})")
+        if action == "sweep":
+            fresh = collect(do_sweep=True)
+            send_data(api_url, agent_id, nom, fresh, api_key=api_key)
+            ack_task(api_url, agent_id, t_id, "Balayage sous-réseau 254 IP terminé", api_key)
+        elif action == "rapport":
+            make_dashboard.build()
+            ack_task(api_url, agent_id, t_id, "Rapport local dashboard.html régénéré", api_key)
+        else:
+            fresh = collect(do_sweep=False)
+            send_data(api_url, agent_id, nom, fresh, api_key=api_key)
+            ack_task(api_url, agent_id, t_id, f"Diagnostic {action} terminé", api_key)
+
+
 def run_cycle(api_url: str, agent_id: str, nom: str, api_key: Optional[str] = None, do_sweep: bool = False) -> bool:
     data = collect(do_sweep=do_sweep)
     try:
@@ -114,21 +143,7 @@ def run_cycle(api_url: str, agent_id: str, nom: str, api_key: Optional[str] = No
             f"[OK] Envoyé : {result.get('received', 0)} équipements, "
             f"{result.get('alerts_recorded', 0)} nouvelles alertes"
         )
-        for task in result.get("pending_tasks", []):
-            t_id = task.get("id")
-            action = task.get("action", "scan")
-            print(f"[TACHE] Exécution lecture seule : {action} (#{t_id})")
-            if action == "sweep":
-                fresh = collect(do_sweep=True)
-                send_data(api_url, agent_id, nom, fresh, api_key=api_key)
-                ack_task(api_url, agent_id, t_id, "Balayage sous-réseau terminé", api_key)
-            elif action == "rapport":
-                make_dashboard.build()
-                ack_task(api_url, agent_id, t_id, "Rapport local dashboard.html régénéré", api_key)
-            else:
-                fresh = collect(do_sweep=False)
-                send_data(api_url, agent_id, nom, fresh, api_key=api_key)
-                ack_task(api_url, agent_id, t_id, f"Diagnostic {action} terminé", api_key)
+        execute_pending_tasks(api_url, agent_id, nom, result.get("pending_tasks", []), api_key=api_key)
         return True
     except Exception as e:
         print(f"[ATTENTE] Envoi différé (API injoignable : {e}). Les alertes restent conservées localement.")
@@ -136,19 +151,23 @@ def run_cycle(api_url: str, agent_id: str, nom: str, api_key: Optional[str] = No
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="DADEREZO — Client Agent SaaS")
+    parser = argparse.ArgumentParser(description="DADEREZO — Client Agent SaaS Temps Réel")
     parser.add_argument("--api", default=os.environ.get("DADEREZO_API_URL", "http://localhost:8000"), help="URL de l'API SaaS")
     parser.add_argument("--agent", default=os.environ.get("DADEREZO_AGENT_ID", "sainte-marie-bouake"), help="ID du site / agent")
     parser.add_argument("--nom", default=os.environ.get("DADEREZO_AGENT_NAME", ""), help="Nom lisible du site")
     parser.add_argument("--api-key", default=os.environ.get("DADEREZO_API_KEY", ""), help="Clé API (X-API-Key)")
-    parser.add_argument("--interval", type=int, default=300, help="Intervalle entre deux collectes (secondes)")
+    parser.add_argument("--interval", type=int, default=300, help="Intervalle entre deux collectes complètes (secondes)")
+    parser.add_argument("--task-poll", type=int, default=5, help="Écoute rapide des ordres du Superviseur (secondes)")
     parser.add_argument("--sweep", action="store_true", help="Activer le balayage ping du sous-réseau")
     parser.add_argument("--once", action="store_true", help="Exécuter un seul cycle puis quitter")
     args = parser.parse_args()
 
     nom = args.nom or f"Site {args.agent}"
     api_key = args.api_key or None
-    print(f"DADEREZO Agent [{args.agent}] -> {args.api} (mode lecture seule, intervalle={args.interval}s)")
+    print(
+        f"DADEREZO Agent [{args.agent}] -> {args.api} "
+        f"(lecture seule, collecte={args.interval}s, écoute ordres={args.task_poll}s)"
+    )
 
     try:
         reg = register(args.api, args.agent, nom, api_key=api_key)
@@ -160,9 +179,22 @@ def main() -> None:
         run_cycle(args.api, args.agent, nom, api_key=api_key, do_sweep=args.sweep)
         return
 
+    poll_sec = max(3, args.task_poll)
+    full_interval = max(10, args.interval)
     while True:
         run_cycle(args.api, args.agent, nom, api_key=api_key, do_sweep=args.sweep)
-        time.sleep(max(10, args.interval))
+        elapsed = 0
+        while elapsed < full_interval:
+            sleep_step = min(poll_sec, full_interval - elapsed)
+            time.sleep(sleep_step)
+            elapsed += sleep_step
+            if elapsed < full_interval:
+                try:
+                    pending = fetch_pending_tasks(args.api, args.agent, api_key=api_key)
+                    if pending:
+                        execute_pending_tasks(args.api, args.agent, nom, pending, api_key=api_key)
+                except Exception:
+                    pass
 
 
 if __name__ == "__main__":

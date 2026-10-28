@@ -1,23 +1,24 @@
-# DADEREZO — Agent de Supervision Réseau Local (Lecture Seule)
+# DADEREZO v3.0 — Système Multi-Agents de Supervision Réseau (100 % Lecture Seule)
 
-**DADEREZO** est un agent léger de supervision du réseau informatique local conçu pour la **Communauté Sainte Marie de Bouaké** (ainsi que pour les écoles, associations et petites structures).
+**DADEREZO** est un système autonome multi-agents de supervision réseau conçu pour la **Communauté Sainte Marie de Bouaké** (ainsi que pour les écoles, associations et structures multi-sites).
 
-Il surveille en continu la disponibilité de la passerelle, de la liaison Internet (FAI) et des équipements du réseau local, détecte les pannes et les nouveaux appareils (adresses MAC), et présente l'état du réseau sur un tableau de bord clair — **strictement en lecture seule** (aucune modification de configuration sur les routeurs ou équipements).
+Il orchestre **4 agents spécialisés** (`SENTINEL-SEC`, `TOPO-SCAN`, `DIAG-NET`, `OPS-DISPATCH`) connectés à une persistance permanente **Supabase PostgreSQL 17** (ou PostgreSQL / SQLite), pilote une console **vocale & écrite** pour l'Administrateur Superviseur Général, et opère **strictement en lecture seule** avec anti-injection de prompt et validation humaine (*Human-in-the-Loop*).
 
 ---
 
-## Architecture
+## Architecture Multi-Agents
 
 ```text
-[Réseau local / PC ou Raspberry Pi]                    [Cloud / Serveur API]
-  devices.json (inventaire connu)
+[Réseau local / PC Bouaké]                             [Cloud Vercel + Supabase PostgreSQL 17]
+  devices.json + collector.py
         │
-        ▼
-  collector.py ──► daderezo.db (SQLite local)
-        │
-        ├──► Mode local : orchestrator.py ──► make_dashboard.py ──► dashboard.html
-        │
-        └──► Mode SaaS  : agent_client.py ──► POST /data (api.py) ──► DADEREZO.html (/ui)
+        └──► agent_client.py (--task-poll 5s) ──► api.py ──► storage.py (Supabase / PG / SQLite)
+                                                    │
+                                                    └──► agent_engine.py (4 Agents + Audit + HITL)
+                                                            ├── 01 SENTINEL-SEC (Anti-injection & Lecture seule)
+                                                            ├── 02 TOPO-SCAN    (Matrice LAN vs Internet & Latence)
+                                                            ├── 03 DIAG-NET     (Corrélation FAI & Ticket Opérateur)
+                                                            └── 04 OPS-DISPATCH (Ordres sonde & Validation humaine)
 ```
 
 ---

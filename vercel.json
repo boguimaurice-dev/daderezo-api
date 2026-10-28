@@ -6,6 +6,8 @@
       "use": "@vercel/python",
       "config": {
         "includeFiles": [
+          "storage.py",
+          "agent_engine.py",
           "DADEREZO.html",
           "frontend.html",
           "devices.json"

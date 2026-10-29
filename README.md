@@ -47,19 +47,23 @@ uvicorn api:app --host 0.0.0.0 --port 8000
 
 - **Tableau de bord interactif** : `http://localhost:8000/ui` (ou directement `http://localhost:8000/` dans un navigateur)
 - **État JSON du service** : `http://localhost:8000/health`
+- **Page d'accueil SaaS & Démo Live** : `http://localhost:8000/` (Mode Clair & Mode Sombre inclus)
+- **Poste du Superviseur Général** : `http://localhost:8000/ui` (ou `/app`)
+- **État JSON du service** : `http://localhost:8000/health`
 - **Documentation Swagger** : `http://localhost:8000/docs`
 
 ### 2. Lancer la sonde sur un poste du réseau local
 
-**Vers l'API (local ou Render) :**
+**Vers l'API Cloud (Vercel / Render / local) :**
 ```bash
-python agent_client.py --api http://localhost:8000 --agent sainte-marie-bouake --nom "Sainte Marie de Bouaké"
+python agent_client.py --api https://daderezo-api-nine.vercel.app --agent sainte-marie-bouake --nom "Communauté Sainte Marie de Bouaké" --task-poll 5
 ```
 
 Options utiles :
+- `--task-poll 5` : écoute toutes les 5 secondes les ordres lecture seule du Superviseur (`scan`, `diagnostic`, `rapport`, ou `sweep` validé humainement)
 - `--once` : exécute une seule collecte + envoi puis quitte (idéal pour tester ou via tâche planifiée / `cron`)
 - `--sweep` : effectue un balayage ping court du sous-réseau local avant lecture ARP pour découvrir les équipements silencieux
-- `--interval 300` : intervalle en secondes entre deux collectes (défaut : `300` s = 5 min)
+- `--interval 300` : intervalle en secondes entre deux collectes complètes (défaut : `300` s = 5 min)
 - `--api-key <CLE>` : clé d'authentification si `DADEREZO_API_KEY` est activée sur le serveur
 
 **En mode 100 % hors-ligne (sans serveur API) :**

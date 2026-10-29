@@ -1,0 +1,22 @@
+{
+  "site_name": "Communauté Sainte Marie de Bouaké",
+  "internet_targets": ["1.1.1.1", "8.8.8.8"],
+  "https_check_url": "https://github.com",
+  "dns_check_host": "github.com",
+  "fail_threshold": 2,
+  "devices": {
+    "192.168.8.1": {
+      "name": "Box FAI principale",
+      "type": "fai_box",
+      "zone": "Accès FAI",
+      "critical": true
+    },
+    "192.168.8.57": {
+      "name": "Passerelle / Routeur principal",
+      "type": "gateway",
+      "zone": "Cœur réseau",
+      "critical": true
+    }
+  },
+  "authorized_macs": {}
+}

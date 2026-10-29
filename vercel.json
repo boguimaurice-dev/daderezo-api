@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": [
+          "storage.py",
+          "agent_engine.py",
+          "landing.html",
+          "DADEREZO.html",
+          "frontend.html",
+          "agent_client.py",
+          "collector.py",
+          "make_dashboard.py",
+          "devices.json"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api.py"
+    }
+  ]
+}

@@ -1,79 +1,201 @@
 #!/usr/bin/env python3
-# Agent client — envoie les donnees du collecteur vers l'API SaaS
-# Usage: python agent_client.py --api https://votre-api.onrender.com --agent mon-site
-import argparse, json, os, subprocess, time, urllib.request
+# -*- coding: utf-8 -*-
+"""
+DADEREZO — Client Agent SaaS (lecture seule).
 
-def run_collector():
-    r = subprocess.run(["python", "collector.py"], capture_output=True,
-                       text=True, timeout=120, encoding="cp1252", errors="replace")
-    if r.returncode != 0:
-        print("Erreur collecteur:", r.stderr[:200])
-        return None
-    # Read logs.json
-    with open("logs.json", "r", encoding="utf-8") as f:
-        return json.load(f)
+Exécute la collecte locale et transmet les mesures et les nouvelles alertes
+vers l'API FastAPI DADEREZO. En cas de coupure Internet temporaire, les alertes
+restent tamponnées dans SQLite et sont envoyées dès le retour de la connexion.
 
-def send_data(api_url, agent_id, data):
-    # Convert alerts to list of dicts
-    alerts_raw = data.get("alerts", [])
+Usage :
+  python agent_client.py --api https://daderezo-api.onrender.com --agent bouake-principal
+"""
+import argparse
+import json
+import os
+import time
+import urllib.parse
+import urllib.request
+from typing import Optional
+
+from collector import collect, mark_alerts_synced
+import make_dashboard
+
+
+def _build_headers(api_key: Optional[str]) -> dict:
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    if api_key:
+        headers["X-API-Key"] = api_key
+    return headers
+
+
+def register(api_url: str, agent_id: str, nom: str, api_key: Optional[str] = None) -> dict:
+    payload = {"agent_id": agent_id, "nom": nom}
+    req = urllib.request.Request(
+        f"{api_url.rstrip('/')}/register",
+        data=json.dumps(payload).encode("utf-8"),
+        headers=_build_headers(api_key),
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=20) as rep:
+        return json.loads(rep.read().decode("utf-8"))
+
+
+def send_data(api_url: str, agent_id: str, nom: str, data: dict, api_key: Optional[str] = None) -> dict:
+    raw_alerts = data.get("unsynced_alerts")
+    if raw_alerts is None:
+        raw_alerts = data.get("alerts", [])
+
     alerts = []
-    for a in alerts_raw:
-        if isinstance(a, (list, tuple)):
-            alerts.append({"severity": a[0], "message": a[1]})
+    sent_ids = []
+    for a in raw_alerts:
+        if isinstance(a, (list, tuple)) and len(a) >= 2:
+            alerts.append({"severity": str(a[0]), "message": str(a[1])})
         elif isinstance(a, dict):
-            alerts.append(a)
+            alerts.append(
+                {
+                    "severity": str(a.get("severity", "info")),
+                    "message": str(a.get("message", "")),
+                    "ts": a.get("ts"),
+                }
+            )
+            if "id" in a and a["id"] is not None:
+                sent_ids.append(int(a["id"]))
         else:
             alerts.append({"severity": "info", "message": str(a)})
+
     payload = {
         "agent_id": agent_id,
-        "nom": f"Agent {agent_id}",
+        "nom": nom,
+        "site_name": data.get("site_name"),
         "ip_local": data.get("ip_local"),
         "mask": data.get("mask"),
         "gw": data.get("gw"),
         "mac_local": data.get("mac_local"),
+        "dns": data.get("dns") or [],
+        "gw_status": data.get("gw_status"),
+        "gw_latency_ms": data.get("gw_latency_ms"),
+        "internet_status": data.get("internet_status"),
+        "wan_latency_ms": data.get("wan_latency_ms"),
         "probes": data.get("probes", []),
         "alerts": alerts,
     }
     req = urllib.request.Request(
-        f"{api_url}/data",
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
-        method="POST"
+        f"{api_url.rstrip('/')}/data",
+        data=json.dumps(payload).encode("utf-8"),
+        headers=_build_headers(api_key),
+        method="POST",
     )
     with urllib.request.urlopen(req, timeout=30) as rep:
-        return json.loads(rep.read())
+        resp = json.loads(rep.read().decode("utf-8"))
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--api", required=True, help="URL de l'API SaaS")
-    parser.add_argument("--agent", default="default", help="ID de l'agent/site")
-    parser.add_argument("--interval", type=int, default=300, help="Intervalle en secondes")
+    if sent_ids:
+        mark_alerts_synced(sent_ids)
+    return resp
+
+
+def ack_task(api_url: str, agent_id: str, task_id: int, result_msg: str, api_key: Optional[str] = None) -> None:
+    q = urllib.parse.urlencode({"result": result_msg})
+    req = urllib.request.Request(
+        f"{api_url.rstrip('/')}/tasks/{urllib.parse.quote(agent_id)}/{task_id}/ack?{q}",
+        data=b"",
+        headers=_build_headers(api_key),
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=15) as _:
+        pass
+
+
+def fetch_pending_tasks(api_url: str, agent_id: str, api_key: Optional[str] = None) -> list:
+    req = urllib.request.Request(
+        f"{api_url.rstrip('/')}/tasks/{urllib.parse.quote(agent_id)}?limit=5",
+        headers=_build_headers(api_key),
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=15) as rep:
+        rows = json.loads(rep.read().decode("utf-8"))
+        return [r for r in rows if isinstance(r, dict) and r.get("status") == "pending"]
+
+
+def execute_pending_tasks(api_url: str, agent_id: str, nom: str, tasks: list, api_key: Optional[str] = None) -> None:
+    for task in tasks:
+        t_id = task.get("id")
+        action = task.get("action", "scan")
+        print(f"[TACHE TEMPS RÉEL] Exécution lecture seule : {action} (#{t_id})")
+        if action == "sweep":
+            fresh = collect(do_sweep=True)
+            send_data(api_url, agent_id, nom, fresh, api_key=api_key)
+            ack_task(api_url, agent_id, t_id, "Balayage sous-réseau 254 IP terminé", api_key)
+        elif action == "rapport":
+            make_dashboard.build()
+            ack_task(api_url, agent_id, t_id, "Rapport local dashboard.html régénéré", api_key)
+        else:
+            fresh = collect(do_sweep=False)
+            send_data(api_url, agent_id, nom, fresh, api_key=api_key)
+            ack_task(api_url, agent_id, t_id, f"Diagnostic {action} terminé", api_key)
+
+
+def run_cycle(api_url: str, agent_id: str, nom: str, api_key: Optional[str] = None, do_sweep: bool = False) -> bool:
+    data = collect(do_sweep=do_sweep)
+    try:
+        result = send_data(api_url, agent_id, nom, data, api_key=api_key)
+        print(
+            f"[OK] Envoyé : {result.get('received', 0)} équipements, "
+            f"{result.get('alerts_recorded', 0)} nouvelles alertes"
+        )
+        execute_pending_tasks(api_url, agent_id, nom, result.get("pending_tasks", []), api_key=api_key)
+        return True
+    except Exception as e:
+        print(f"[ATTENTE] Envoi différé (API injoignable : {e}). Les alertes restent conservées localement.")
+        return False
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="DADEREZO — Client Agent SaaS Temps Réel")
+    parser.add_argument("--api", default=os.environ.get("DADEREZO_API_URL", "http://localhost:8000"), help="URL de l'API SaaS")
+    parser.add_argument("--agent", default=os.environ.get("DADEREZO_AGENT_ID", "sainte-marie-bouake"), help="ID du site / agent")
+    parser.add_argument("--nom", default=os.environ.get("DADEREZO_AGENT_NAME", ""), help="Nom lisible du site")
+    parser.add_argument("--api-key", default=os.environ.get("DADEREZO_API_KEY", ""), help="Clé API (X-API-Key)")
+    parser.add_argument("--interval", type=int, default=300, help="Intervalle entre deux collectes complètes (secondes)")
+    parser.add_argument("--task-poll", type=int, default=5, help="Écoute rapide des ordres du Superviseur (secondes)")
+    parser.add_argument("--sweep", action="store_true", help="Activer le balayage ping du sous-réseau")
+    parser.add_argument("--once", action="store_true", help="Exécuter un seul cycle puis quitter")
     args = parser.parse_args()
 
-    print(f"Agent {args.agent} -> {args.api} (intervalle: {args.interval}s)")
+    nom = args.nom or f"Site {args.agent}"
+    api_key = args.api_key or None
+    print(
+        f"DADEREZO Agent [{args.agent}] -> {args.api} "
+        f"(lecture seule, collecte={args.interval}s, écoute ordres={args.task_poll}s)"
+    )
 
-    # Register
     try:
-        req = urllib.request.Request(
-            f"{args.api}/register",
-            data=json.dumps({"agent_id": args.agent, "nom": f"Agent {args.agent}"}).encode(),
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=30) as rep:
-            print("Enregistre:", json.loads(rep.read()))
+        reg = register(args.api, args.agent, nom, api_key=api_key)
+        print("Enregistré :", reg)
     except Exception as e:
-        print("Erreur enregistrement:", e)
+        print("Avertissement enregistrement initial :", e)
 
+    if args.once:
+        run_cycle(args.api, args.agent, nom, api_key=api_key, do_sweep=args.sweep)
+        return
+
+    poll_sec = max(3, args.task_poll)
+    full_interval = max(10, args.interval)
     while True:
-        data = run_collector()
-        if data:
-            try:
-                result = send_data(args.api, args.agent, data)
-                print(f"Envoye: {result.get('received', 0)} sondes")
-            except Exception as e:
-                print(f"Erreur envoi: {e}")
-        time.sleep(args.interval)
+        run_cycle(args.api, args.agent, nom, api_key=api_key, do_sweep=args.sweep)
+        elapsed = 0
+        while elapsed < full_interval:
+            sleep_step = min(poll_sec, full_interval - elapsed)
+            time.sleep(sleep_step)
+            elapsed += sleep_step
+            if elapsed < full_interval:
+                try:
+                    pending = fetch_pending_tasks(args.api, args.agent, api_key=api_key)
+                    if pending:
+                        execute_pending_tasks(args.api, args.agent, nom, pending, api_key=api_key)
+                except Exception:
+                    pass
+
 
 if __name__ == "__main__":
     main()

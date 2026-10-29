@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-DADEREZO — Moteur Multi-Agents Autonome (Architecture inspirée AGENT Z).
+DADEREZO v4.0 — Moteur Multi-Agents Autonome & Contrôleur Actif (Architecture inspirée AGENT Z).
 
-4 Agents spécialisés coopèrent sur de vrais outils connectés à la base SQL/Supabase :
-  01 · SENTINEL-SEC  : Garde-fou Blue Team (anti-injection de prompt + charte 100 % lecture seule)
-  02 · TOPO-SCAN     : Topologie, matrice LAN vs Accès Internet & télémétrie historique
-  03 · DIAG-NET      : Corrélation de pannes (FAI vs Routeur vs Relais), sécurité MAC & ticket opérateur
-  04 · OPS-DISPATCH  : Ordonnancement sonde terrain & Validation Humaine (Human-in-the-Loop)
-
-Compatible avec synthèse LLM externe optionnelle (OpenAI / Groq / compatible OpenAI)
-tout en fonctionnant à 100 % de manière autonome, déterministe et sans hallucination hors clé externe.
+5 Agents spécialisés coopèrent sur de vrais outils connectés à Supabase PostgreSQL 17 / SQLite :
+  01 · SENTINEL-SEC  : Garde-fou Blue Team (anti-injection de prompt + contrôle d'autorisation RBAC)
+  02 · TOPO-SCAN     : Topologie, matrice LAN vs Accès Internet, politiques actives & télémétrie
+  03 · DIAG-NET      : Corrélation de pannes (FAI vs Box vs Relais), sécurité MAC & ticket opérateur
+  04 · NET-CONTROL   : Pilotage actif Internet ON/OFF (Box Principale / Sous-réseau & Zone / Appareil) & Optimisation Multi-Box
+  05 · MEDIA & OPS   : Hub de partage Fichiers/Multimédias LAN/Cloud, ordres sonde & Validation Humaine (HITL)
 """
 from datetime import datetime, timezone
 import json
@@ -18,8 +16,9 @@ import re
 import time
 import unicodedata
 import urllib.request
-from typing import Any, Callable, Dict, List, Optional
+from typing import Callable, List, Optional
 
+import net_controller
 import storage
 
 
@@ -61,14 +60,13 @@ def _call_llm_grounded(
     tool_evidence: dict,
 ) -> Optional[str]:
     system_prompt = (
-        "Tu es l'Orchestrateur Principal DADEREZO (Architecture Multi-Agents de Supervision Réseau, "
-        "100 % lecture seule). Tu t'adresses à l'Administrateur Superviseur Général en français clair, "
-        "précis et structuré.\n"
+        "Tu es l'Orchestrateur Principal DADEREZO v4.0 (Supervision & Pilotage Actif Réseau, Box et Multimédia). "
+        "Tu t'adresses au Superviseur Général en français clair, précis et structuré.\n"
         "RÈGLES STRICTES ANTI-HALLUCINATION :\n"
-        "1. Utilise EXCLUSIVEMENT les chiffres, adresses IP, adresses MAC et états présents dans `PREUVES_OUTILS`.\n"
+        "1. Utilise EXCLUSIVEMENT les chiffres, adresses IP, adresses MAC, box, médias et états présents dans `PREUVES_OUTILS`.\n"
         "2. S'il manque une donnée, dis-le explicitement — n'invente JAMAIS un chiffre ou une IP.\n"
         "3. Distingue toujours clairement la connexion au réseau local (LAN) et l'accès effectif à Internet (WAN).\n"
-        "4. Rappelle si pertinent que DADEREZO agit en lecture seule stricte."
+        "4. Si une action réseau (coupure/activation Internet ou optimisation de box) vient d'être exécutée dans `net_control_result`, confirme-la précisément."
     )
     messages = [{"role": "system", "content": system_prompt}]
     for turn in history[-4:]:
@@ -86,7 +84,7 @@ def _call_llm_grounded(
     )
 
     body = json.dumps(
-        {"model": llm_cfg["model"], "messages": messages, "temperature": 0.15, "max_tokens": 700}
+        {"model": llm_cfg["model"], "messages": messages, "temperature": 0.15, "max_tokens": 750}
     ).encode("utf-8")
     req = urllib.request.Request(
         f"{llm_cfg['base_url']}/chat/completions",
@@ -94,7 +92,7 @@ def _call_llm_grounded(
         headers={
             "Authorization": f"Bearer {llm_cfg['api_key']}",
             "Content-Type": "application/json",
-            "User-Agent": "DADEREZO-Orchestrator/3.0",
+            "User-Agent": "DADEREZO-Orchestrator/4.0",
         },
         method="POST",
     )
@@ -107,6 +105,60 @@ def _call_llm_grounded(
         return None
 
 
+def _parse_internet_command(q: str, all_devices: List[dict]) -> Optional[dict]:
+    """Détecte une demande naturelle d'activation ou de coupure d'Internet (Box / Zone & CIDR / Appareil)."""
+    off_match = re.search(
+        r"\b(coupe\w*|desactiv\w*|bloqu\w*|etein\w*|suspend\w*|isol\w*|ferme\w*)\b.*\binternet\b"
+        r"|\binternet\b.*\b(off|coupe\w*|desactiv\w*|bloqu\w*)\b",
+        q,
+    )
+    on_match = re.search(
+        r"\b(activ\w*|reactiv\w*|retabl\w*|ouvr\w*|allum\w*|autoris\w*|remet\w*)\b.*\binternet\b"
+        r"|\binternet\b.*\b(on|activ\w*|retabl\w*|autoris\w*)\b",
+        q,
+    )
+    if not off_match and not on_match:
+        return None
+
+    enable_flag = bool(on_match and not off_match)
+
+    # 1. Cible CIDR (ex: 192.168.1.128/25)
+    cidr_m = re.search(r"\b(\d{1,3}(?:\.\d{1,3}){3}/\d{1,2})\b", q)
+    if cidr_m:
+        return {"scope_type": "subnet", "target_value": cidr_m.group(1), "internet_enabled": enable_flag}
+
+    # 2. Cible IP appareil (ex: 192.168.1.25)
+    ip_m = re.search(r"\b(\d{1,3}(?:\.\d{1,3}){3})\b", q)
+    if ip_m:
+        ip_val = ip_m.group(1)
+        # Si l'utilisateur cite l'IP de la box passerelle avec "box principale", traiter comme global
+        if "box principale" in q or "routeur principal" in q or "tout le site" in q:
+            return {"scope_type": "global", "target_value": "main_box", "internet_enabled": enable_flag}
+        return {"scope_type": "device", "target_value": ip_val, "internet_enabled": enable_flag}
+
+    # 3. Cible Zone nommée
+    for z_raw, z_norm in (
+        ("Visiteurs", "visiteur"),
+        ("Communauté", "communaute"),
+        ("Administration", "administration"),
+        ("Accueil", "accueil"),
+    ):
+        if z_norm in q:
+            return {"scope_type": "zone", "target_value": z_raw, "internet_enabled": enable_flag}
+
+    # 4. Cible par nom d'appareil connu
+    for dev in all_devices:
+        dname = normalize_fr(dev.get("name") or "")
+        if dname and len(dname) >= 5 and dname in q and dev.get("type") != "gateway":
+            return {"scope_type": "device", "target_value": dev.get("ip"), "internet_enabled": enable_flag, "label": dev.get("name")}
+
+    # 5. Cible Box Principale / Générale
+    if any(w in q for w in ("box principale", "box", "general", "partout", "tout le reseau", "tout le site", "wan")):
+        return {"scope_type": "global", "target_value": "main_box", "internet_enabled": enable_flag}
+
+    return None
+
+
 def run_multi_agent_mission(
     question_raw: str,
     target_agent_id: Optional[str],
@@ -114,10 +166,12 @@ def run_multi_agent_mission(
     session_id: str,
     can_write: bool,
     fetch_dashboards_fn: Callable[[Optional[str], bool], List[dict]],
+    org_slug: str = "public-demo",
+    actor_name: str = "Superviseur Général",
     llm_api_key: Optional[str] = None,
     llm_model: Optional[str] = None,
 ) -> dict:
-    """Exécute la chaîne complète des 4 agents spécialisés avec journalisation d'audit et mémoire."""
+    """Exécute la chaîne des 5 agents spécialisés avec sécurité, contrôle actif et audit complet."""
     now_iso = datetime.now(timezone.utc).isoformat()
     sid = (session_id or "default-supervisor").strip()[:80]
     q_clean = question_raw.strip()
@@ -141,27 +195,20 @@ def run_multi_agent_mission(
         except Exception:
             pass
 
-    # Récupération de la mémoire conversationnelle de la session
     history = storage.get_session_turns(sid, limit=6)
     storage.append_session_turn(sid, now_iso, "user", q_clean, target_agent_id, {"scope": scope})
 
     # =========================================================================
-    # AGENT 01 · SENTINEL-SEC (Blue Team : Anti-Injection & Charte Lecture Seule)
+    # AGENT 01 · SENTINEL-SEC (Anti-Injection de Prompt & Garde-Fou Système)
     # =========================================================================
     t_sec = time.perf_counter()
     injection_patterns = (
         r"(ignore\s+(all\s+)?previous|oublie\s+(toutes\s+)?tes\s+(regles|consignes|instructions)|"
-        r"system\s*prompt|mode\s+developpeur|jailbreak|drop\s+table|;\s*rm\s+-rf|bypass\s+security)"
+        r"system\s*prompt|mode\s+developpeur|jailbreak|drop\s+table|;\s*rm\s+-rf|bypass\s+security|"
+        r"cat\s+/etc/passwd|dump\s+password)"
     )
-    write_patterns = (
-        r"\b(redemarr\w*|reboot\w*|bloqu\w*|banni\w*|desactiv\w*|reinitialis\w*|reset\w*|"
-        r"modifi\w*|etein\w*|ferm\w*\s+le\s+port|coup\w*\s+le\s+wifi|chang\w*\s+le\s+mot\s+de\s+passe)\b"
-    )
-
     is_injection = bool(re.search(injection_patterns, q))
-    is_write_attempt = bool(re.search(write_patterns, q))
 
-    # Résolution anticipée du périmètre pour fournir malgré tout la vérité terrain
     wants_global = (
         scope.strip().lower() == "global"
         or (target_agent_id or "").strip().lower() == "all"
@@ -175,54 +222,53 @@ def run_multi_agent_mission(
                 "vue globale",
                 "bilan global",
                 "ensemble des sites",
-                "partout",
             )
         )
     )
-    dashboards = fetch_dashboards_fn(target_agent_id, wants_global)
 
-    all_devices: List[dict] = []
-    all_alerts: List[dict] = []
-    site_names: List[str] = []
-    for d in dashboards:
-        ag = d["agent"] or {}
-        sname = d["state"].get("site_name") or ag.get("nom") or ag.get("id") or "Site"
-        site_names.append(sname)
-        for dev in d["devices"]:
-            ed = dict(dev)
-            ed["site_name"] = sname
-            ed["agent_id"] = ag.get("id", "")
-            all_devices.append(ed)
-        for al in d["alerts"]:
-            ac = dict(al)
-            ac["site_name"] = sname
-            all_alerts.append(ac)
+    def _collect_context() -> tuple:
+        dbs = fetch_dashboards_fn(target_agent_id, wants_global)
+        devs: List[dict] = []
+        als: List[dict] = []
+        snames: List[str] = []
+        for d in dbs:
+            ag = d["agent"] or {}
+            sn = d["state"].get("site_name") or ag.get("nom") or ag.get("id") or "Site"
+            snames.append(sn)
+            for dv in d["devices"]:
+                ed = dict(dv)
+                ed["site_name"] = sn
+                ed["agent_id"] = ag.get("id", "")
+                devs.append(ed)
+            for al in d["alerts"]:
+                ac = dict(al)
+                ac["site_name"] = sn
+                als.append(ac)
+        lbl = f"Tous les sites ({len(dbs)} sonde(s))" if len(dbs) > 1 else (snames[0] if snames else "Aucun site enregistré")
+        return dbs, devs, als, lbl
 
-    scope_label = (
-        f"Tous les sites ({len(dashboards)} sonde(s))"
-        if len(dashboards) > 1
-        else (site_names[0] if site_names else "Aucun site enregistré")
-    )
+    dashboards, all_devices, all_alerts, scope_label = _collect_context()
 
-    lan_up_devs = [d for d in all_devices if d.get("status") == "up"]
-    offline_devs = [d for d in all_devices if d.get("status") != "up"]
-    inet_yes_devs = [d for d in all_devices if d.get("internet_access") in ("oui", "degrade")]
-    inet_no_devs = [d for d in all_devices if d.get("internet_access") not in ("oui", "degrade")]
-    lan_only_no_inet_devs = [
-        d for d in all_devices if d.get("status") == "up" and d.get("internet_access") == "non"
-    ]
-    unknown_devs = [d for d in all_devices if "inconnu" in (d.get("name") or "").lower()]
+    def _compute_splits(devs: List[dict]):
+        lan_up = [d for d in devs if d.get("status") == "up"]
+        offline = [d for d in devs if d.get("status") != "up"]
+        inet_yes = [d for d in devs if d.get("internet_access") in ("oui", "degrade")]
+        inet_no = [d for d in devs if d.get("internet_access") not in ("oui", "degrade")]
+        lan_only = [d for d in devs if d.get("status") == "up" and d.get("internet_access") == "non"]
+        unk = [d for d in devs if "inconnu" in (d.get("name") or "").lower()]
+        m = {
+            "sites_count": len(dashboards),
+            "total_devices": len(devs),
+            "lan_connected": len(lan_up),
+            "offline": len(offline),
+            "internet_yes": len(inet_yes),
+            "internet_no": len(inet_no),
+            "lan_only_no_internet": len(lan_only),
+            "unknown_count": len(unk),
+        }
+        return lan_up, offline, inet_yes, inet_no, lan_only, unk, m
 
-    metrics = {
-        "sites_count": len(dashboards),
-        "total_devices": len(all_devices),
-        "lan_connected": len(lan_up_devs),
-        "offline": len(offline_devs),
-        "internet_yes": len(inet_yes_devs),
-        "internet_no": len(inet_no_devs),
-        "lan_only_no_internet": len(lan_only_no_inet_devs),
-        "unknown_count": len(unknown_devs),
-    }
+    lan_up_devs, offline_devs, inet_yes_devs, inet_no_devs, lan_only_no_inet_devs, unknown_devs, metrics = _compute_splits(all_devices)
 
     if is_injection:
         _trace(
@@ -231,14 +277,13 @@ def run_multi_agent_mission(
             "detect_prompt_injection",
             "BLOCKED",
             t_sec,
-            f"Tentative de contournement / injection bloquée : « {q_clean[:90]} »",
+            f"Tentative d'injection de prompt ou commande destructive bloquée : « {q_clean[:90]} »",
         )
         ans = (
-            "🛡️ [SENTINEL-SEC] Tentative d'injection de prompt ou de contournement détectée et bloquée.\n"
-            "Les politiques de sécurité DADEREZO (architecture lecture seule et isolation des outils) "
-            "sont immuables et journalisées dans l'audit."
+            "🛡️ [SENTINEL-SEC] Tentative d'injection de prompt ou commande système non autorisée détectée et bloquée.\n"
+            "Les garde-fous de sécurité DADEREZO et l'isolation multi-tenant sont immuables et journalisés."
         )
-        spoken = "Alerte sécurité Sentinel : tentative de contournement des règles bloquée et journalisée."
+        spoken = "Alerte sécurité Sentinel : tentative d'injection bloquée et journalisée."
         storage.append_session_turn(sid, now_iso, "assistant", ans, target_agent_id, {"intent": "blocage_injection"})
         return {
             "status": "ok",
@@ -257,50 +302,7 @@ def run_multi_agent_mission(
             "task_queued": None,
             "pending_approval": None,
             "agent_trace": agent_trace,
-            "security_check": {"verdict": "BLOCK_PROMPT_INJECTION", "readonly_enforced": True},
-            "refused_write_action": True,
-        }
-
-    if is_write_attempt:
-        _trace(
-            "SENTINEL-SEC",
-            "guardrail",
-            "enforce_readonly_charter",
-            "BLOCKED",
-            t_sec,
-            f"Commande d'écriture réseau refusée : « {q_clean[:90]} »",
-        )
-        ans = (
-            f"⛔ [SENTINEL-SEC] Action d'écriture refusée — Charte DADEREZO 100 % lecture seule.\n"
-            f"Sur « {scope_label} », aucun redémarrage de routeur, blocage MAC ou modification de pare-feu "
-            f"n'est exécuté à distance.\n\n"
-            f"État vérifié en direct : {len(lan_up_devs)}/{len(all_devices)} équipement(s) connecté(s) au LAN, "
-            f"dont {len(inet_yes_devs)} avec accès Internet actif et {len(inet_no_devs)} sans accès Internet."
-        )
-        spoken = (
-            f"Action refusée par Sentinel Sécurité. DADEREZO opère uniquement en lecture seule. "
-            f"Actuellement, {len(lan_up_devs)} appareils sur {len(all_devices)} sont connectés au réseau local, "
-            f"dont {len(inet_yes_devs)} avec accès Internet."
-        )
-        storage.append_session_turn(sid, now_iso, "assistant", ans, target_agent_id, {"intent": "refus_ecriture"})
-        return {
-            "status": "ok",
-            "session_id": sid,
-            "engine_mode": "sentinel_shield",
-            "intent": "refus_ecriture",
-            "scope": "global" if len(dashboards) > 1 else "site",
-            "site_label": scope_label,
-            "answer": ans,
-            "spoken_text": spoken,
-            "metrics": metrics,
-            "devices": all_devices,
-            "with_internet": inet_yes_devs,
-            "without_internet": inet_no_devs,
-            "unknown_devices": unknown_devs,
-            "task_queued": None,
-            "pending_approval": None,
-            "agent_trace": agent_trace,
-            "security_check": {"verdict": "BLOCK_READONLY_CHARTER", "readonly_enforced": True},
+            "security_check": {"verdict": "BLOCK_PROMPT_INJECTION", "authorized": False},
             "refused_write_action": True,
         }
 
@@ -310,13 +312,13 @@ def run_multi_agent_mission(
         "verify_security_policy",
         "ALLOW",
         t_sec,
-        "Requête conforme à la charte lecture seule et sans injection.",
+        f"Requête validée (isolation tenant={org_slug}, droits_actifs={can_write}).",
     )
 
     if not dashboards:
         msg = (
-            "Aucune sonde réseau n'est enregistrée pour le moment. "
-            "Lancez `agent_client.py` sur un PC du réseau local ou activez un scénario de test."
+            "Aucune sonde réseau n'est enregistrée dans cet espace. "
+            "Lancez `agent_client.py` avec votre clé privée organisation ou ouvrez le banc de démonstration."
         )
         return {
             "status": "ok",
@@ -335,26 +337,144 @@ def run_multi_agent_mission(
             "task_queued": None,
             "pending_approval": None,
             "agent_trace": agent_trace,
-            "security_check": {"verdict": "ALLOW", "readonly_enforced": True},
+            "security_check": {"verdict": "ALLOW", "authorized": can_write},
             "refused_write_action": False,
         }
 
+    primary_aid = (dashboards[0]["agent"] or {}).get("id", "")
+
     # =========================================================================
-    # AGENT 02 · TOPO-SCAN (Inventaire LAN/WAN, Zones & Historique Latence)
+    # AGENT 04 · NET-CONTROL (Pilotage Actif Internet ON/OFF & Optimisation Box)
+    # =========================================================================
+    net_control_result: Optional[dict] = None
+    task_queued: Optional[dict] = None
+    pending_approval: Optional[dict] = None
+
+    inet_cmd = _parse_internet_command(q, all_devices)
+    wants_box_optimize = any(
+        kw in q
+        for kw in (
+            "optimis",
+            "configur",
+            "canaux wifi",
+            "canal wifi",
+            "qos",
+            "regle les box",
+            "regler les box",
+            "ameliorer la connexion",
+        )
+    ) and any(kw in q for kw in ("box", "routeur", "wifi", "relais", "reseau", "internet", "dns", "qos"))
+
+    wants_box_reboot = bool(re.search(r"\b(redemarr\w*|reboot\w*)\b.*\b(box|routeur|modem|passerelle)\b", q))
+
+    if inet_cmd and primary_aid:
+        t_nc = time.perf_counter()
+        if not can_write:
+            _trace("NET-CONTROL", "active_control", "apply_internet_policy", "AUTH_REQUIRED", t_nc, "Droits administrateur requis.")
+            net_control_result = {"status": "auth_required", "message": "Authentification requise pour modifier l'accès Internet."}
+        else:
+            st_lbl = "ACTIVÉ" if inet_cmd["internet_enabled"] else "COUPÉ"
+            scope_t = inet_cmd["scope_type"]
+            target_v = inet_cmd["target_value"]
+            reason_txt = (
+                f"Internet {st_lbl.lower()} par {actor_name} via Orchestrateur IA ({scope_t}:{target_v})"
+            )
+            storage.upsert_internet_policy(
+                agent_id=primary_aid,
+                scope_type=scope_t,
+                target_value=target_v,
+                internet_enabled=inet_cmd["internet_enabled"],
+                reason=reason_txt,
+                updated_by=actor_name,
+                now_iso=now_iso,
+            )
+            cmds = net_controller.generate_router_commands("apply_internet_policy", inet_cmd)
+            storage.create_task_row(primary_aid, "apply_internet_policy", now_iso, payload=inet_cmd)
+            task_queued = {"action": "apply_internet_policy", "targets": [primary_aid], "status": "queued", "commands": cmds}
+            net_control_result = {
+                "status": "applied",
+                "type": "internet_policy",
+                "scope_type": scope_t,
+                "target_value": target_v,
+                "internet_enabled": inet_cmd["internet_enabled"],
+                "commands": cmds,
+            }
+            _trace(
+                "NET-CONTROL",
+                "active_control",
+                "apply_internet_policy",
+                "APPLIED",
+                t_nc,
+                f"Internet {st_lbl} sur {scope_t}={target_v} ({primary_aid})",
+            )
+            # Rafraîchir immédiatement les états calculés des appareils
+            dashboards, all_devices, all_alerts, scope_label = _collect_context()
+            lan_up_devs, offline_devs, inet_yes_devs, inet_no_devs, lan_only_no_inet_devs, unknown_devs, metrics = _compute_splits(all_devices)
+
+    elif wants_box_optimize and primary_aid:
+        t_nc = time.perf_counter()
+        if not can_write:
+            _trace("NET-CONTROL", "active_control", "optimize_all_boxes", "AUTH_REQUIRED", t_nc, "Droits administrateur requis.")
+            net_control_result = {"status": "auth_required", "message": "Authentification requise pour optimiser les box."}
+        else:
+            existing_boxes = storage.list_box_configs(primary_aid)
+            discovered = net_controller.discover_boxes_from_devices(primary_aid, dashboards[0]["devices"], existing_boxes)
+            opt_boxes, summary_lines = net_controller.compute_optimal_box_plan(
+                discovered, dashboards[0]["devices"], dashboards[0]["state"], now_iso
+            )
+            for b in opt_boxes:
+                storage.upsert_box_config(primary_aid, b)
+                storage.create_task_row(primary_aid, "optimize_box", now_iso, payload=b)
+            task_queued = {"action": "optimize_box", "targets": [primary_aid], "status": "queued"}
+            net_control_result = {
+                "status": "applied",
+                "type": "box_optimization",
+                "boxes_count": len(opt_boxes),
+                "summary": summary_lines,
+            }
+            _trace(
+                "NET-CONTROL",
+                "active_control",
+                "optimize_all_boxes",
+                "APPLIED",
+                t_nc,
+                f"{len(opt_boxes)} box/relais optimisés (canaux Wi-Fi sans collision, DNS 1.1.1.1/9.9.9.9, QoS actif).",
+            )
+
+    elif wants_box_reboot and primary_aid:
+        t_nc = time.perf_counter()
+        pending_approval = storage.create_human_approval(
+            ts=now_iso,
+            session_id=sid,
+            agent_id=primary_aid,
+            action="reboot_box",
+            reason=f"Redémarrage physique de la Box Principale sur « {scope_label} » (coupure temporaire de 60s).",
+        )
+        _trace(
+            "NET-CONTROL",
+            "human_in_the_loop",
+            "request_box_reboot_approval",
+            "PENDING_APPROVAL",
+            t_nc,
+            f"Validation humaine #{pending_approval.get('id')} requise avant redémarrage physique de la box.",
+        )
+
+    # =========================================================================
+    # AGENT 02 · TOPO-SCAN (Inventaire LAN/WAN, Politiques & Historique Latence)
     # =========================================================================
     t_topo = time.perf_counter()
     zone_filter = None
-    for z_candidate in ("communaute", "administration", "accueil", "visiteurs", "coeur", "supervision", "acces fai"):
-        if z_candidate in q:
-            zone_filter = z_candidate
-            break
+    if not inet_cmd:
+        for z_candidate in ("communaute", "administration", "accueil", "visiteurs", "coeur", "supervision", "acces fai"):
+            if z_candidate in q:
+                zone_filter = z_candidate
+                break
 
     scoped_devices = all_devices
     if zone_filter:
-        scoped_devices = [
-            d for d in all_devices if zone_filter in normalize_fr(d.get("zone") or "")
-        ]
+        scoped_devices = [d for d in all_devices if zone_filter in normalize_fr(d.get("zone") or "")]
 
+    active_policies = storage.list_internet_policies(primary_aid) if primary_aid else []
     _trace(
         "TOPO-SCAN",
         "tool_call",
@@ -362,15 +482,13 @@ def run_multi_agent_mission(
         "OK",
         t_topo,
         (
-            f"Périmètre={scope_label} | Total={len(all_devices)} | LAN_UP={len(lan_up_devs)} | "
-            f"WAN_OUI={len(inet_yes_devs)} | WAN_NON={len(inet_no_devs)}"
-            + (f" | Filtre zone={zone_filter} ({len(scoped_devices)} poste(s))" if zone_filter else "")
+            f"Site={scope_label} | LAN={len(lan_up_devs)}/{len(all_devices)} | "
+            f"Internet_ON={len(inet_yes_devs)} | Internet_OFF={len(inet_no_devs)} | "
+            f"Politiques_actives={len(active_policies)}"
         ),
     )
 
-    # Analyse de l'historique réel de latence (`probes`)
     t_hist = time.perf_counter()
-    primary_aid = (dashboards[0]["agent"] or {}).get("id", "")
     probe_samples = storage.get_probes_raw(primary_aid, limit=60) if primary_aid else []
     latencies = [float(p["latency_ms"]) for p in probe_samples if p.get("latency_ms") is not None]
     latency_stats = {
@@ -385,11 +503,11 @@ def run_multi_agent_mission(
         "analyze_probe_history",
         "OK",
         t_hist,
-        f"{latency_stats['samples']} mesures analysées (moy={latency_stats['avg_ms']} ms, max={latency_stats['max_ms']} ms)",
+        f"{latency_stats['samples']} mesures analysées (moy={latency_stats['avg_ms']} ms)",
     )
 
     # =========================================================================
-    # AGENT 03 · DIAG-NET (Corrélation WAN/LAN, Intrus MAC & Ticket Opérateur)
+    # AGENT 03 · DIAG-NET (Corrélation WAN/LAN, Box & Ticket Opérateur)
     # =========================================================================
     t_diag = time.perf_counter()
     diagnostics_per_site: List[str] = []
@@ -403,13 +521,17 @@ def run_multi_agent_mission(
         wan_lat = st.get("wan_latency_ms")
         site_down = [x for x in d["devices"] if x.get("status") != "up"]
 
-        if gw_st == "up" and inet_st == "down":
+        if st.get("main_box_internet_cut") == "true":
+            diagnostics_per_site.append(
+                f"{sname} : Internet coupé volontairement sur la Box Principale par le Superviseur (le réseau local LAN reste 100 % actif)."
+            )
+        elif gw_st == "up" and inet_st == "down":
             diagnostics_per_site.append(
                 f"{sname} : Passerelle locale ({gw}) active ({gw_lat or '?'} ms) mais sortie Internet coupée -> Panne opérateur FAI en amont confirmée."
             )
         elif gw_st == "down":
             diagnostics_per_site.append(
-                f"{sname} : Passerelle principale ({gw}) hors ligne -> Vérifier alimentation/câblage du routeur cœur."
+                f"{sname} : Box Principale ({gw}) hors ligne -> Vérifier alimentation/câblage du routeur cœur."
             )
         elif site_down:
             names_down = ", ".join(f"{x.get('name') or x.get('ip')}" for x in site_down[:4])
@@ -418,7 +540,7 @@ def run_multi_agent_mission(
             )
         else:
             diagnostics_per_site.append(
-                f"{sname} : Nominal — Passerelle {gw} ({gw_lat or '1.2'} ms) et sortie FAI ({wan_lat or '32'} ms) opérationnelles."
+                f"{sname} : Nominal — Box {gw} ({gw_lat or '1.2'} ms) et sortie FAI ({wan_lat or '32'} ms) opérationnelles."
             )
 
     _trace(
@@ -438,25 +560,38 @@ def run_multi_agent_mission(
         t_tkt = time.perf_counter()
         d0 = dashboards[0]
         st0 = d0["state"]
-        sname0 = st0.get("site_name") or "Communauté Sainte Marie de Bouaké"
+        sname0 = st0.get("site_name") or scope_label
         operator_ticket_text = (
             f"📋 TICKET TECHNIQUE PRÊT À TRANSMETTRE :\n"
             f"• Site : {sname0}\n"
             f"• Horodatage UTC : {now_iso[:19].replace('T', ' ')}\n"
             f"• État liaison Internet (WAN) : {(st0.get('internet_status') or 'inconnu').upper()}"
-            f"{' (' + str(st0.get('wan_latency_ms')) + ' ms)' if st0.get('wan_latency_ms') else ' (Aucune réponse ICMP/DNS 1.1.1.1 & 8.8.8.8)'}\n"
-            f"• Passerelle LAN ({st0.get('gw') or 'n/d'}) : {(st0.get('gw_status') or 'inconnu').upper()} ({st0.get('gw_latency_ms') or '—'} ms)\n"
+            f"{' (' + str(st0.get('wan_latency_ms')) + ' ms)' if st0.get('wan_latency_ms') else ' (Aucune réponse ICMP/DNS)'}\n"
+            f"• Box Principale ({st0.get('gw') or 'n/d'}) : {(st0.get('gw_status') or 'inconnu').upper()} ({st0.get('gw_latency_ms') or '—'} ms)\n"
             f"• Impact constaté : {len(lan_up_devs)}/{len(all_devices)} équipements connectés au LAN, "
-            f"{len(inet_yes_devs)} avec accès Internet, {len(inet_no_devs)} privés d'accès Internet.\n"
+            f"{len(inet_yes_devs)} avec accès Internet, {len(inet_no_devs)} sans Internet.\n"
             f"• Conclusion sonde DADEREZO : {diagnostics_per_site[0]}"
         )
         _trace("DIAG-NET", "tool_call", "draft_operator_ticket", "OK", t_tkt, "Ticket technique opérateur généré.")
 
     # =========================================================================
-    # AGENT 04 · OPS-DISPATCH (Exécution Terrain & Validation Humaine HITL)
+    # AGENT 05 · MEDIA-HUB & OPS-DISPATCH (Fichiers Multimédias, Scan & HITL)
     # =========================================================================
-    task_queued = None
-    pending_approval = None
+    media_items = storage.list_shared_media(primary_aid, org_slug=org_slug, limit=20) if primary_aid else []
+    asks_media = any(w in q for w in ("fichier", "multimedia", "media", "video", "audio", "image", "document", "partag"))
+    if asks_media and primary_aid:
+        t_med = time.perf_counter()
+        if "synchronis" in q and can_write:
+            storage.create_task_row(primary_aid, "sync_media", now_iso, payload={"org_slug": org_slug})
+            task_queued = {"action": "sync_media", "targets": [primary_aid], "status": "queued"}
+        _trace(
+            "MEDIA-HUB",
+            "tool_call",
+            "inspect_shared_media",
+            "OK",
+            t_med,
+            f"{len(media_items)} fichier(s) / contenu(s) multimédia disponible(s) sur l'espace {org_slug}.",
+        )
 
     wants_deep_sweep = any(
         w in q
@@ -485,56 +620,42 @@ def run_multi_agent_mission(
         "produis un rapport",
     )
 
-    if wants_deep_sweep:
-        t_ops = time.perf_counter()
-        aid = (dashboards[0]["agent"] or {}).get("id", "sainte-marie-bouake")
-        pending_approval = storage.create_human_approval(
-            ts=now_iso,
-            session_id=sid,
-            agent_id=aid,
-            action="sweep",
-            reason=f"Balayage ICMP actif des 254 adresses du sous-réseau sur « {scope_label} » demandé par le Superviseur Général.",
-        )
-        _trace(
-            "OPS-DISPATCH",
-            "human_in_the_loop",
-            "request_human_approval",
-            "PENDING_APPROVAL",
-            t_ops,
-            f"Approbation humaine #{pending_approval.get('id')} requise avant balayage complet 254 IP ({aid}).",
-        )
-    elif any(t in q for t in task_triggers):
-        t_ops = time.perf_counter()
-        action = "rapport" if "rapport" in q else ("diagnostic" if "diagnostic" in q else "scan")
-        if can_write:
-            queued_targets = []
-            for d in dashboards:
-                aid = (d["agent"] or {}).get("id")
-                if aid:
-                    storage.create_task_row(aid, action, now_iso)
-                    queued_targets.append(aid)
-            task_queued = {"action": action, "targets": queued_targets, "status": "queued"}
+    if not net_control_result and not pending_approval:
+        if wants_deep_sweep:
+            t_ops = time.perf_counter()
+            pending_approval = storage.create_human_approval(
+                ts=now_iso,
+                session_id=sid,
+                agent_id=primary_aid,
+                action="sweep",
+                reason=f"Balayage ICMP actif des 254 adresses du sous-réseau sur « {scope_label} ».",
+            )
             _trace(
                 "OPS-DISPATCH",
-                "tool_call",
-                "dispatch_readonly_probe_task",
-                "QUEUED",
+                "human_in_the_loop",
+                "request_human_approval",
+                "PENDING_APPROVAL",
                 t_ops,
-                f"Tâche « {action} » envoyée à {', '.join(queued_targets)}.",
+                f"Approbation humaine #{pending_approval.get('id')} requise avant balayage 254 IP.",
             )
-        else:
-            task_queued = {"action": action, "targets": [], "status": "auth_required"}
-            _trace(
-                "OPS-DISPATCH",
-                "tool_call",
-                "dispatch_readonly_probe_task",
-                "AUTH_REQUIRED",
-                t_ops,
-                "Clé X-API-Key requise pour créer une tâche distante.",
-            )
+        elif any(t in q for t in task_triggers):
+            t_ops = time.perf_counter()
+            action = "rapport" if "rapport" in q else ("diagnostic" if "diagnostic" in q else "scan")
+            if can_write:
+                queued_targets = []
+                for d in dashboards:
+                    aid = (d["agent"] or {}).get("id")
+                    if aid:
+                        storage.create_task_row(aid, action, now_iso)
+                        queued_targets.append(aid)
+                task_queued = {"action": action, "targets": queued_targets, "status": "queued"}
+                _trace("OPS-DISPATCH", "tool_call", "dispatch_probe_task", "QUEUED", t_ops, f"Tâche « {action} » envoyée.")
+            else:
+                task_queued = {"action": action, "targets": [], "status": "auth_required"}
+                _trace("OPS-DISPATCH", "tool_call", "dispatch_probe_task", "AUTH_REQUIRED", t_ops, "Authentification requise.")
 
     # =========================================================================
-    # SYNTHÈSE FINALE (LLM Externe Ancré si clé active, sinon Synthèse Multi-Agents)
+    # SYNTHÈSE FINALE CLAIRE & STRUCTURÉE
     # =========================================================================
     def _fmt_devs(devs: List[dict], with_reason: bool = False) -> str:
         if not devs:
@@ -553,42 +674,78 @@ def run_multi_agent_mission(
             out.append(f"• … et {len(devs) - 10} autre(s)")
         return "\n".join(out)
 
-    asks_intrus = any(w in q for w in ("intrus", "inconnu", "suspect", "autoris", "mac", "visiteur", "securite"))
-    asks_alerts = any(w in q for w in ("alerte", "incident", "historique", "journal", "evenement"))
-    asks_outage = any(
-        w in q for w in ("panne", "coupure", "fai", "passerelle", "routeur", "relais", "latence", "lent", "pourquoi")
-    )
-
     intent = "bilan_superviseur"
     lines: List[str] = []
     spoken_parts: List[str] = []
 
+    if net_control_result:
+        if net_control_result.get("status") == "auth_required":
+            intent = "auth_requise"
+            lines.append(f"🔒 {net_control_result['message']}")
+            spoken_parts.append(net_control_result["message"])
+        elif net_control_result.get("type") == "internet_policy":
+            intent = "controle_internet_actif"
+            st_word = "ACTIVÉ ✅" if net_control_result["internet_enabled"] else "COUPÉ ⛔"
+            scope_map = {"global": "Box Principale (tout le site)", "zone": "Zone", "subnet": "Sous-réseau CIDR", "device": "Appareil"}
+            sc_lbl = scope_map.get(net_control_result["scope_type"], net_control_result["scope_type"])
+            lines.append(
+                f"⚡ [NET-CONTROL] Accès Internet {st_word} — {sc_lbl} « {net_control_result['target_value']} ».\n"
+                f"• Le réseau local (LAN & partage multimédia interne) reste pleinement opérationnel.\n"
+                f"• Nouvel état immédiat : {len(inet_yes_devs)} appareil(s) avec Internet actif · {len(inet_no_devs)} sans Internet."
+            )
+            spoken_parts.append(
+                f"Exécuté : l'accès Internet est désormais {'activé' if net_control_result['internet_enabled'] else 'coupé'} "
+                f"pour {sc_lbl} {net_control_result['target_value']}. "
+                f"{len(inet_yes_devs)} appareils ont actuellement accès à Internet."
+            )
+        elif net_control_result.get("type") == "box_optimization":
+            intent = "optimisation_box"
+            lines.append(
+                f"🚀 [NET-CONTROL] Optimisation coordonnée appliquée sur {net_control_result['boxes_count']} Box / Relais Wi-Fi :\n"
+                + "\n".join(f"• {s}" for s in net_control_result["summary"])
+            )
+            spoken_parts.append(
+                f"Optimisation terminée sur {net_control_result['boxes_count']} box et relais Wi-Fi : canaux sans interférence, DNS rapides et priorité QoS activés."
+            )
+
     if pending_approval:
         intent = "validation_humaine_requise"
         lines.append(
-            f"🟡 [OPS-DISPATCH · Validation Humaine Requise] Demande #{pending_approval.get('id')} en attente :\n"
-            f"Le balayage actif des 254 adresses IP (`sweep`) génère du trafic ICMP sur tout le sous-réseau. "
-            f"Cliquez sur « ✓ Valider l'exécution » ci-dessous pour autoriser la sonde."
+            f"🟡 [Validation Humaine Requise] Demande #{pending_approval.get('id')} (`{pending_approval.get('action')}`) :\n"
+            f"{pending_approval.get('reason')}\n"
+            f"Cliquez sur « ✓ Valider l'exécution » ci-dessous pour confirmer."
         )
-        spoken_parts.append(
-            "Validation humaine requise : veuillez confirmer le balayage complet du sous-réseau en cliquant sur Valider."
-        )
-    elif task_queued:
+        spoken_parts.append("Validation humaine requise : veuillez confirmer l'opération sensible en cliquant sur Valider.")
+    elif task_queued and not net_control_result:
         intent = f"tache_{task_queued['action']}"
         if task_queued["status"] == "queued":
             lines.append(
-                f"✅ [OPS-DISPATCH] Ordre lecture seule « {task_queued['action']} » transmis à : {', '.join(task_queued['targets'])}."
+                f"✅ [OPS-DISPATCH] Ordre « {task_queued['action']} » transmis à : {', '.join(task_queued['targets'])}."
             )
-            spoken_parts.append(f"Ordre {task_queued['action']} transmis en lecture seule à la sonde.")
+            spoken_parts.append(f"Ordre {task_queued['action']} transmis à la sonde.")
+
+    if asks_media:
+        intent = "partage_multimedia"
+        if media_items:
+            m_lines = [
+                f"• [{m.get('category', 'fichier').upper()}] {m.get('title')} ({m.get('filename')}, Zone: {m.get('target_zone')})"
+                for m in media_items[:8]
+            ]
+            lines.append(f"📁 Hub de Partage Fichiers & Multimédias ({len(media_items)} élément(s)) :\n" + "\n".join(m_lines))
+            spoken_parts.append(f"Le hub multimédia contient {len(media_items)} fichiers partagés sur le réseau.")
         else:
-            lines.append("🔒 Clé X-API-Key requise pour programmer une tâche distante.")
+            lines.append(
+                "📁 Hub de Partage Fichiers & Multimédias : aucun fichier partagé pour l'instant. "
+                "Ouvrez l'onglet « Fichiers & Multimédias » pour publier un document, une image, un audio ou une vidéo sur le réseau."
+            )
+            spoken_parts.append("Aucun fichier multimédia n'est encore partagé. Vous pouvez en déposer depuis l'onglet Fichiers et Multimédias.")
 
     if operator_ticket_text:
         intent = "ticket_operateur"
         lines.append(operator_ticket_text)
-        spoken_parts.append("J'ai rédigé le ticket technique complet avec les mesures exactes pour votre opérateur.")
+        spoken_parts.append("J'ai rédigé le ticket technique complet pour votre opérateur.")
 
-    if zone_filter:
+    if zone_filter and not net_control_result:
         intent = "filtre_zone"
         z_up = [x for x in scoped_devices if x.get("status") == "up"]
         z_inet = [x for x in scoped_devices if x.get("internet_access") in ("oui", "degrade")]
@@ -598,10 +755,9 @@ def run_multi_agent_mission(
             + _fmt_devs(scoped_devices, with_reason=True)
         )
         spoken_parts.append(
-            f"Dans la zone {zone_filter}, {len(z_up)} équipements sur {len(scoped_devices)} sont connectés au réseau local, "
-            f"et {len(z_inet)} ont accès à Internet."
+            f"Dans la zone {zone_filter}, {len(z_up)} appareils sur {len(scoped_devices)} sont sur le réseau local et {len(z_inet)} ont Internet."
         )
-    elif not operator_ticket_text:
+    elif not operator_ticket_text and not asks_media and not (net_control_result and net_control_result.get("type") == "box_optimization"):
         if intent == "bilan_superviseur":
             intent = "inventaire_internet"
         lines.append(f"📊 Synthèse Orchestrateur DADEREZO — {scope_label} :")
@@ -611,58 +767,33 @@ def run_multi_agent_mission(
             + (f" ({len(offline_devs)} hors ligne)" if offline_devs else " (100 % actifs)")
         )
         lines.append(f"• Ayant accès à Internet (WAN actif) : {len(inet_yes_devs)} appareil(s)")
-        if lan_only_no_inet_devs and offline_devs:
-            lines.append(
-                f"• Sans accès à Internet : {len(inet_no_devs)} appareil(s) "
-                f"(dont {len(lan_only_no_inet_devs)} connecté(s) au LAN mais privé(s) d'Internet, et {len(offline_devs)} hors ligne)"
-            )
-        elif lan_only_no_inet_devs:
-            lines.append(
-                f"• Sans accès à Internet : {len(inet_no_devs)} appareil(s) (connecté(s) au LAN uniquement, sans sortie WAN)"
-            )
-        elif offline_devs:
-            lines.append(f"• Sans accès à Internet : {len(inet_no_devs)} appareil(s) (hors ligne sur le LAN)")
-        else:
-            lines.append("• Sans accès à Internet : 0 appareil (tous les postes disposent d'Internet)")
-
-        if latency_stats["avg_ms"] is not None:
-            lines.append(
-                f"• Télémétrie latence LAN ({latency_stats['samples']} mesures) : moy. {latency_stats['avg_ms']} ms · max {latency_stats['max_ms']} ms"
-            )
-
+        lines.append(f"• Sans accès à Internet : {len(inet_no_devs)} appareil(s)")
         lines.append(f"\n✅ Avec accès Internet ({len(inet_yes_devs)}) :\n{_fmt_devs(inet_yes_devs)}")
         if inet_no_devs:
             lines.append(f"\n⚠️ Sans accès Internet ({len(inet_no_devs)}) :\n{_fmt_devs(inet_no_devs, with_reason=True)}")
 
-        spoken_parts.append(
-            f"Sur {scope_label}, {len(lan_up_devs)} appareils sur {len(all_devices)} sont connectés au réseau local, "
-            f"dont {len(inet_yes_devs)} ont accès à Internet et {len(inet_no_devs)} n'ont pas accès à Internet."
-        )
+        if not spoken_parts:
+            spoken_parts.append(
+                f"Sur {scope_label}, {len(lan_up_devs)} appareils sur {len(all_devices)} sont connectés au réseau local, "
+                f"dont {len(inet_yes_devs)} ont accès à Internet et {len(inet_no_devs)} sont sans Internet."
+            )
+
+    asks_intrus = any(w in q for w in ("intrus", "inconnu", "suspect", "mac", "securite"))
+    asks_outage = any(w in q for w in ("panne", "coupure", "fai", "passerelle", "latence", "lent", "pourquoi"))
 
     if asks_outage:
-        if intent in ("bilan_superviseur", "inventaire_internet"):
-            intent = "diagnostic_panne"
         lines.append("\n🩺 Corrélation DIAG-NET :\n" + "\n".join(f"• {d}" for d in diagnostics_per_site))
 
     if asks_intrus:
-        if intent in ("bilan_superviseur", "inventaire_internet"):
-            intent = "securite_intrus"
         if unknown_devs:
             u_str = ", ".join(f"{u.get('ip')} (MAC {u.get('mac') or 'n/d'})" for u in unknown_devs)
             lines.append(f"\n🕵️ Alerte MAC non répertoriée ({len(unknown_devs)}) : {u_str}")
-            spoken_parts.append(f"Attention : {len(unknown_devs)} appareil inconnu détecté à l'adresse {unknown_devs[0].get('ip')}.")
         else:
             lines.append("\n🛡️ Sécurité MAC : 100 % des équipements actifs sont reconnus.")
-
-    if asks_alerts:
-        if all_alerts:
-            top_a = "\n".join(f"• [{(a.get('severity') or 'info').upper()}] {a.get('message')}" for a in all_alerts[:5])
-            lines.append(f"\n🔔 Journal d'incidents ({len(all_alerts)}) :\n{top_a}")
 
     deterministic_answer = "\n".join(lines).strip()
     spoken_summary = " ".join(spoken_parts).strip()
 
-    # Synthèse LLM externe ancrée si une clé LLM est fournie
     engine_mode = "multi_agent_autonomous"
     llm_cfg = _detect_llm_config(llm_api_key, llm_model)
     if llm_cfg:
@@ -670,33 +801,21 @@ def run_multi_agent_mission(
         evidence = {
             "scope_label": scope_label,
             "metrics": metrics,
-            "latency_stats": latency_stats,
+            "net_control_result": net_control_result,
+            "active_internet_policies": active_policies,
+            "shared_media_count": len(media_items),
             "diagnostics": diagnostics_per_site,
-            "devices_with_internet": [
-                {"name": d.get("name"), "ip": d.get("ip"), "mac": d.get("mac"), "zone": d.get("zone")}
-                for d in inet_yes_devs
-            ],
+            "devices_with_internet": [{"name": d.get("name"), "ip": d.get("ip"), "zone": d.get("zone")} for d in inet_yes_devs],
             "devices_without_internet": [
-                {
-                    "name": d.get("name"),
-                    "ip": d.get("ip"),
-                    "mac": d.get("mac"),
-                    "lan_status": d.get("status"),
-                    "reason": d.get("internet_reason"),
-                }
+                {"name": d.get("name"), "ip": d.get("ip"), "lan_status": d.get("status"), "reason": d.get("internet_reason")}
                 for d in inet_no_devs
             ],
-            "recent_alerts": all_alerts[:6],
-            "task_queued": task_queued,
-            "pending_approval": pending_approval,
         }
         llm_reply = _call_llm_grounded(llm_cfg, q_clean, history, evidence)
         if llm_reply:
             deterministic_answer = llm_reply
             engine_mode = f"multi_agent_llm ({llm_cfg['model']})"
-            _trace("ORCHESTRATOR-Z", "llm_synthesis", llm_cfg["model"], "OK", t_llm, "Synthèse générative ancrée sur preuves outils.")
-        else:
-            _trace("ORCHESTRATOR-Z", "llm_synthesis", llm_cfg["model"], "FALLBACK", t_llm, "Repli sur synthèse multi-agents déterministe.")
+            _trace("ORCHESTRATOR-Z", "llm_synthesis", llm_cfg["model"], "OK", t_llm, "Synthèse générative ancrée.")
 
     storage.append_session_turn(
         sid,
@@ -722,9 +841,11 @@ def run_multi_agent_mission(
         "with_internet": inet_yes_devs,
         "without_internet": inet_no_devs,
         "unknown_devices": unknown_devs,
+        "net_control_result": net_control_result,
+        "shared_media": media_items[:10],
         "task_queued": task_queued,
         "pending_approval": pending_approval,
         "agent_trace": agent_trace,
-        "security_check": {"verdict": "ALLOW", "readonly_enforced": True},
+        "security_check": {"verdict": "ALLOW", "authorized": can_write, "org_slug": org_slug},
         "refused_write_action": False,
     }

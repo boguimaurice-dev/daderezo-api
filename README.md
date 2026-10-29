@@ -1,107 +1,67 @@
-# DADEREZO v3.0 — Système Multi-Agents de Supervision Réseau (100 % Lecture Seule)
+# DADEREZO v4.0 — Plateforme SaaS Multi-Agents de Supervision, Pilotage Actif Réseau, Optimisation Multi-Box & Partage Multimédia
 
-**DADEREZO** est un système autonome multi-agents de supervision réseau conçu pour la **Communauté Sainte Marie de Bouaké** (ainsi que pour les écoles, associations et structures multi-sites).
+**DADEREZO** est une plateforme SaaS multi-agents conçue pour superviser, optimiser et piloter les réseaux locaux (**écoles, communautés, centres de santé, PME multi-sites**).
 
-Il orchestre **4 agents spécialisés** (`SENTINEL-SEC`, `TOPO-SCAN`, `DIAG-NET`, `OPS-DISPATCH`) connectés à une persistance permanente **Supabase PostgreSQL 17** (ou PostgreSQL / SQLite), pilote une console **vocale & écrite** pour l'Administrateur Superviseur Général, et opère **strictement en lecture seule** avec anti-injection de prompt et validation humaine (*Human-in-the-Loop*).
+La version **v4.0** réunit **5 agents spécialisés** (`SENTINEL-SEC`, `TOPO-SCAN`, `DIAG-NET`, `NET-CONTROL`, `MEDIA-HUB`) connectés à **Supabase PostgreSQL 17 + Supabase Storage** (ou PostgreSQL / SQLite), avec :
+1. **Contrôle granulaire Internet ON / OFF à 3 niveaux** :
+   - **Niveau 1 — Box Principale (`global`)** : couper ou rétablir l'accès Internet WAN de tout le site tout en conservant le réseau local (LAN, imprimantes, partage interne) 100 % actif.
+   - **Niveau 2 — Sous-réseau CIDR ou Zone (`subnet` / `zone`)** : isoler ou ouvrir Internet pour une zone entière (`Visiteurs`, `Communauté`, `Administration`, `Accueil`) ou un sous-réseau (`192.168.8.0/24`).
+   - **Niveau 3 — Appareil précis (`device`)** : interrupteur ON/OFF en 1 clic ou par commande vocale/écrite sur n'importe quel poste (IP ou MAC).
+2. **Configuration & Optimisation Automatique Multi-Box** :
+   - Planification coordonnée des canaux Wi-Fi sans interférence (`1 / 6 / 11` en 2.4 GHz, `36 / 44 / 149` en 5 GHz), DNS rapides (`1.1.1.1` / `9.9.9.9`), QoS Anti-Bufferbloat et MTU optimal (`1492` Fibre / `1420` 4G-5G LTE).
+   - Génération de commandes multi-pilotes (`Huawei HiLink`, `MikroTik RouterOS`, `OpenWrt UCI`, `Linux nftables/iptables`, `Windows Firewall`).
+3. **Partage de Fichiers & Données Multimédias (Cloud + LAN Local)** :
+   - Dépôt, prévisualisation intégrée (`<img>`, `<audio>`, `<video>`) et téléchargement de documents, images, sons et vidéos par zone.
+   - Serveur HTTP Multimédia LAN intégré (`--media-port 8090`) accessible sur le Wi-Fi/Ethernet local **même lorsque Internet est coupé**.
+4. **Isolation SaaS Multi-Tenant Privée (`🔐 Espace Privé`)** :
+   - Les visiteurs publics n'accèdent qu'au banc de simulation isolé (`simulation-bouake`).
+   - Chaque organisation crée son espace privé (`/auth/signup`) et reçoit une clé sonde dédiée (`dzk_...`) garantissant que ses équipements, ses box et ses fichiers restent strictement privés.
 
 ---
 
-## Architecture Multi-Agents
+## Architecture Multi-Agents v4.0
 
 ```text
-[Réseau local / PC Bouaké]                             [Cloud Vercel + Supabase PostgreSQL 17]
-  devices.json + collector.py
+[Réseau local Client + Box]                           [Cloud Vercel + Supabase PG17 + Storage]
+  devices.json + collector.py + net_controller.py
         │
-        └──► agent_client.py (--task-poll 5s) ──► api.py ──► storage.py (Supabase / PG / SQLite)
-                                                    │
-                                                    └──► agent_engine.py (4 Agents + Audit + HITL)
-                                                            ├── 01 SENTINEL-SEC (Anti-injection & Lecture seule)
-                                                            ├── 02 TOPO-SCAN    (Matrice LAN vs Internet & Latence)
-                                                            ├── 03 DIAG-NET     (Corrélation FAI & Ticket Opérateur)
-                                                            └── 04 OPS-DISPATCH (Ordres sonde & Validation humaine)
+        └──► agent_client.py (--task-poll 5 --media-port 8090)
+                    │
+                    └──► api.py ──► storage.py (Supabase PG17 / Storage / SQLite)
+                           │
+                           └──► agent_engine.py (5 Agents + Audit + HITL)
+                                   ├── 01 SENTINEL-SEC (Anti-injection & Isolation SaaS privée)
+                                   ├── 02 TOPO-SCAN    (Matrice LAN vs Internet & Latence)
+                                   ├── 03 DIAG-NET     (Corrélation FAI & Ticket Opérateur)
+                                   ├── 04 NET-CONTROL  (Switches Internet 3 niveaux & Optimisation Box)
+                                   └── 05 MEDIA-HUB    (Partage Docs/Images/Audios/Vidéos & HITL)
 ```
-
----
-
-## Fonctionnalités clés
-
-- **100 % multi-plateforme** : fonctionne sous **Windows**, **Linux / Raspberry Pi** et **macOS**.
-- **Diagnostic intelligent LAN vs FAI** : distingue une coupure du routeur local (`gw_status`) d'une coupure Internet fournisseur (`internet_status` par ping ICMP + repli HTTPS/DNS).
-- **Sondage parallèle rapide** : vérification simultanée de la disponibilité et de la latence (`ms`) de tous les équipements détectés.
-- **Inventaire persistant & zéro fausse alerte en boucle** :
-  - Chaque nouvelle adresse MAC n'est signalée **qu'une seule fois** à sa première apparition.
-  - Les pannes sont signalées après dépassement du seuil d'échecs (`fail_threshold`) avec notification automatique de **rétablissement**.
-  - En cas de coupure Internet, les alertes restent tamponnées dans `daderezo.db` et sont transmises dès le retour de la connexion.
-- **Sécurité API (`DADEREZO_API_KEY`)** : protection optionnelle des écritures par en-tête `X-API-Key`, requêtes SQL intégralement paramétrées, et file de tâches de diagnostic limitée aux actions en lecture seule (`scan`, `sweep`, `diagnostic`, `rapport`).
 
 ---
 
 ## Démarrage rapide
 
-### 1. Lancer l'API et le tableau de bord web
+### 1. Lancer l'API et le Poste Superviseur
 
 ```bash
 pip install -r requirements.txt
 uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 
-- **Tableau de bord interactif** : `http://localhost:8000/ui` (ou directement `http://localhost:8000/` dans un navigateur)
+- **Accueil SaaS & Démo Live** : `http://localhost:8000/` (Mode Clair & Mode Sombre)
+- **Poste du Superviseur Général** : `http://localhost:8000/ui` (ou `/ui?auth=1` pour créer un Espace Privé)
 - **État JSON du service** : `http://localhost:8000/health`
-- **Page d'accueil SaaS & Démo Live** : `http://localhost:8000/` (Mode Clair & Mode Sombre inclus)
-- **Poste du Superviseur Général** : `http://localhost:8000/ui` (ou `/app`)
-- **État JSON du service** : `http://localhost:8000/health`
-- **Documentation Swagger** : `http://localhost:8000/docs`
+- **Documentation OpenAPI** : `http://localhost:8000/docs`
 
-### 2. Lancer la sonde sur un poste du réseau local
+### 2. Lancer la sonde privée sur un poste du réseau local
 
-**Vers l'API Cloud (Vercel / Render / local) :**
 ```bash
-python agent_client.py --api https://daderezo-api-nine.vercel.app --agent sainte-marie-bouake --nom "Communauté Sainte Marie de Bouaké" --task-poll 5
+python agent_client.py --api https://daderezo-api-nine.vercel.app --agent mon-site-principal --nom "Mon Réseau Privé" --api-key dzk_VOTRE_CLE_PRIVEE --task-poll 5 --media-port 8090
 ```
 
-Options utiles :
-- `--task-poll 5` : écoute toutes les 5 secondes les ordres lecture seule du Superviseur (`scan`, `diagnostic`, `rapport`, ou `sweep` validé humainement)
-- `--once` : exécute une seule collecte + envoi puis quitte (idéal pour tester ou via tâche planifiée / `cron`)
-- `--sweep` : effectue un balayage ping court du sous-réseau local avant lecture ARP pour découvrir les équipements silencieux
-- `--interval 300` : intervalle en secondes entre deux collectes complètes (défaut : `300` s = 5 min)
-- `--api-key <CLE>` : clé d'authentification si `DADEREZO_API_KEY` est activée sur le serveur
-
-**En mode 100 % hors-ligne (sans serveur API) :**
-```bash
-python orchestrator.py
-```
-Génère et met à jour automatiquement le fichier `dashboard.html` local.
-
----
-
-## Personnaliser l'inventaire (`devices.json`)
-
-Déclarez vos équipements connus et adresses MAC autorisées dans `devices.json` pour nommer vos routeurs/relais et éviter qu'ils ne soient signalés comme appareils inconnus :
-
-```json
-{
-  "site_name": "Communauté Sainte Marie de Bouaké",
-  "internet_targets": ["1.1.1.1", "8.8.8.8"],
-  "fail_threshold": 2,
-  "devices": {
-    "192.168.8.1": {
-      "name": "Box FAI principale",
-      "type": "fai_box",
-      "zone": "Accès FAI",
-      "critical": true
-    },
-    "192.168.8.57": {
-      "name": "Passerelle / Routeur principal",
-      "type": "gateway",
-      "zone": "Cœur réseau",
-      "critical": true
-    }
-  },
-  "authorized_macs": {
-    "cc:d8:43:32:45:c8": { "name": "Routeur principal", "zone": "Cœur réseau" }
-  }
-}
-```
+- `--api-key dzk_...` : rattache la sonde exclusivement à votre espace privé (invisible du public).
+- `--media-port 8090` : démarre le Hub Multimédia LAN local (`http://<IP_LOCALE>:8090`) pour partager les fichiers même hors Internet.
+- `DADEREZO_ACTIVE_CONTROL=1` (variable d'environnement optionnelle sur passerelle Linux/Windows) : active l'application matérielle directe des règles pare-feu locales en plus du journal de commandes routeur.
 
 ---
 

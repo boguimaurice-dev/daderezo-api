@@ -303,13 +303,13 @@ class TestApiEndpoints(unittest.TestCase):
         ).json()
         self.assertEqual(r_scan["task_queued"]["status"], "queued")
 
-        # 4. Garde-fou lecture seule : refus d'une commande destructive
-        r_refuse = self.client.post(
+        # 4. Gouvernance : redémarrage physique d'un routeur exige Validation Humaine (HITL)
+        r_reboot_hitl = self.client.post(
             "/supervisor/ask",
-            json={"question": "Redémarre le routeur principal et bloque cette adresse MAC", "agent_id": "simulation-bouake"},
+            json={"question": "Redémarre le routeur principal 192.168.8.57", "agent_id": "simulation-bouake"},
         ).json()
-        self.assertTrue(r_refuse["refused_write_action"])
-        self.assertEqual(r_refuse["intent"], "refus_ecriture")
+        self.assertEqual(r_reboot_hitl["intent"], "validation_humaine_requise")
+        self.assertIsNotNone(r_reboot_hitl["pending_approval"])
 
         # 5. Vue consolidée multi-sites
         ov = self.client.get("/supervisor/overview")
@@ -392,13 +392,185 @@ class TestApiEndpoints(unittest.TestCase):
             self.assertIn("themeToggleBtn", r_ui.text)
             self.assertIn("Orchestrateur DADEREZO", r_ui.text)
 
-        # 3. Téléchargement sécurisé de la sonde (whitelist stricte)
+        # 3. Téléchargement sécurisé de la sonde + contrôleur actif (whitelist stricte)
         dl_ok = self.client.get("/download/agent_client.py")
         self.assertEqual(dl_ok.status_code, 200)
         self.assertIn("fetch_pending_tasks", dl_ok.text)
 
+        dl_ctrl = self.client.get("/download/net_controller.py")
+        self.assertEqual(dl_ctrl.status_code, 200)
+        self.assertIn("evaluate_device_internet", dl_ctrl.text)
+
         dl_blocked = self.client.get("/download/api.py")
         self.assertEqual(dl_blocked.status_code, 404)
+
+    def test_v4_granular_internet_switches_box_subnet_zone_device(self):
+        self.client.post("/demo/scenario/retablissement")
+        dash0 = self.client.get("/dashboard/simulation-bouake").json()
+        self.assertEqual(dash0["summary"]["devices_with_internet"], 7)
+
+        # Niveau 3 : Coupure Internet sur un appareil précis (192.168.8.14) -> LAN reste UP, Internet passe à NON
+        r_dev = self.client.post(
+            "/network/policies/simulation-bouake",
+            json={"scope_type": "device", "target_value": "192.168.8.14", "internet_enabled": False},
+        )
+        self.assertEqual(r_dev.status_code, 200)
+        dash1 = self.client.get("/dashboard/simulation-bouake").json()
+        self.assertEqual(dash1["summary"]["devices_up"], 7)
+        self.assertEqual(dash1["summary"]["devices_with_internet"], 6)
+
+        # Niveau 2 : Coupure Internet par Zone via commande naturelle IA ("Coupe Internet dans la zone Communauté")
+        r_zone = self.client.post(
+            "/supervisor/ask",
+            json={"question": "Coupe Internet dans la zone Communauté", "agent_id": "simulation-bouake"},
+        ).json()
+        self.assertEqual(r_zone["intent"], "controle_internet_actif")
+        # 192.168.8.14 (Admin) + 2 équipements Communauté (192.168.8.10 et 192.168.8.75) coupés -> 4 avec Internet
+        self.assertEqual(r_zone["metrics"]["internet_yes"], 4)
+        self.assertEqual(r_zone["metrics"]["lan_connected"], 7)
+
+        # Niveau 2bis : Sous-réseau CIDR (192.168.8.48/30 coupe Hôtellerie 192.168.8.48)
+        self.client.post(
+            "/network/policies/simulation-bouake",
+            json={"scope_type": "subnet", "target_value": "192.168.8.48/30", "internet_enabled": False},
+        )
+        dash2 = self.client.get("/dashboard/simulation-bouake").json()
+        self.assertEqual(dash2["summary"]["devices_with_internet"], 3)
+
+        # Niveau 1 : Coupure générale depuis la Box Principale -> 0 Internet, mais 7/7 connectés au LAN !
+        self.client.post(
+            "/network/policies/simulation-bouake",
+            json={"scope_type": "global", "target_value": "main_box", "internet_enabled": False},
+        )
+        dash_cut = self.client.get("/dashboard/simulation-bouake").json()
+        self.assertFalse(dash_cut["summary"]["main_box_internet_enabled"])
+        self.assertEqual(dash_cut["summary"]["devices_up"], 7)
+        self.assertEqual(dash_cut["summary"]["devices_with_internet"], 0)
+
+        # Réouverture Box Principale
+        self.client.post(
+            "/network/policies/simulation-bouake",
+            json={"scope_type": "global", "target_value": "main_box", "internet_enabled": True},
+        )
+        dash_reopen = self.client.get("/dashboard/simulation-bouake").json()
+        self.assertTrue(dash_reopen["summary"]["main_box_internet_enabled"])
+        self.assertEqual(dash_reopen["summary"]["devices_with_internet"], 3)
+
+    def test_v4_multi_box_configuration_and_optimization(self):
+        self.client.post("/demo/scenario/nominal")
+        boxes_init = self.client.get("/boxes/simulation-bouake").json()["boxes"]
+        self.assertGreaterEqual(len(boxes_init), 3)
+
+        opt = self.client.post("/boxes/simulation-bouake/optimize-all")
+        self.assertEqual(opt.status_code, 200)
+        opt_body = opt.json()
+        self.assertEqual(opt_body["status"], "optimized")
+        channels = [b["wifi_channel"] for b in opt_body["boxes"]]
+        # Vérifie que les 3 box ont reçu des canaux distincts sans collision (1, 6, 11) et un score santé 98
+        self.assertEqual(len(set(channels[:3])), 3)
+        self.assertTrue(all(b["health_score"] == 98 for b in opt_body["boxes"]))
+
+        # Configuration individuelle d'une Box
+        cfg = self.client.post(
+            "/boxes/simulation-bouake/config",
+            json={
+                "box_ip": "192.168.8.1",
+                "box_name": "Box Fibre Principale",
+                "box_role": "gateway",
+                "driver": "huawei_hilink",
+                "wifi_ssid": "SAINTE-MARIE-FIBRE",
+                "wifi_channel": "11",
+                "dns_primary": "1.1.1.1",
+                "dns_secondary": "9.9.9.9",
+                "qos_profile": "priorite_admin",
+                "mtu": 1492,
+            },
+        )
+        self.assertEqual(cfg.status_code, 200)
+        self.assertEqual(cfg.json()["box"]["wifi_ssid"], "SAINTE-MARIE-FIBRE")
+
+    def test_v4_multimedia_and_file_sharing_hub(self):
+        self.client.post("/demo/scenario/nominal")
+        seeded = self.client.get("/media/simulation-bouake").json()
+        self.assertGreaterEqual(len(seeded), 3)
+
+        import base64
+
+        sample_bytes = b"Contenu multimedia partage sur le reseau DADEREZO v4.0"
+        up = self.client.post(
+            "/media/simulation-bouake",
+            json={
+                "title": "Note Audio-Texte Test",
+                "filename": "note_test.txt",
+                "mime_type": "text/plain",
+                "target_zone": "Administration",
+                "description": "Test partage LAN/Cloud",
+                "content_b64": base64.b64encode(sample_bytes).decode("ascii"),
+            },
+        )
+        self.assertEqual(up.status_code, 200)
+        media_id = up.json()["media"]["id"]
+
+        stream = self.client.get(f"/media/file/{media_id}")
+        self.assertEqual(stream.status_code, 200)
+        self.assertEqual(stream.content, sample_bytes)
+
+        rm = self.client.delete(f"/media/{media_id}")
+        self.assertEqual(rm.status_code, 200)
+
+    def test_v4_private_saas_multitenant_isolation(self):
+        # 1. Création d'un espace privé client
+        signup = self.client.post(
+            "/auth/signup",
+            json={
+                "email": "admin@mon-reseau-prive.ci",
+                "password": "PasswordSecurise2026!",
+                "full_name": "Maurice Bogui",
+                "org_name": "Réseau Privé Yamoussoukro",
+            },
+        )
+        self.assertEqual(signup.status_code, 200)
+        s_body = signup.json()
+        token = s_body["token"]
+        probe_key = s_body["user"]["probe_api_key"]
+        self.assertTrue(probe_key.startswith("dzk_"))
+
+        # 2. La sonde physique du client envoie sa télémétrie avec sa clé privée dzk_...
+        priv_ingest = self.client.post(
+            "/data",
+            headers={"X-API-Key": probe_key},
+            json={
+                "agent_id": "yamoussoukro-prive",
+                "nom": "Siège Privé Yamoussoukro",
+                "site_name": "Siège Privé Yamoussoukro",
+                "ip_local": "10.50.0.10",
+                "gw": "10.50.0.1",
+                "gw_status": "up",
+                "internet_status": "up",
+                "probes": [
+                    {"ip": "10.50.0.1", "name": "Box Privée Direction", "status": "up", "type": "gateway", "latency_ms": 1.1},
+                    {"ip": "10.50.0.25", "name": "Serveur Comptabilité Secret", "status": "up", "type": "host", "latency_ms": 0.8},
+                ],
+            },
+        )
+        self.assertEqual(priv_ingest.status_code, 200)
+
+        # 3. Un visiteur public sur le lien NE VOIT PAS la sonde privée ni son dashboard !
+        public_agents = self.client.get("/agents").json()
+        self.assertFalse(any(a["id"] == "yamoussoukro-prive" for a in public_agents))
+
+        forbidden_dash = self.client.get("/dashboard/yamoussoukro-prive")
+        self.assertEqual(forbidden_dash.status_code, 403)
+
+        # 4. Le propriétaire connecté avec son Bearer token voit son réseau privé !
+        owner_agents = self.client.get("/agents", headers={"Authorization": f"Bearer {token}"}).json()
+        self.assertTrue(any(a["id"] == "yamoussoukro-prive" for a in owner_agents))
+
+        owner_dash = self.client.get(
+            "/dashboard/yamoussoukro-prive", headers={"Authorization": f"Bearer {token}"}
+        )
+        self.assertEqual(owner_dash.status_code, 200)
+        self.assertEqual(owner_dash.json()["summary"]["total_devices"], 2)
 
 
 if __name__ == "__main__":

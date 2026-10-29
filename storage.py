@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-DADEREZO — Couche de persistance unifiée (Supabase PostgreSQL HTTPS, PostgreSQL direct, ou SQLite).
+DADEREZO v4.0 — Couche de persistance unifiée :
+Supabase PostgreSQL 17 + Supabase Storage (HTTPS), PostgreSQL direct, ou SQLite.
 
-Priorité de sélection :
-1. `DADEREZO_DB_PATH` explicite -> SQLite (utilisé notamment par les tests isolés et le mode local).
-2. `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` -> Supabase PostgREST HTTPS (idéal Vercel Serverless IPv4/IPv6).
-3. `DATABASE_URL` -> PostgreSQL direct via `psycopg2`.
-4. Repli automatique -> SQLite (`daderezo_saas.db` ou `/tmp/daderezo_saas.db` en environnement lecture seule).
+Tables gérées :
+  agents, probes, devices, alerts, state, tasks,
+  agent_sessions, agent_audit_logs, human_approvals,
+  saas_users, internet_policies, box_configs, shared_media.
 """
 from contextlib import contextmanager
+import base64
 import json
 import os
 import sqlite3
@@ -18,6 +19,7 @@ import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+MEDIA_BUCKET = "daderezo-media"
 
 
 def get_sqlite_path() -> str:
@@ -49,12 +51,11 @@ def _normalize_pg_url(raw: str) -> str:
     return raw
 
 
-# ---------------------------------------------------------------------------
-# Client HTTPS léger pour Supabase PostgREST (zéro dépendance binaire)
-# ---------------------------------------------------------------------------
 class _SupabaseRest:
     def __init__(self, url: str, key: str) -> None:
-        self.base = url.rstrip("/") + "/rest/v1"
+        self.root = url.rstrip("/")
+        self.base = self.root + "/rest/v1"
+        self.storage_base = self.root + "/storage/v1"
         self.key = key
 
     def request(
@@ -85,6 +86,44 @@ class _SupabaseRest:
             raw = resp.read().decode("utf-8").strip()
             return json.loads(raw) if raw else None
 
+    def put_object(self, object_key: str, raw_bytes: bytes, content_type: str) -> bool:
+        encoded = "/".join(urllib.parse.quote(seg) for seg in object_key.split("/"))
+        url = f"{self.storage_base}/object/{MEDIA_BUCKET}/{encoded}"
+        headers = {
+            "apikey": self.key,
+            "Authorization": f"Bearer {self.key}",
+            "Content-Type": content_type or "application/octet-stream",
+            "x-upsert": "true",
+        }
+        req = urllib.request.Request(url, data=raw_bytes, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                return 200 <= resp.status < 300
+        except Exception:
+            return False
+
+    def get_object(self, object_key: str) -> Optional[bytes]:
+        encoded = "/".join(urllib.parse.quote(seg) for seg in object_key.split("/"))
+        url = f"{self.storage_base}/object/{MEDIA_BUCKET}/{encoded}"
+        headers = {"apikey": self.key, "Authorization": f"Bearer {self.key}"}
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                return resp.read()
+        except Exception:
+            return None
+
+    def delete_object(self, object_key: str) -> None:
+        encoded = "/".join(urllib.parse.quote(seg) for seg in object_key.split("/"))
+        url = f"{self.storage_base}/object/{MEDIA_BUCKET}/{encoded}"
+        headers = {"apikey": self.key, "Authorization": f"Bearer {self.key}"}
+        req = urllib.request.Request(url, headers=headers, method="DELETE")
+        try:
+            with urllib.request.urlopen(req, timeout=10):
+                pass
+        except Exception:
+            pass
+
 
 def _sb() -> _SupabaseRest:
     return _SupabaseRest(
@@ -93,9 +132,6 @@ def _sb() -> _SupabaseRest:
     )
 
 
-# ---------------------------------------------------------------------------
-# Connexion SQL (SQLite ou PostgreSQL direct)
-# ---------------------------------------------------------------------------
 @contextmanager
 def _sql_cursor():
     mode = get_backend_mode()
@@ -130,109 +166,195 @@ def _ensure_sqlite_column(cur, table: str, column: str, col_def: str) -> None:
 def init_db() -> None:
     mode = get_backend_mode()
     if mode == "supabase":
-        # Le schéma PostgreSQL est provisionné sur Supabase via migration SQL dédiée
         return
 
     with _sql_cursor() as (_, c, _):
-        if mode == "postgresql":
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS agents ("
-                "id TEXT PRIMARY KEY, nom TEXT, ip TEXT, mac TEXT, last_seen TEXT, status TEXT)"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS probes ("
-                "id SERIAL PRIMARY KEY, agent_id TEXT, ts TEXT, ip TEXT, mac TEXT, "
-                "name TEXT, zone TEXT, status TEXT, type TEXT, latency_ms DOUBLE PRECISION)"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS devices ("
-                "agent_id TEXT, ip TEXT, mac TEXT, name TEXT, zone TEXT, status TEXT, "
-                "type TEXT, latency_ms DOUBLE PRECISION, last_seen TEXT, PRIMARY KEY (agent_id, ip))"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS alerts ("
-                "id SERIAL PRIMARY KEY, agent_id TEXT, ts TEXT, severity TEXT, message TEXT)"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS state ("
-                "agent_id TEXT, key TEXT, value TEXT, PRIMARY KEY (agent_id, key))"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS tasks ("
-                "id SERIAL PRIMARY KEY, agent_id TEXT, action TEXT, status TEXT, "
-                "created_at TEXT, completed_at TEXT, result TEXT)"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS agent_sessions ("
-                "id SERIAL PRIMARY KEY, session_id TEXT, ts TEXT, role TEXT, content TEXT, "
-                "agent_id TEXT, metadata_json TEXT)"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS agent_audit_logs ("
-                "id SERIAL PRIMARY KEY, ts TEXT, session_id TEXT, agent_name TEXT, "
-                "action_type TEXT, tool_name TEXT, status TEXT, duration_ms INTEGER, details TEXT)"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS human_approvals ("
-                "id SERIAL PRIMARY KEY, ts TEXT, session_id TEXT, agent_id TEXT, "
-                "action TEXT, reason TEXT, status TEXT, decided_at TEXT)"
-            )
-        else:
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS agents ("
-                "id TEXT PRIMARY KEY, nom TEXT, ip TEXT, mac TEXT, last_seen TEXT, status TEXT)"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS probes ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT, ts TEXT, ip TEXT, mac TEXT, "
-                "name TEXT, zone TEXT, status TEXT, type TEXT, latency_ms REAL)"
-            )
+        is_pg = mode == "postgresql"
+        serial_pk = "SERIAL PRIMARY KEY" if is_pg else "INTEGER PRIMARY KEY AUTOINCREMENT"
+        float_t = "DOUBLE PRECISION" if is_pg else "REAL"
+        bool_true = "BOOLEAN DEFAULT TRUE" if is_pg else "INTEGER DEFAULT 1"
+
+        c.execute(
+            "CREATE TABLE IF NOT EXISTS agents ("
+            "id TEXT PRIMARY KEY, nom TEXT, ip TEXT, mac TEXT, last_seen TEXT, status TEXT, "
+            "org_slug TEXT DEFAULT 'public-demo')"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS probes ("
+            f"id {serial_pk}, agent_id TEXT, ts TEXT, ip TEXT, mac TEXT, "
+            f"name TEXT, zone TEXT, status TEXT, type TEXT, latency_ms {float_t})"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS devices ("
+            f"agent_id TEXT, ip TEXT, mac TEXT, name TEXT, zone TEXT, status TEXT, "
+            f"type TEXT, latency_ms {float_t}, last_seen TEXT, PRIMARY KEY (agent_id, ip))"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS alerts ("
+            f"id {serial_pk}, agent_id TEXT, ts TEXT, severity TEXT, message TEXT)"
+        )
+        c.execute(
+            "CREATE TABLE IF NOT EXISTS state ("
+            "agent_id TEXT, key TEXT, value TEXT, PRIMARY KEY (agent_id, key))"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS tasks ("
+            f"id {serial_pk}, agent_id TEXT, action TEXT, status TEXT, "
+            f"created_at TEXT, completed_at TEXT, result TEXT, payload_json TEXT DEFAULT '{{}}')"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS agent_sessions ("
+            f"id {serial_pk}, session_id TEXT, ts TEXT, role TEXT, content TEXT, "
+            f"agent_id TEXT, metadata_json TEXT)"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS agent_audit_logs ("
+            f"id {serial_pk}, ts TEXT, session_id TEXT, agent_name TEXT, "
+            f"action_type TEXT, tool_name TEXT, status TEXT, duration_ms INTEGER, details TEXT)"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS human_approvals ("
+            f"id {serial_pk}, ts TEXT, session_id TEXT, agent_id TEXT, "
+            f"action TEXT, reason TEXT, status TEXT, decided_at TEXT)"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS saas_users ("
+            f"id {serial_pk}, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, "
+            f"full_name TEXT, org_slug TEXT NOT NULL, org_name TEXT NOT NULL, "
+            f"probe_api_key TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL)"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS internet_policies ("
+            f"id {serial_pk}, agent_id TEXT NOT NULL, scope_type TEXT NOT NULL, "
+            f"target_value TEXT NOT NULL, internet_enabled {bool_true}, "
+            f"schedule_json TEXT DEFAULT '{{}}', reason TEXT, updated_by TEXT, updated_at TEXT NOT NULL, "
+            f"UNIQUE(agent_id, scope_type, target_value))"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS box_configs ("
+            f"id {serial_pk}, agent_id TEXT NOT NULL, box_ip TEXT NOT NULL, box_name TEXT, "
+            f"box_role TEXT DEFAULT 'gateway', driver TEXT DEFAULT 'auto', wifi_enabled {bool_true}, "
+            f"wifi_ssid TEXT DEFAULT 'DADEREZO-LAN', wifi_channel TEXT DEFAULT 'auto', "
+            f"wifi_band TEXT DEFAULT '2.4GHz + 5GHz', dns_primary TEXT DEFAULT '1.1.1.1', "
+            f"dns_secondary TEXT DEFAULT '8.8.8.8', qos_profile TEXT DEFAULT 'equilibre', "
+            f"bandwidth_limit_mbps INTEGER DEFAULT 0, mtu INTEGER DEFAULT 1492, "
+            f"health_score INTEGER DEFAULT 92, last_optimized_at TEXT, notes TEXT, "
+            f"UNIQUE(agent_id, box_ip))"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS shared_media ("
+            f"id {serial_pk}, org_slug TEXT NOT NULL DEFAULT 'public-demo', agent_id TEXT NOT NULL, "
+            f"title TEXT NOT NULL, filename TEXT NOT NULL, mime_type TEXT NOT NULL, "
+            f"category TEXT NOT NULL DEFAULT 'document', size_bytes INTEGER NOT NULL DEFAULT 0, "
+            f"target_zone TEXT DEFAULT 'Toutes les zones', description TEXT, "
+            f"storage_mode TEXT NOT NULL DEFAULT 'inline', storage_key TEXT, content_b64 TEXT, "
+            f"uploaded_by TEXT DEFAULT 'Superviseur Général', created_at TEXT NOT NULL)"
+        )
+
+        if not is_pg:
+            _ensure_sqlite_column(c, "agents", "org_slug", "TEXT DEFAULT 'public-demo'")
+            _ensure_sqlite_column(c, "tasks", "payload_json", "TEXT DEFAULT '{}'")
             _ensure_sqlite_column(c, "probes", "name", "TEXT")
             _ensure_sqlite_column(c, "probes", "zone", "TEXT")
             _ensure_sqlite_column(c, "probes", "latency_ms", "REAL")
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS devices ("
-                "agent_id TEXT, ip TEXT, mac TEXT, name TEXT, zone TEXT, status TEXT, "
-                "type TEXT, latency_ms REAL, last_seen TEXT, PRIMARY KEY (agent_id, ip))"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS alerts ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT, ts TEXT, severity TEXT, message TEXT)"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS state ("
-                "agent_id TEXT, key TEXT, value TEXT, PRIMARY KEY (agent_id, key))"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS tasks ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT, action TEXT, status TEXT, "
-                "created_at TEXT, completed_at TEXT, result TEXT)"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS agent_sessions ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, ts TEXT, role TEXT, "
-                "content TEXT, agent_id TEXT, metadata_json TEXT)"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS agent_audit_logs ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, session_id TEXT, agent_name TEXT, "
-                "action_type TEXT, tool_name TEXT, status TEXT, duration_ms INTEGER, details TEXT)"
-            )
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS human_approvals ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, session_id TEXT, agent_id TEXT, "
-                "action TEXT, reason TEXT, status TEXT, decided_at TEXT)"
-            )
+
+
+def _as_bool(v: Any) -> bool:
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)):
+        return bool(v)
+    return str(v).strip().lower() in ("1", "true", "t", "yes", "oui")
 
 
 # ---------------------------------------------------------------------------
-# Opérations métier unifiées
+# Comptes SaaS Multi-Tenants (`saas_users`)
 # ---------------------------------------------------------------------------
-def upsert_agent(agent_id: str, nom: str, ip: Optional[str], mac: Optional[str], now_iso: str) -> None:
+def create_saas_user(
+    email: str,
+    password_hash: str,
+    full_name: str,
+    org_slug: str,
+    org_name: str,
+    probe_api_key: str,
+    now_iso: str,
+) -> dict:
+    row = {
+        "email": email.lower().strip(),
+        "password_hash": password_hash,
+        "full_name": full_name.strip(),
+        "org_slug": org_slug,
+        "org_name": org_name.strip(),
+        "probe_api_key": probe_api_key,
+        "created_at": now_iso,
+    }
+    if get_backend_mode() == "supabase":
+        res = _sb().request("POST", "saas_users", "", row)
+        return res[0] if res else row
+
+    with _sql_cursor() as (_, c, ph):
+        c.execute(
+            f"INSERT INTO saas_users (email, password_hash, full_name, org_slug, org_name, probe_api_key, created_at) "
+            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph})",
+            (
+                row["email"],
+                row["password_hash"],
+                row["full_name"],
+                row["org_slug"],
+                row["org_name"],
+                row["probe_api_key"],
+                row["created_at"],
+            ),
+        )
+    return get_saas_user_by_email(row["email"]) or row
+
+
+def get_saas_user_by_email(email: str) -> Optional[dict]:
+    em = email.lower().strip()
+    if get_backend_mode() == "supabase":
+        rows = _sb().request("GET", "saas_users", f"email=eq.{urllib.parse.quote(em)}&limit=1") or []
+        return rows[0] if rows else None
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"SELECT * FROM saas_users WHERE email = {ph}", (em,))
+        row = c.fetchone()
+        if not row:
+            return None
+        cols = [d[0] for d in c.description]
+        return dict(zip(cols, row))
+
+
+def get_saas_user_by_probe_key(probe_key: str) -> Optional[dict]:
+    pk = (probe_key or "").strip()
+    if not pk:
+        return None
+    if get_backend_mode() == "supabase":
+        rows = _sb().request("GET", "saas_users", f"probe_api_key=eq.{urllib.parse.quote(pk)}&limit=1") or []
+        return rows[0] if rows else None
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"SELECT * FROM saas_users WHERE probe_api_key = {ph}", (pk,))
+        row = c.fetchone()
+        if not row:
+            return None
+        cols = [d[0] for d in c.description]
+        return dict(zip(cols, row))
+
+
+# ---------------------------------------------------------------------------
+# Sondes & Télémétrie (`agents`, `devices`, `probes`, `alerts`, `state`, `tasks`)
+# ---------------------------------------------------------------------------
+def upsert_agent(
+    agent_id: str,
+    nom: str,
+    ip: Optional[str],
+    mac: Optional[str],
+    now_iso: str,
+    org_slug: Optional[str] = None,
+) -> None:
     if get_backend_mode() == "supabase":
         sb = _sb()
         existing = sb.request("GET", "agents", f"id=eq.{urllib.parse.quote(agent_id)}&limit=1") or []
         prev = existing[0] if existing else {}
+        effective_org = org_slug or prev.get("org_slug") or "public-demo"
         row = {
             "id": agent_id,
             "nom": nom,
@@ -240,29 +362,53 @@ def upsert_agent(agent_id: str, nom: str, ip: Optional[str], mac: Optional[str],
             "mac": mac if mac is not None else prev.get("mac"),
             "last_seen": now_iso,
             "status": "online",
+            "org_slug": effective_org,
         }
         sb.request("POST", "agents", "on_conflict=id", row, prefer="resolution=merge-duplicates,return=minimal")
         return
 
     with _sql_cursor() as (_, c, ph):
+        eff = org_slug or "public-demo"
         c.execute(
-            f"INSERT INTO agents (id, nom, ip, mac, last_seen, status) "
-            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph}) "
+            f"INSERT INTO agents (id, nom, ip, mac, last_seen, status, org_slug) "
+            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph}) "
             f"ON CONFLICT (id) DO UPDATE SET "
             f"nom = {ph}, ip = COALESCE({ph}, agents.ip), mac = COALESCE({ph}, agents.mac), "
-            f"last_seen = {ph}, status = {ph}",
-            (agent_id, nom, ip, mac, now_iso, "online", nom, ip, mac, now_iso, "online"),
+            f"last_seen = {ph}, status = {ph}, "
+            f"org_slug = CASE WHEN {ph} IS NOT NULL THEN {ph} ELSE COALESCE(agents.org_slug, 'public-demo') END",
+            (
+                agent_id,
+                nom,
+                ip,
+                mac,
+                now_iso,
+                "online",
+                eff,
+                nom,
+                ip,
+                mac,
+                now_iso,
+                "online",
+                org_slug,
+                org_slug,
+            ),
         )
 
 
-def list_agents_raw() -> List[dict]:
+def list_agents_raw(org_slug: Optional[str] = None) -> List[dict]:
     if get_backend_mode() == "supabase":
-        return _sb().request("GET", "agents", "order=last_seen.desc") or []
-    with _sql_cursor() as (_, c, _):
-        c.execute("SELECT * FROM agents ORDER BY last_seen DESC")
-        rows = c.fetchall()
-        cols = [d[0] for d in c.description]
-    return [dict(zip(cols, r)) for r in rows]
+        rows = _sb().request("GET", "agents", "order=last_seen.desc") or []
+    else:
+        with _sql_cursor() as (_, c, _):
+            c.execute("SELECT * FROM agents ORDER BY last_seen DESC")
+            r_all = c.fetchall()
+            cols = [d[0] for d in c.description]
+        rows = [dict(zip(cols, r)) for r in r_all]
+
+    if org_slug:
+        return [r for r in rows if (r.get("org_slug") or "public-demo") == org_slug]
+    # Sans session privée : ne montrer que les agents publics/legacy, jamais les organisations privées d'autres clients
+    return [r for r in rows if (r.get("org_slug") or "public-demo") == "public-demo"]
 
 
 def get_agent_raw(agent_id: str) -> Optional[dict]:
@@ -287,11 +433,11 @@ def ingest_telemetry(
     probes: List[dict],
     alerts: List[Tuple[str, str, str]],
     state_items: Dict[str, Optional[str]],
+    org_slug: Optional[str] = None,
 ) -> Tuple[int, List[dict]]:
-    """Enregistre en une passe atomique (ou groupée PostgREST) télémétrie, alertes dédupliquées et état."""
     if get_backend_mode() == "supabase":
         sb = _sb()
-        upsert_agent(agent_id, nom, ip_local, mac_local, now_iso)
+        upsert_agent(agent_id, nom, ip_local, mac_local, now_iso, org_slug=org_slug)
         q_ag = urllib.parse.quote(agent_id)
 
         if probes:
@@ -368,22 +514,15 @@ def ingest_telemetry(
             sb.request(
                 "GET",
                 "tasks",
-                f"agent_id=eq.{q_ag}&status=eq.pending&select=id,action&order=id.asc&limit=5",
+                f"agent_id=eq.{q_ag}&status=eq.pending&select=id,action,payload_json&order=id.asc&limit=5",
             )
             or []
         )
         return len(new_alert_rows), pending
 
+    upsert_agent(agent_id, nom, ip_local, mac_local, now_iso, org_slug=org_slug)
     recorded_alerts = 0
     with _sql_cursor() as (_, c, ph):
-        c.execute(
-            f"INSERT INTO agents (id, nom, ip, mac, last_seen, status) "
-            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph}) "
-            f"ON CONFLICT (id) DO UPDATE SET "
-            f"nom = {ph}, ip = COALESCE({ph}, agents.ip), mac = COALESCE({ph}, agents.mac), "
-            f"last_seen = {ph}, status = {ph}",
-            (agent_id, nom, ip_local, mac_local, now_iso, "online", nom, ip_local, mac_local, now_iso, "online"),
-        )
         if probes:
             c.execute(f"DELETE FROM devices WHERE agent_id = {ph}", (agent_id,))
 
@@ -458,10 +597,10 @@ def ingest_telemetry(
                 )
 
         c.execute(
-            f"SELECT id, action FROM tasks WHERE agent_id = {ph} AND status = 'pending' ORDER BY id ASC LIMIT 5",
+            f"SELECT id, action, payload_json FROM tasks WHERE agent_id = {ph} AND status = 'pending' ORDER BY id ASC LIMIT 5",
             (agent_id,),
         )
-        pending_tasks = [{"id": r[0], "action": r[1]} for r in c.fetchall()]
+        pending_tasks = [{"id": r[0], "action": r[1], "payload_json": r[2] or "{}"} for r in c.fetchall()]
 
     return recorded_alerts, pending_tasks
 
@@ -534,21 +673,28 @@ def get_state_raw(agent_id: str) -> Dict[str, str]:
     return {r[0]: r[1] for r in rows}
 
 
-def create_task_row(agent_id: str, action: str, now_iso: str) -> dict:
+def create_task_row(agent_id: str, action: str, now_iso: str, payload: Optional[dict] = None) -> dict:
+    p_str = json.dumps(payload or {}, ensure_ascii=False)
     if get_backend_mode() == "supabase":
         rows = _sb().request(
             "POST",
             "tasks",
             "",
-            {"agent_id": agent_id, "action": action, "status": "pending", "created_at": now_iso},
+            {
+                "agent_id": agent_id,
+                "action": action,
+                "status": "pending",
+                "created_at": now_iso,
+                "payload_json": p_str,
+            },
         )
-        return rows[0] if rows else {"agent_id": agent_id, "action": action, "status": "pending"}
+        return rows[0] if rows else {"agent_id": agent_id, "action": action, "status": "pending", "payload_json": p_str}
     with _sql_cursor() as (_, c, ph):
         c.execute(
-            f"INSERT INTO tasks (agent_id, action, status, created_at) VALUES ({ph},{ph},{ph},{ph})",
-            (agent_id, action, "pending", now_iso),
+            f"INSERT INTO tasks (agent_id, action, status, created_at, payload_json) VALUES ({ph},{ph},{ph},{ph},{ph})",
+            (agent_id, action, "pending", now_iso, p_str),
         )
-    return {"agent_id": agent_id, "action": action, "status": "pending"}
+    return {"agent_id": agent_id, "action": action, "status": "pending", "payload_json": p_str}
 
 
 def list_tasks_raw(agent_id: str, limit: int = 10) -> List[dict]:
@@ -558,13 +704,13 @@ def list_tasks_raw(agent_id: str, limit: int = 10) -> List[dict]:
             _sb().request(
                 "GET",
                 "tasks",
-                f"agent_id=eq.{q_ag}&select=id,action,status,created_at,completed_at,result&order=id.desc&limit={int(limit)}",
+                f"agent_id=eq.{q_ag}&select=id,action,status,created_at,completed_at,result,payload_json&order=id.desc&limit={int(limit)}",
             )
             or []
         )
     with _sql_cursor() as (_, c, ph):
         c.execute(
-            f"SELECT id, action, status, created_at, completed_at, result "
+            f"SELECT id, action, status, created_at, completed_at, result, payload_json "
             f"FROM tasks WHERE agent_id = {ph} ORDER BY id DESC LIMIT {ph}",
             (agent_id, limit),
         )
@@ -593,7 +739,355 @@ def ack_task_row(agent_id: str, task_id: int, result_msg: str, now_iso: str) -> 
 
 
 # ---------------------------------------------------------------------------
-# Mémoire de session, Journal d'Audit Multi-Agents & Validation Humaine (HITL)
+# Contrôle d'Accès Internet Granulaire (`internet_policies`)
+# ---------------------------------------------------------------------------
+def upsert_internet_policy(
+    agent_id: str,
+    scope_type: str,
+    target_value: str,
+    internet_enabled: bool,
+    reason: str,
+    updated_by: str,
+    now_iso: str,
+    schedule: Optional[dict] = None,
+) -> dict:
+    sched_str = json.dumps(schedule or {}, ensure_ascii=False)
+    row = {
+        "agent_id": agent_id,
+        "scope_type": scope_type,
+        "target_value": target_value,
+        "internet_enabled": bool(internet_enabled),
+        "schedule_json": sched_str,
+        "reason": reason[:300],
+        "updated_by": updated_by[:120],
+        "updated_at": now_iso,
+    }
+    if get_backend_mode() == "supabase":
+        res = _sb().request(
+            "POST",
+            "internet_policies",
+            "on_conflict=agent_id,scope_type,target_value",
+            row,
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+        return res[0] if res else row
+
+    mode = get_backend_mode()
+    db_bool = bool(internet_enabled) if mode == "postgresql" else (1 if internet_enabled else 0)
+    with _sql_cursor() as (_, c, ph):
+        c.execute(
+            f"INSERT INTO internet_policies (agent_id, scope_type, target_value, internet_enabled, schedule_json, reason, updated_by, updated_at) "
+            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph}) "
+            f"ON CONFLICT (agent_id, scope_type, target_value) DO UPDATE SET "
+            f"internet_enabled = {ph}, schedule_json = {ph}, reason = {ph}, updated_by = {ph}, updated_at = {ph}",
+            (
+                agent_id,
+                scope_type,
+                target_value,
+                db_bool,
+                sched_str,
+                row["reason"],
+                row["updated_by"],
+                now_iso,
+                db_bool,
+                sched_str,
+                row["reason"],
+                row["updated_by"],
+                now_iso,
+            ),
+        )
+    return row
+
+
+def list_internet_policies(agent_id: str) -> List[dict]:
+    if get_backend_mode() == "supabase":
+        q_ag = urllib.parse.quote(agent_id)
+        rows = _sb().request("GET", "internet_policies", f"agent_id=eq.{q_ag}&order=id.asc") or []
+    else:
+        with _sql_cursor() as (_, c, ph):
+            c.execute(f"SELECT * FROM internet_policies WHERE agent_id = {ph} ORDER BY id ASC", (agent_id,))
+            r_all = c.fetchall()
+            cols = [d[0] for d in c.description]
+        rows = [dict(zip(cols, r)) for r in r_all]
+    for r in rows:
+        r["internet_enabled"] = _as_bool(r.get("internet_enabled", True))
+    return rows
+
+
+def delete_internet_policy(agent_id: str, scope_type: str, target_value: str) -> None:
+    if get_backend_mode() == "supabase":
+        q = (
+            f"agent_id=eq.{urllib.parse.quote(agent_id)}"
+            f"&scope_type=eq.{urllib.parse.quote(scope_type)}"
+            f"&target_value=eq.{urllib.parse.quote(target_value)}"
+        )
+        _sb().request("DELETE", "internet_policies", q, prefer="return=minimal")
+        return
+    with _sql_cursor() as (_, c, ph):
+        c.execute(
+            f"DELETE FROM internet_policies WHERE agent_id = {ph} AND scope_type = {ph} AND target_value = {ph}",
+            (agent_id, scope_type, target_value),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Configuration & Optimisation des Box (`box_configs`)
+# ---------------------------------------------------------------------------
+def upsert_box_config(agent_id: str, box: dict) -> dict:
+    row = {
+        "agent_id": agent_id,
+        "box_ip": str(box.get("box_ip", "")).strip(),
+        "box_name": str(box.get("box_name") or "Box Réseau")[:120],
+        "box_role": str(box.get("box_role") or "gateway")[:40],
+        "driver": str(box.get("driver") or "auto")[:40],
+        "wifi_enabled": _as_bool(box.get("wifi_enabled", True)),
+        "wifi_ssid": str(box.get("wifi_ssid") or "DADEREZO-LAN")[:80],
+        "wifi_channel": str(box.get("wifi_channel") or "auto")[:20],
+        "wifi_band": str(box.get("wifi_band") or "2.4GHz + 5GHz")[:40],
+        "dns_primary": str(box.get("dns_primary") or "1.1.1.1")[:45],
+        "dns_secondary": str(box.get("dns_secondary") or "8.8.8.8")[:45],
+        "qos_profile": str(box.get("qos_profile") or "equilibre")[:40],
+        "bandwidth_limit_mbps": int(box.get("bandwidth_limit_mbps") or 0),
+        "mtu": int(box.get("mtu") or 1492),
+        "health_score": int(box.get("health_score") or 92),
+        "last_optimized_at": box.get("last_optimized_at"),
+        "notes": str(box.get("notes") or "")[:400],
+    }
+    if get_backend_mode() == "supabase":
+        res = _sb().request(
+            "POST",
+            "box_configs",
+            "on_conflict=agent_id,box_ip",
+            row,
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+        return res[0] if res else row
+
+    mode = get_backend_mode()
+    db_wifi = row["wifi_enabled"] if mode == "postgresql" else (1 if row["wifi_enabled"] else 0)
+    with _sql_cursor() as (_, c, ph):
+        c.execute(
+            f"INSERT INTO box_configs ("
+            f"agent_id, box_ip, box_name, box_role, driver, wifi_enabled, wifi_ssid, wifi_channel, "
+            f"wifi_band, dns_primary, dns_secondary, qos_profile, bandwidth_limit_mbps, mtu, "
+            f"health_score, last_optimized_at, notes"
+            f") VALUES ({','.join([ph]*17)}) "
+            f"ON CONFLICT (agent_id, box_ip) DO UPDATE SET "
+            f"box_name={ph}, box_role={ph}, driver={ph}, wifi_enabled={ph}, wifi_ssid={ph}, "
+            f"wifi_channel={ph}, wifi_band={ph}, dns_primary={ph}, dns_secondary={ph}, "
+            f"qos_profile={ph}, bandwidth_limit_mbps={ph}, mtu={ph}, health_score={ph}, "
+            f"last_optimized_at={ph}, notes={ph}",
+            (
+                agent_id,
+                row["box_ip"],
+                row["box_name"],
+                row["box_role"],
+                row["driver"],
+                db_wifi,
+                row["wifi_ssid"],
+                row["wifi_channel"],
+                row["wifi_band"],
+                row["dns_primary"],
+                row["dns_secondary"],
+                row["qos_profile"],
+                row["bandwidth_limit_mbps"],
+                row["mtu"],
+                row["health_score"],
+                row["last_optimized_at"],
+                row["notes"],
+                row["box_name"],
+                row["box_role"],
+                row["driver"],
+                db_wifi,
+                row["wifi_ssid"],
+                row["wifi_channel"],
+                row["wifi_band"],
+                row["dns_primary"],
+                row["dns_secondary"],
+                row["qos_profile"],
+                row["bandwidth_limit_mbps"],
+                row["mtu"],
+                row["health_score"],
+                row["last_optimized_at"],
+                row["notes"],
+            ),
+        )
+    return row
+
+
+def list_box_configs(agent_id: str) -> List[dict]:
+    if get_backend_mode() == "supabase":
+        q_ag = urllib.parse.quote(agent_id)
+        rows = _sb().request("GET", "box_configs", f"agent_id=eq.{q_ag}&order=box_ip.asc") or []
+    else:
+        with _sql_cursor() as (_, c, ph):
+            c.execute(f"SELECT * FROM box_configs WHERE agent_id = {ph} ORDER BY box_ip ASC", (agent_id,))
+            r_all = c.fetchall()
+            cols = [d[0] for d in c.description]
+        rows = [dict(zip(cols, r)) for r in r_all]
+    for r in rows:
+        r["wifi_enabled"] = _as_bool(r.get("wifi_enabled", True))
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Hub de Partage de Fichiers & Données Multimédias (`shared_media`)
+# ---------------------------------------------------------------------------
+def create_shared_media(
+    org_slug: str,
+    agent_id: str,
+    title: str,
+    filename: str,
+    mime_type: str,
+    category: str,
+    raw_bytes: bytes,
+    target_zone: str,
+    description: str,
+    uploaded_by: str,
+    now_iso: str,
+) -> dict:
+    size_bytes = len(raw_bytes)
+    storage_mode = "inline"
+    storage_key = None
+    content_b64: Optional[str] = None
+
+    safe_name = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in filename)[:90] or "fichier.bin"
+    if get_backend_mode() == "supabase":
+        sb = _sb()
+        obj_key = f"{org_slug}/{agent_id}/{now_iso[:19].replace(':','-')}_{safe_name}"
+        if sb.put_object(obj_key, raw_bytes, mime_type):
+            storage_mode = "supabase_storage"
+            storage_key = obj_key
+        else:
+            content_b64 = base64.b64encode(raw_bytes).decode("ascii")
+    else:
+        content_b64 = base64.b64encode(raw_bytes).decode("ascii")
+
+    row = {
+        "org_slug": org_slug,
+        "agent_id": agent_id,
+        "title": title[:160],
+        "filename": safe_name,
+        "mime_type": mime_type[:100],
+        "category": category[:30],
+        "size_bytes": size_bytes,
+        "target_zone": (target_zone or "Toutes les zones")[:60],
+        "description": (description or "")[:400],
+        "storage_mode": storage_mode,
+        "storage_key": storage_key,
+        "content_b64": content_b64,
+        "uploaded_by": (uploaded_by or "Superviseur Général")[:100],
+        "created_at": now_iso,
+    }
+
+    if get_backend_mode() == "supabase":
+        res = _sb().request("POST", "shared_media", "", row)
+        saved = res[0] if res else row
+        saved.pop("content_b64", None)
+        return saved
+
+    with _sql_cursor() as (_, c, ph):
+        c.execute(
+            f"INSERT INTO shared_media ("
+            f"org_slug, agent_id, title, filename, mime_type, category, size_bytes, "
+            f"target_zone, description, storage_mode, storage_key, content_b64, uploaded_by, created_at"
+            f") VALUES ({','.join([ph]*14)})",
+            (
+                row["org_slug"],
+                row["agent_id"],
+                row["title"],
+                row["filename"],
+                row["mime_type"],
+                row["category"],
+                row["size_bytes"],
+                row["target_zone"],
+                row["description"],
+                row["storage_mode"],
+                row["storage_key"],
+                row["content_b64"],
+                row["uploaded_by"],
+                row["created_at"],
+            ),
+        )
+        new_id = c.lastrowid if hasattr(c, "lastrowid") and c.lastrowid else None
+        if new_id is None:
+            c.execute("SELECT MAX(id) FROM shared_media")
+            r = c.fetchone()
+            new_id = r[0] if r else 1
+    out = dict(row)
+    out["id"] = new_id
+    out.pop("content_b64", None)
+    return out
+
+
+def list_shared_media(agent_id: str, org_slug: str = "public-demo", limit: int = 50) -> List[dict]:
+    cols_sel = "id,org_slug,agent_id,title,filename,mime_type,category,size_bytes,target_zone,description,storage_mode,uploaded_by,created_at"
+    if get_backend_mode() == "supabase":
+        q = (
+            f"agent_id=eq.{urllib.parse.quote(agent_id)}"
+            f"&org_slug=eq.{urllib.parse.quote(org_slug)}"
+            f"&select={cols_sel}&order=id.desc&limit={int(limit)}"
+        )
+        return _sb().request("GET", "shared_media", q) or []
+
+    with _sql_cursor() as (_, c, ph):
+        c.execute(
+            f"SELECT {cols_sel} FROM shared_media WHERE agent_id = {ph} AND org_slug = {ph} ORDER BY id DESC LIMIT {ph}",
+            (agent_id, org_slug, limit),
+        )
+        rows = c.fetchall()
+        cols = [d[0] for d in c.description]
+    return [dict(zip(cols, r)) for r in rows]
+
+
+def get_shared_media_payload(media_id: int) -> Optional[Tuple[dict, bytes]]:
+    if get_backend_mode() == "supabase":
+        sb = _sb()
+        rows = sb.request("GET", "shared_media", f"id=eq.{int(media_id)}&limit=1") or []
+        if not rows:
+            return None
+        meta = rows[0]
+        if meta.get("storage_mode") == "supabase_storage" and meta.get("storage_key"):
+            raw = sb.get_object(meta["storage_key"])
+            if raw is not None:
+                return meta, raw
+        if meta.get("content_b64"):
+            return meta, base64.b64decode(meta["content_b64"])
+        return None
+
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"SELECT * FROM shared_media WHERE id = {ph}", (media_id,))
+        row = c.fetchone()
+        if not row:
+            return None
+        cols = [d[0] for d in c.description]
+        meta = dict(zip(cols, row))
+        raw = base64.b64decode(meta.get("content_b64") or "")
+        return meta, raw
+
+
+def delete_shared_media(media_id: int, org_slug: str) -> bool:
+    if get_backend_mode() == "supabase":
+        sb = _sb()
+        rows = sb.request("GET", "shared_media", f"id=eq.{int(media_id)}&limit=1") or []
+        if not rows or rows[0].get("org_slug") != org_slug:
+            return False
+        if rows[0].get("storage_mode") == "supabase_storage" and rows[0].get("storage_key"):
+            sb.delete_object(rows[0]["storage_key"])
+        sb.request("DELETE", "shared_media", f"id=eq.{int(media_id)}", prefer="return=minimal")
+        return True
+
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"SELECT org_slug FROM shared_media WHERE id = {ph}", (media_id,))
+        r = c.fetchone()
+        if not r or r[0] != org_slug:
+            return False
+        c.execute(f"DELETE FROM shared_media WHERE id = {ph}", (media_id,))
+        return True
+
+
+# ---------------------------------------------------------------------------
+# Mémoire de session, Journal d'Audit & Validation Humaine
 # ---------------------------------------------------------------------------
 def append_session_turn(
     session_id: str, ts: str, role: str, content: str, agent_id: Optional[str], metadata: Optional[dict] = None

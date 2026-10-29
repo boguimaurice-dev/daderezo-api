@@ -7,6 +7,7 @@
       "config": {
         "includeFiles": [
           "storage.py",
+          "net_controller.py",
           "agent_engine.py",
           "landing.html",
           "DADEREZO.html",

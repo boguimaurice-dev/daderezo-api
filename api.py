@@ -52,12 +52,14 @@ ALLOWED_DOWNLOADS = {
     "devices.json",
     "make_dashboard.py",
     "net_controller.py",
+    "contabo_watchdog.py",
+    "docker-compose.contabo.yml",
 }
 
 app = FastAPI(
-    title="DADEREZO v4.0 Multi-Agent & Active Network Control API",
-    description="Supervision réseau, contrôle Internet granulaire (Box/Zone/Appareil), optimisation Multi-Box et partage Multimédia",
-    version="4.0.0",
+    title="DADEREZO v4.2 Multi-Agent, PWA & Active Network Control API",
+    description="Supervision réseau PWA installable, mémoire multi-tours, audit sécurité, contrôle Internet granulaire (Box/Zone/Appareil), optimisation Multi-Box et partage Multimédia",
+    version="4.2.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -443,19 +445,147 @@ def _status_payload() -> dict:
         "service": "DADEREZO API",
         "status": "ok",
         "mode": "active_governed",
-        "version": "4.0.0",
-        "architecture": "multi_agent_z_v4",
+        "version": "4.2.0",
+        "architecture": "multi_agent_z_v4_2",
         "agents_pipeline": ["SENTINEL-SEC", "TOPO-SCAN", "DIAG-NET", "NET-CONTROL", "MEDIA-HUB"],
         "capabilities": [
             "internet_switch_global_subnet_device",
             "multi_box_auto_optimization",
             "multimedia_lan_cloud_sharing",
             "private_multitenant_saas",
+            "multi_turn_session_memory",
+            "security_posture_scoring",
+            "installable_pwa_offline_resilient",
         ],
         "db": storage.get_backend_mode(),
         "llm_configured": has_llm,
         "auth_enabled": bool(get_api_key()),
     }
+
+
+BRAND_ASSETS = {
+    "favicon.svg": ("favicon.svg", "image/svg+xml"),
+    "favicon.ico": ("favicon.ico", "image/x-icon"),
+    "favicon.png": ("favicon.png", "image/png"),
+    "favicon-32.png": ("favicon-32.png", "image/png"),
+    "apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+    "icon-192.png": ("icon-192.png", "image/png"),
+    "icon-512.png": ("icon-512.png", "image/png"),
+    "icon-maskable-512.png": ("icon-maskable-512.png", "image/png"),
+    "logo-icon.png": ("logo-icon.png", "image/png"),
+    "logo-orbit.png": ("logo-orbit.png", "image/png"),
+    "og-image.png": ("og-image.png", "image/png"),
+    "banner-network.jpg": ("banner-network.jpg", "image/jpeg"),
+    "banner-partner.jpg": ("banner-partner.jpg", "image/jpeg"),
+    "manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
+    "sw.js": ("sw.js", "application/javascript"),
+    "offline.html": ("offline.html", "text/html; charset=utf-8"),
+}
+
+
+def _serve_brand_asset(asset_key: str, request: Request, extra_headers: Optional[Dict[str, str]] = None) -> Response:
+    fname, media_type = BRAND_ASSETS[asset_key]
+    fpath = os.path.join(HERE, fname)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail=f"Ressource {fname} introuvable.")
+    with open(fpath, "rb") as f:
+        raw = f.read()
+    if asset_key == "sw.js":
+        cache_ctl = "no-cache"
+    elif asset_key.startswith("favicon") or asset_key == "manifest.webmanifest":
+        cache_ctl = "public, max-age=3600, must-revalidate"
+    else:
+        cache_ctl = "public, max-age=86400"
+    headers = {
+        "Cache-Control": cache_ctl,
+        "Content-Length": str(len(raw)),
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+    if request.method == "HEAD":
+        return Response(content=b"", media_type=media_type, headers=headers)
+    return Response(content=raw, media_type=media_type, headers=headers)
+
+
+@app.api_route("/manifest.webmanifest", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/manifest.json", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_manifest(request: Request):
+    return _serve_brand_asset("manifest.webmanifest", request)
+
+
+@app.api_route("/sw.js", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_service_worker(request: Request):
+    return _serve_brand_asset("sw.js", request, extra_headers={"Service-Worker-Allowed": "/"})
+
+
+@app.api_route("/offline.html", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_offline_fallback(request: Request):
+    return _serve_brand_asset("offline.html", request)
+
+
+@app.api_route("/icon-192.png", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_icon_192(request: Request):
+    return _serve_brand_asset("icon-192.png", request)
+
+
+@app.api_route("/icon-512.png", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_icon_512(request: Request):
+    return _serve_brand_asset("icon-512.png", request)
+
+
+@app.api_route("/icon-maskable-512.png", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_icon_maskable_512(request: Request):
+    return _serve_brand_asset("icon-maskable-512.png", request)
+
+
+@app.api_route("/favicon.svg", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_favicon_svg(request: Request):
+    return _serve_brand_asset("favicon.svg", request)
+
+
+@app.api_route("/favicon.ico", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_favicon_ico(request: Request):
+    return _serve_brand_asset("favicon.ico", request)
+
+
+@app.api_route("/favicon.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_favicon_png(request: Request):
+    return _serve_brand_asset("favicon.png", request)
+
+
+@app.api_route("/favicon-32.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_favicon_32_png(request: Request):
+    return _serve_brand_asset("favicon-32.png", request)
+
+
+@app.api_route("/apple-touch-icon.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_apple_touch_icon(request: Request):
+    return _serve_brand_asset("apple-touch-icon.png", request)
+
+
+@app.api_route("/logo-icon.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_logo_icon(request: Request):
+    return _serve_brand_asset("logo-icon.png", request)
+
+
+@app.api_route("/logo-orbit.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_logo_orbit(request: Request):
+    return _serve_brand_asset("logo-orbit.png", request)
+
+
+@app.api_route("/og-image.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_og_image(request: Request):
+    return _serve_brand_asset("og-image.png", request)
+
+
+@app.api_route("/banner-network.jpg", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_banner_network(request: Request):
+    return _serve_brand_asset("banner-network.jpg", request)
+
+
+@app.api_route("/banner-partner.jpg", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_banner_partner(request: Request):
+    return _serve_brand_asset("banner-partner.jpg", request)
 
 
 # ---------------------------------------------------------------------------
@@ -1260,8 +1390,8 @@ def ack_diagnostic_task(agent_id: str, task_id: int, result: str = "OK", ctx: di
 
 
 @app.post("/demo/scenario/{scenario}")
-def run_demo_scenario(scenario: str, ctx: dict = Depends(require_write_auth)):
-    """Banc d'essai interactif sur l'agent isolé `simulation-bouake`."""
+def run_demo_scenario(scenario: str, ctx: dict = Depends(require_read_auth)):
+    """Banc d'essai interactif strictement confiné à l'agent isolé `simulation-bouake`."""
     if os.environ.get("DADEREZO_ENABLE_DEMO", "1") == "0":
         raise HTTPException(status_code=403, detail="Mode démonstration désactivé.")
 
@@ -1454,10 +1584,16 @@ def supervisor_ask(
 @app.get("/supervisor/audit")
 def supervisor_audit(limit: int = Query(default=25, ge=1, le=100), ctx: dict = Depends(require_read_auth)):
     init_db()
+    allowed_ids = {a["id"] for a in _list_agents_for_ctx(ctx)}
+    pending = [
+        p
+        for p in storage.list_human_approvals(status="pending", limit=25)
+        if (p.get("agent_id") in allowed_ids) or (ctx["org_slug"] == "public-demo" and p.get("agent_id") == "simulation-bouake")
+    ]
     return {
         "db_backend": storage.get_backend_mode(),
         "audit_logs": storage.list_audit_logs(limit=limit),
-        "pending_approvals": storage.list_human_approvals(status="pending", limit=15),
+        "pending_approvals": pending[:15],
     }
 
 
@@ -1477,6 +1613,15 @@ def supervisor_decide_approval(
     dec = body.decision.strip().lower()
     if dec not in ("approve", "reject"):
         raise HTTPException(status_code=400, detail="Décision invalide ('approve' ou 'reject').")
+
+    existing = storage.get_human_approval(approval_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Demande d'approbation introuvable.")
+    target_aid = existing.get("agent_id") or "simulation-bouake"
+    _ensure_agent_tenant_access(target_aid, ctx)
+    if existing.get("status") != "pending":
+        raise HTTPException(status_code=409, detail=f"Cette demande a déjà été traitée ({existing.get('status')}).")
+
     now_iso = datetime.now(timezone.utc).isoformat()
     resolved = storage.resolve_human_approval(approval_id, dec, now_iso)
     if not resolved:

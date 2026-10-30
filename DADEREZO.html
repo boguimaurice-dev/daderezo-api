@@ -3,8 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#050811">
-<title>DADEREZO — Poste Superviseur · Supervision Réseau Multi-Agents</title>
+<meta name="theme-color" id="metaThemeColor" content="#031238">
+<title>DADEREZO v4.2 — Poste Superviseur · Supervision &amp; Contrôle Réseau Multi-Agents</title>
+<meta name="description" content="Console Superviseur Général DADEREZO v4.2 : diagnostic FAI/LAN, posture sécurité, interrupteurs Internet (Box/Zone/Poste), optimisation Multi-Box et Hub Multimédia.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4.3">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=4.3">
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png?v=4.3">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=4.3">
+<link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=4.3">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=4.3">
+<link rel="manifest" href="/manifest.webmanifest?v=4.3">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daderezo">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="DADEREZO">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:url" content="https://daderezo-api-nine.vercel.app/ui">
+<meta property="og:title" content="DADEREZO v4.1 — Console Superviseur Général Multi-Agents">
+<meta property="og:description" content="Pilotez vos réseaux locaux à la voix et à l'écrit : 5 agents IA, mémoire multi-tours, Internet ON/OFF granulaire, Multi-Box et Hub Multimédia.">
+<meta property="og:image" content="https://daderezo-api-nine.vercel.app/og-image.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="DADEREZO v4.1 — Console Superviseur Général Multi-Agents">
+<meta name="twitter:description" content="Pilotez vos réseaux locaux à la voix et à l'écrit : 5 agents IA, mémoire multi-tours, Internet ON/OFF granulaire, Multi-Box et Hub Multimédia.">
+<meta name="twitter:image" content="https://daderezo-api-nine.vercel.app/og-image.png">
 <script>
 (function(){
   try {
@@ -16,32 +42,35 @@
 <style>
 :root{
   color-scheme:dark;
-  --bg:#050811;
-  --bg-elev:#0b111e;
-  --bg-card:rgba(12,19,34,.86);
-  --bg-rail:rgba(6,10,20,.92);
-  --bg-soft:rgba(15,23,42,.76);
-  --bg-well:rgba(2,6,23,.74);
-  --bg-hover:rgba(30,41,59,.68);
+  --bg:#020b22;
+  --bg-elev:#061436;
+  --bg-card:rgba(8,22,56,.88);
+  --bg-rail:rgba(3,11,32,.94);
+  --bg-soft:rgba(11,29,72,.78);
+  --bg-well:rgba(2,9,27,.78);
+  --bg-hover:rgba(18,45,104,.68);
   --bg-console:
-    radial-gradient(560px 220px at 8% 0%,rgba(16,185,129,.13),transparent 70%),
-    radial-gradient(520px 220px at 92% 0%,rgba(6,182,212,.12),transparent 70%),
-    linear-gradient(180deg,rgba(13,22,40,.95),rgba(9,14,26,.96));
+    radial-gradient(560px 220px at 8% 0%,rgba(0,119,255,.22),transparent 70%),
+    radial-gradient(520px 220px at 92% 0%,rgba(0,194,255,.16),transparent 70%),
+    linear-gradient(180deg,rgba(8,24,62,.96),rgba(4,13,36,.97));
   --ink-strong:#ffffff;
-  --ink:#f8fafc;
-  --ink-dim:#cbd5e1;
-  --muted:#8496ae;
-  --line:rgba(148,163,184,.15);
-  --line-bright:rgba(56,189,248,.32);
-  --grid-line:rgba(148,163,184,.028);
-  --glow-1:rgba(16,185,129,.11);
-  --glow-2:rgba(6,182,212,.10);
+  --ink:#f1f6ff;
+  --ink-dim:#cbdcff;
+  --muted:#8ba5cf;
+  --line:rgba(96,165,250,.18);
+  --line-bright:rgba(0,184,255,.42);
+  --grid-line:rgba(56,189,248,.038);
+  --glow-1:rgba(0,119,255,.20);
+  --glow-2:rgba(0,194,255,.14);
+  --brand:#0077ff;
+  --brand-ink:#7cc4ff;
+  --brand-soft:rgba(0,119,255,.18);
   --emerald:#10b981;
   --emerald-ink:#6ee7b7;
-  --emerald-soft:rgba(16,185,129,.14);
-  --cyan:#06b6d4;
-  --cyan-ink:#67e8f9;
-  --cyan-soft:rgba(6,182,212,.14);
+  --emerald-soft:rgba(16,185,129,.15);
+  --cyan:#00b8ff;
+  --cyan-ink:#6be0ff;
+  --cyan-soft:rgba(0,184,255,.16);
   --amber:#f59e0b;
   --amber-ink:#fcd34d;
   --amber-soft:rgba(245,158,11,.15);
@@ -50,41 +79,44 @@
   --red-soft:rgba(239,68,68,.15);
   --violet:#a855f7;
   --violet-ink:#d8b4fe;
-  --violet-soft:rgba(168,85,247,.15);
-  --btn-ink:#04130e;
-  --shadow:0 20px 50px rgba(0,0,0,.45);
+  --violet-soft:rgba(168,85,247,.16);
+  --btn-ink:#ffffff;
+  --shadow:0 20px 50px rgba(1,6,20,.50);
   --mono:"JetBrains Mono","Cascadia Code","Fira Code",Consolas,monospace;
   --sans:"Space Grotesk","Inter","Segoe UI Variable",Segoe UI,system-ui,sans-serif;
 }
 
 html[data-theme="light"]{
   color-scheme:light;
-  --bg:#f8fafc;
+  --bg:#f4f8ff;
   --bg-elev:#ffffff;
-  --bg-card:rgba(255,255,255,.94);
-  --bg-rail:rgba(255,255,255,.95);
-  --bg-soft:#f1f5f9;
-  --bg-well:#f8fafc;
-  --bg-hover:#e2e8f0;
+  --bg-card:rgba(255,255,255,.96);
+  --bg-rail:rgba(255,255,255,.97);
+  --bg-soft:#eaf2ff;
+  --bg-well:#f2f7ff;
+  --bg-hover:#dce9ff;
   --bg-console:
-    radial-gradient(560px 220px at 8% 0%,rgba(16,185,129,.10),transparent 70%),
-    radial-gradient(520px 220px at 92% 0%,rgba(6,182,212,.09),transparent 70%),
-    linear-gradient(180deg,#ffffff,#f8fafc);
-  --ink-strong:#0f172a;
-  --ink:#1e293b;
-  --ink-dim:#334155;
-  --muted:#5b6b82;
-  --line:rgba(15,23,42,.11);
-  --line-bright:rgba(8,145,178,.36);
-  --grid-line:rgba(15,23,42,.032);
-  --glow-1:rgba(16,185,129,.08);
-  --glow-2:rgba(6,182,212,.07);
+    radial-gradient(560px 220px at 8% 0%,rgba(0,119,255,.12),transparent 70%),
+    radial-gradient(520px 220px at 92% 0%,rgba(0,184,255,.10),transparent 70%),
+    linear-gradient(180deg,#ffffff,#f2f7ff);
+  --ink-strong:#031645;
+  --ink:#0c2359;
+  --ink-dim:#1e3a78;
+  --muted:#4b638c;
+  --line:rgba(3,22,69,.12);
+  --line-bright:rgba(0,119,255,.38);
+  --grid-line:rgba(0,82,204,.036);
+  --glow-1:rgba(0,119,255,.11);
+  --glow-2:rgba(0,184,255,.09);
+  --brand:#0066eb;
+  --brand-ink:#0052cc;
+  --brand-soft:rgba(0,102,235,.11);
   --emerald:#059669;
   --emerald-ink:#047857;
   --emerald-soft:rgba(5,150,105,.11);
-  --cyan:#0891b2;
-  --cyan-ink:#0e7490;
-  --cyan-soft:rgba(8,145,178,.11);
+  --cyan:#0088db;
+  --cyan-ink:#006bb3;
+  --cyan-soft:rgba(0,136,219,.11);
   --amber:#d97706;
   --amber-ink:#b45309;
   --amber-soft:rgba(217,119,6,.12);
@@ -95,7 +127,7 @@ html[data-theme="light"]{
   --violet-ink:#6d28d9;
   --violet-soft:rgba(124,58,237,.11);
   --btn-ink:#ffffff;
-  --shadow:0 14px 34px rgba(15,23,42,.06);
+  --shadow:0 14px 34px rgba(3,22,69,.07);
 }
 
 *{box-sizing:border-box}
@@ -135,21 +167,23 @@ aside{
 }
 .brand{display:flex;align-items:center;gap:12px;padding:4px 8px}
 .brand-mark{
-  width:38px;height:38px;border-radius:10px;
-  background:linear-gradient(135deg,var(--emerald-soft),var(--cyan-soft));
-  border:1px solid var(--emerald);
-  box-shadow:0 0 22px rgba(16,185,129,.16);
+  width:42px;height:42px;border-radius:11px;overflow:hidden;flex:0 0 auto;
+  box-shadow:0 6px 20px rgba(0,119,255,.32);
   display:grid;place-items:center;
-  color:var(--emerald-ink);font:800 13px/1 var(--mono);letter-spacing:.06em;
 }
-.brand-name{font-weight:800;letter-spacing:.14em;font-size:15px;color:var(--ink-strong)}
-.brand-sub{font:600 9.5px/1.2 var(--mono);color:var(--cyan-ink);letter-spacing:.14em;margin-top:4px;text-transform:uppercase}
+.brand-mark img{width:100%;height:100%;object-fit:contain;display:block}
+.brand-name{font-weight:850;letter-spacing:.03em;font-size:17px;color:var(--ink-strong);line-height:1.05}
+.brand-rezo{
+  background:linear-gradient(120deg,#0080ff,#00c8ff);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.brand-sub{font:600 9.5px/1.2 var(--mono);color:var(--cyan-ink);letter-spacing:.11em;margin-top:4px;text-transform:uppercase}
 
 .site-card{
   margin:0 4px;padding:12px 13px;border-radius:11px;
   background:var(--bg-soft);border:1px solid var(--line);
 }
-.site-card-eyebrow{font:700 9.5px/1 var(--mono);letter-spacing:.14em;color:var(--emerald-ink);text-transform:uppercase;margin-bottom:5px}
+.site-card-eyebrow{font:700 9.5px/1 var(--mono);letter-spacing:.14em;color:var(--brand-ink);text-transform:uppercase;margin-bottom:5px}
 .site-card b{display:block;font-size:12.5px;color:var(--ink-strong);line-height:1.35}
 .site-card small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
 
@@ -166,11 +200,11 @@ aside{
   background:var(--bg-hover);color:var(--ink-strong);border-color:var(--line);outline:none;
 }
 .nav button.active{
-  background:linear-gradient(90deg,var(--emerald-soft),var(--cyan-soft));
-  color:var(--ink-strong);border-color:rgba(16,185,129,.38);
-  box-shadow:inset 3px 0 0 var(--emerald);font-weight:700;
+  background:linear-gradient(90deg,var(--brand-soft),var(--cyan-soft));
+  color:var(--ink-strong);border-color:rgba(0,136,255,.44);
+  box-shadow:inset 3px 0 0 var(--brand);font-weight:700;
 }
-.nav button.active .nav-idx{color:var(--emerald-ink)}
+.nav button.active .nav-idx{color:var(--brand-ink)}
 .nav-badge{
   font:700 10.5px/1 var(--mono);padding:4px 8px;border-radius:999px;
   background:var(--bg-soft);color:var(--ink-dim);border:1px solid var(--line);
@@ -178,10 +212,10 @@ aside{
 
 .side-bottom{
   margin-top:auto;padding:14px 12px;border-radius:11px;
-  background:linear-gradient(180deg,var(--emerald-soft),var(--bg-soft));
-  border:1px solid rgba(16,185,129,.25);font-size:11px;color:var(--muted);line-height:1.5;
+  background:linear-gradient(180deg,var(--brand-soft),var(--bg-soft));
+  border:1px solid rgba(0,136,255,.30);font-size:11px;color:var(--muted);line-height:1.5;
 }
-.side-bottom .mode{font:700 10px/1.2 var(--mono);letter-spacing:.1em;color:var(--emerald-ink);text-transform:uppercase;margin-bottom:5px}
+.side-bottom .mode{font:700 10px/1.2 var(--mono);letter-spacing:.1em;color:var(--brand-ink);text-transform:uppercase;margin-bottom:5px}
 
 /* MAIN AREA */
 main{min-width:0;padding:24px clamp(18px,3.5vw,44px) 56px;max-width:1520px;width:100%;margin:0 auto}
@@ -213,17 +247,18 @@ main{min-width:0;padding:24px clamp(18px,3.5vw,44px) 56px;max-width:1520px;width
 .dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
 
 .btn{
-  background:linear-gradient(135deg,#10b981,#059669);color:var(--btn-ink);
-  border:1px solid rgba(16,185,129,.38);border-radius:8px;min-height:36px;padding:0 14px;
+  background:linear-gradient(135deg,#0066ff,#00b4ff);color:var(--btn-ink);
+  border:1px solid rgba(0,180,255,.44);border-radius:8px;min-height:36px;padding:0 14px;
   font-size:12px;font-weight:750;white-space:nowrap;cursor:pointer;transition:all .15s ease;
+  box-shadow:0 6px 18px rgba(0,102,255,.24);
 }
-.btn:hover{filter:brightness(1.07);transform:translateY(-1px)}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
 .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .btn.secondary{
-  background:var(--bg-elev);color:var(--ink-dim);border:1px solid var(--line);font-weight:650;
+  background:var(--bg-elev);color:var(--ink-dim);border:1px solid var(--line);font-weight:650;box-shadow:none;
 }
 .btn.secondary:hover{background:var(--bg-hover);color:var(--ink-strong);border-color:var(--line-bright)}
-.btn.danger{background:var(--red-soft);color:var(--red-ink);border:1px solid rgba(239,68,68,.4)}
+.btn.danger{background:var(--red-soft);color:var(--red-ink);border:1px solid rgba(239,68,68,.4);box-shadow:none}
 
 .heading{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:20px}
 .heading h1{font-size:clamp(24px,3vw,33px);letter-spacing:-.03em;line-height:1.1;margin:7px 0 6px;font-weight:800;color:var(--ink-strong)}
@@ -255,19 +290,20 @@ main{min-width:0;padding:24px clamp(18px,3.5vw,44px) 56px;max-width:1520px;width
 .sup-identity{display:flex;align-items:center;gap:14px}
 
 .ai-orb{
-  width:46px;height:46px;border-radius:50%;position:relative;flex:0 0 auto;
-  background:radial-gradient(circle at 35% 35%,#34d399,#0891b2 68%,#0f172a 100%);
-  box-shadow:0 0 22px rgba(16,185,129,.38),inset 0 0 12px rgba(255,255,255,.35);
+  width:48px;height:48px;border-radius:14px;position:relative;flex:0 0 auto;
+  background:radial-gradient(circle at 35% 35%,#0088ff,#003cb3 70%,#020f36 100%);
+  box-shadow:0 0 24px rgba(0,136,255,.45),inset 0 0 10px rgba(255,255,255,.28);
   display:grid;place-items:center;font:800 13px/1 var(--mono);color:#ffffff;
   animation:orbFloat 3.6s ease-in-out infinite;
 }
+.ai-orb img{width:40px;height:40px;object-fit:contain;border-radius:10px;display:block}
 .ai-orb::after{
-  content:"";position:absolute;inset:-5px;border-radius:50%;
-  border:1.5px dashed var(--cyan);animation:orbSpin 14s linear infinite;
+  content:"";position:absolute;inset:-5px;border-radius:17px;
+  border:1.5px dashed var(--cyan);animation:orbSpin 16s linear infinite;pointer-events:none;
 }
 .ai-orb.thinking{
-  background:radial-gradient(circle at 35% 35%,#67e8f9,#0284c7 65%,#0f172a 100%);
-  box-shadow:0 0 32px rgba(6,182,212,.65);
+  background:radial-gradient(circle at 35% 35%,#6be0ff,#0066ff 65%,#031645 100%);
+  box-shadow:0 0 32px rgba(0,184,255,.72);
 }
 .ai-orb.thinking::after{animation-duration:2.2s;border-color:var(--cyan)}
 .ai-orb.listening{
@@ -286,7 +322,7 @@ main{min-width:0;padding:24px clamp(18px,3.5vw,44px) 56px;max-width:1520px;width
   display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:15px;
 }
 
-/* v4.0 : SWITCHES INTERNET, BOX CARDS, MEDIA HUB & AUTH MODAL */
+/* v4.1 : SWITCHES INTERNET, BOX CARDS, MEDIA HUB & AUTH MODAL */
 .net-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
 .ctrl-card{
   background:var(--bg-card);border:1px solid var(--line);border-radius:13px;padding:15px 17px;
@@ -567,10 +603,10 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
 <div class="app">
 <aside aria-label="Navigation principale">
   <div class="brand">
-    <div class="brand-mark">DR</div>
+    <div class="brand-mark"><img src="/logo-icon.png" alt="Logo Daderezo"></div>
     <div>
-      <div class="brand-name">DADEREZO</div>
-      <div class="brand-sub">VISION IA · AGENT CORE</div>
+      <div class="brand-name">Dade<span class="brand-rezo">rezo</span></div>
+      <div class="brand-sub">AGENT IA · TOUJOURS À VOS CÔTÉS</div>
     </div>
   </div>
 
@@ -622,7 +658,7 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
 
 <main>
   <div class="topline">
-    <div class="eyebrow" id="topEyebrow">DADEREZO v4.0 · SUPERVISION, PILOTAGE BOX &amp; MULTIMÉDIA</div>
+    <div class="eyebrow" id="topEyebrow">DADEREZO v4.1 · SUPERVISION, PILOTAGE BOX &amp; MULTIMÉDIA</div>
     <div class="top-right">
       <button class="btn secondary" id="themeToggleBtn" type="button" title="Basculer entre le mode clair et le mode sombre">☀️ Clair</button>
       <button class="btn secondary" id="authAccountBtn" type="button" title="Se connecter ou créer un espace réseau privé isolé">🔐 Espace Privé</button>
@@ -636,6 +672,7 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
         <span id="dbTruthText">DB : …</span>
       </div>
       <div class="collector-pill" id="collectorPill"><span class="dot"></span><span id="collectorText">Connexion…</span></div>
+      <button class="btn secondary" id="pwaInstallBtn" type="button" title="Installer Daderezo en application mobile / bureau">📲 Installer l’App</button>
       <button class="btn secondary" id="refreshBtn" type="button">Actualiser</button>
       <button class="btn" id="scanBtn" type="button" title="Ordonner un scan immédiat à la sonde">⚡ Scanner</button>
     </div>
@@ -666,10 +703,10 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
     <div class="sup-console" id="supervisorCard" aria-label="Orchestrateur Multi-Agents Superviseur Général">
       <div class="sup-header">
         <div class="sup-identity">
-          <div class="ai-orb" id="aiOrb" aria-hidden="true">AI</div>
+          <div class="ai-orb" id="aiOrb" aria-hidden="true"><img src="/logo-icon.png" alt=""></div>
           <div class="sup-title-block">
             <h2>Orchestrateur DADEREZO · Console Vocale & Écrite</h2>
-            <p>4 agents spécialisés exécutent de vrais outils sur vos données réseau avec mémoire de conversation et garde-fous.</p>
+            <p>5 agents spécialisés exécutent de vrais outils sur vos données réseau avec mémoire multi-tours et garde-fous.</p>
           </div>
         </div>
         <div class="sup-controls">
@@ -1165,7 +1202,7 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
     </div>
 
     <div class="panel config-panel" style="margin-bottom:18px">
-      <h2 style="font-size:14.5px;margin:0 0 6px;color:var(--ink-strong)">Commande de déploiement sonde v4.0 (Collecte + Pilotage Box + Hub Multimédia LAN :8090)</h2>
+      <h2 style="font-size:14.5px;margin:0 0 6px;color:var(--ink-strong)">Commande de déploiement sonde v4.1 (Collecte + Pilotage Box + Hub Multimédia LAN :8090)</h2>
       <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px" id="probePrivacyHint">Connectez-vous à votre Espace Privé pour insérer automatiquement votre clé d’isolation <code>--api-key dzk_...</code> dans la commande ci-dessous :</p>
       <pre class="cmd-pre" id="probeDeployCmd">python agent_client.py --api https://daderezo-api-nine.vercel.app --agent mon-site-principal --nom "Mon Réseau Privé" --task-poll 5 --media-port 8090</pre>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:11px">
@@ -1214,7 +1251,10 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
 <div class="modal-backdrop hidden" id="authModal">
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <h2 id="authModalTitle" style="margin:0;font-size:17px;color:var(--ink-strong)">🔐 Espace Réseau Privé DADEREZO</h2>
+      <div style="display:flex;align-items:center;gap:10px">
+        <img src="/logo-icon.png" alt="Logo Daderezo" style="width:36px;height:36px;border-radius:9px">
+        <h2 id="authModalTitle" style="margin:0;font-size:17px;color:var(--ink-strong)">Espace Réseau Privé Daderezo</h2>
+      </div>
       <button class="btn secondary" id="closeAuthModalBtn" type="button" style="min-height:32px;padding:0 10px">✕</button>
     </div>
     <p style="font-size:12px;color:var(--muted);margin:6px 0 0">
@@ -1270,6 +1310,8 @@ function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', clean);
   localStorage.setItem('daderezo_theme', clean);
   if (themeToggleBtn) themeToggleBtn.textContent = clean === 'light' ? '🌙 Sombre' : '☀️ Clair';
+  const mt = document.getElementById('metaThemeColor');
+  if (mt) mt.setAttribute('content', clean === 'light' ? '#f4f8ff' : '#031238');
 }
 applyTheme(localStorage.getItem('daderezo_theme') || 'dark');
 if (themeToggleBtn) {
@@ -2151,7 +2193,7 @@ micBtn.addEventListener('click', () => {
 });
 
 // =========================================================================
-// v4.0 · INTERRUPTEURS INTERNET 3 NIVEAUX, BOX OPTIMIZER, MEDIA HUB & SAAS AUTH
+// v4.1 · INTERRUPTEURS INTERNET 3 NIVEAUX, BOX OPTIMIZER, MEDIA HUB & SAAS AUTH
 // =========================================================================
 function renderInternetSwitchState() {
   const mainBtn = document.getElementById('mainBoxSwitchBtn');
@@ -2186,7 +2228,16 @@ async function applyInternetPolicy(scopeType, targetValue, internetEnabled) {
       })
     });
     if (!res.ok) {
-      if (previewEl) previewEl.textContent = 'Authentification requise pour modifier les politiques Internet.';
+      if (previewEl) previewEl.textContent = '🔒 Authentification requise : ouvrez votre Espace Privé ou renseignez X-API-Key.';
+      if (res.status === 401) {
+        const m = document.getElementById('authModal');
+        const msg = document.getElementById('authErrorMsg');
+        if (m) m.classList.remove('hidden');
+        if (msg) {
+          msg.textContent = '🔐 Mode production sécurisé (auth_enabled=true) : créez ou ouvrez votre Espace Privé pour piloter Internet et vos Box.';
+          msg.classList.remove('hidden');
+        }
+      }
       return;
     }
     const data = await res.json();
@@ -2614,8 +2665,15 @@ document.getElementById('logoutSaaSBtn').addEventListener('click', async () => {
   loadMedia();
 });
 
-if (new URLSearchParams(window.location.search).get('auth') === '1') {
+const _urlParams = new URLSearchParams(window.location.search);
+if (_urlParams.get('auth') === '1') {
   openAuthModal();
+}
+if (_urlParams.get('focus') === 'voice') {
+  setTimeout(() => {
+    const inp = document.getElementById('supervisorInput');
+    if (inp) inp.focus();
+  }, 350);
 }
 
 checkAuthSession().then(() => {
@@ -2623,6 +2681,56 @@ checkAuthSession().then(() => {
   loadMedia();
 });
 setInterval(refreshAll, 15000);
+
+/* PWA SERVICE WORKER, OFFLINE INDICATOR & INSTALL PROMPT */
+(function initDaderezoSupervisorPWA() {
+  const installBtn = document.getElementById('pwaInstallBtn');
+  let deferredPrompt = null;
+  const isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  if (isStandalone && installBtn) installBtn.style.display = 'none';
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+    });
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (installBtn) installBtn.style.display = 'inline-flex';
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    if (installBtn) installBtn.style.display = 'none';
+  });
+
+  if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice.catch(() => {});
+        deferredPrompt = null;
+        return;
+      }
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+      const msg = isIOS
+        ? "Sur iPhone / iPad : touchez Partager (⬆️) dans Safari puis « Sur l'écran d'accueil » pour installer Daderezo."
+        : "Pour installer l'application Daderezo : cliquez sur l'icône d'installation dans la barre d'adresse Chrome / Edge (ou Menu ⋮ → « Installer Daderezo »).";
+      let toast = document.getElementById('pwaInstallToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'pwaInstallToast';
+        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;max-width:390px;z-index:9999;padding:14px 18px;border-radius:14px;background:#061c5c;color:#f1f6ff;border:1px solid rgba(56,189,248,.5);box-shadow:0 16px 40px rgba(1,8,28,.65);font-size:13px;line-height:1.5;';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = '📲 ' + msg;
+      toast.style.display = 'block';
+      setTimeout(() => { if (toast) toast.style.display = 'none'; }, 7500);
+    });
+  }
+})();
 </script>
 </body>
 </html>

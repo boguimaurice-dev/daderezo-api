@@ -1,0 +1,76 @@
+# =============================================================================
+# DADEREZO v4.2 — Stack Production 24/7 pour VPS Contabo (Ubuntu / Debian)
+# =============================================================================
+# Démarrage rapide sur le VPS Contabo :
+#   1. git clone https://github.com/boguimaurice-dev/daderezo-api.git && cd daderezo-api
+#   2. cp .env.contabo.example .env   # (renseigner SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DADEREZO_API_KEY)
+#   3. docker compose -f docker-compose.contabo.yml up -d --build
+#   4. docker exec -it daderezo-ollama ollama pull qwen2.5:3b
+# =============================================================================
+
+services:
+  daderezo-api:
+    build: .
+    container_name: daderezo-core
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - DADEREZO_API_KEY=${DADEREZO_API_KEY:-changez-moi-cle-maitre}
+      - DADEREZO_AUTH_SECRET=${DADEREZO_AUTH_SECRET:-changez-moi-secret-hmac}
+      # Cerveau LLM local gratuit & souverain propulsé par Ollama sur le VPS Contabo :
+      - DADEREZO_LLM_BASE_URL=http://ollama:11434/v1
+      - DADEREZO_LLM_API_KEY=ollama-local-contabo
+      - DADEREZO_LLM_MODEL=${DADEREZO_LLM_MODEL:-qwen2.5:3b}
+      - DADEREZO_SEED_DEMO=1
+    volumes:
+      - daderezo_data:/data
+    depends_on:
+      - ollama
+
+  daderezo-watchdog:
+    build: .
+    container_name: daderezo-watchdog
+    restart: unless-stopped
+    command: ["python", "contabo_watchdog.py"]
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - DADEREZO_WATCHDOG_INTERVAL=${DADEREZO_WATCHDOG_INTERVAL:-60}
+      - DADEREZO_TELEGRAM_BOT_TOKEN=${DADEREZO_TELEGRAM_BOT_TOKEN:-}
+      - DADEREZO_TELEGRAM_CHAT_ID=${DADEREZO_TELEGRAM_CHAT_ID:-}
+      - DADEREZO_ALERT_WEBHOOK_URL=${DADEREZO_ALERT_WEBHOOK_URL:-}
+    depends_on:
+      - daderezo-api
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: daderezo-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: daderezo-https
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    command: caddy reverse-proxy --from ${DADEREZO_DOMAIN:-:80} --to daderezo-api:8000
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - daderezo-api
+
+volumes:
+  daderezo_data:
+  ollama_models:
+  caddy_data:
+  caddy_config:

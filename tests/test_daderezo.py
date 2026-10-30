@@ -572,6 +572,257 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertEqual(owner_dash.status_code, 200)
         self.assertEqual(owner_dash.json()["summary"]["total_devices"], 2)
 
+    def test_v41_favicon_and_opengraph_social_preview(self):
+        for route, ctype in (
+            ("/favicon.svg", "image/svg+xml"),
+            ("/favicon.ico", "image/x-icon"),
+            ("/favicon.png", "image/png"),
+            ("/favicon-32.png", "image/png"),
+            ("/apple-touch-icon.png", "image/png"),
+            ("/logo-icon.png", "image/png"),
+            ("/logo-orbit.png", "image/png"),
+            ("/og-image.png", "image/png"),
+            ("/banner-network.jpg", "image/jpeg"),
+            ("/banner-partner.jpg", "image/jpeg"),
+        ):
+            r = self.client.get(route)
+            self.assertEqual(r.status_code, 200, route)
+            self.assertIn(ctype, r.headers.get("content-type", ""))
+            self.assertGreater(len(r.content), 500)
+
+        svg_txt = self.client.get("/favicon.svg").text
+        self.assertIn("#00D4FF", svg_txt)
+        self.assertIn("#0077FF", svg_txt)
+        self.assertIn("#031C6C", svg_txt)
+        self.assertNotIn("#10B981", svg_txt)
+
+        for html_route in ("/", "/ui"):
+            page = self.client.get(html_route, headers={"Accept": "text/html"}).text
+            self.assertIn('href="/favicon.svg?v=4.3"', page)
+            self.assertIn('href="/favicon-32.png?v=4.3"', page)
+            self.assertIn('href="/favicon.png?v=4.3"', page)
+            self.assertIn('src="/logo-icon.png"', page)
+            self.assertIn('property="og:image"', page)
+            self.assertIn("og-image.png", page)
+            self.assertIn('name="twitter:card" content="summary_large_image"', page)
+
+    def test_v41_openai_and_groq_base_url_detection(self):
+        import agent_engine
+
+        cfg_openai = agent_engine._detect_llm_config("sk-proj-testkey123456")
+        self.assertEqual(cfg_openai["base_url"], "https://api.openai.com/v1")
+        self.assertEqual(cfg_openai["model"], "gpt-4o-mini")
+
+        cfg_groq = agent_engine._detect_llm_config("gsk_testkey123456")
+        self.assertEqual(cfg_groq["base_url"], "https://api.groq.com/openai/v1")
+
+    def test_v41_conversational_comprehension_greeting_offtopic_security_score(self):
+        self.client.post("/demo/scenario/intrus")
+
+        # 1. Salutation naturelle -> pas de dump brut d'inventaire
+        r_hi = self.client.post(
+            "/supervisor/ask",
+            json={"question": "Bonjour !", "agent_id": "simulation-bouake", "session_id": "sess-v41-conv"},
+        ).json()
+        self.assertEqual(r_hi["intent"], "salutation_capacites")
+        self.assertIn("Bonjour", r_hi["answer"])
+
+        # 2. Question hors périmètre (culture générale) -> refus courtois, pas d'inventaire
+        r_off = self.client.post(
+            "/supervisor/ask",
+            json={
+                "question": "Quelle est la capitale du Ghana ?",
+                "agent_id": "simulation-bouake",
+                "session_id": "sess-v41-conv",
+            },
+        ).json()
+        self.assertEqual(r_off["intent"], "hors_perimetre")
+        self.assertIn("hors périmètre", r_off["answer"])
+        self.assertNotIn("Avec accès Internet (", r_off["answer"])
+
+        # 3. Audit de risque de sécurité -> score /100 et détection de l'intrus 192.168.8.217
+        r_sec = self.client.post(
+            "/supervisor/ask",
+            json={
+                "question": "Est-ce qu'il y a un risque de sécurité sur mon réseau ?",
+                "agent_id": "simulation-bouake",
+                "session_id": "sess-v41-conv",
+            },
+        ).json()
+        self.assertEqual(r_sec["intent"], "analyse_securite")
+        self.assertIn("/100", r_sec["answer"])
+        self.assertIn("192.168.8.217", r_sec["answer"])
+
+    def test_v41_multi_turn_session_memory_and_pronoun_resolution(self):
+        self.client.post("/demo/scenario/lan_seul")
+        sid = "sess-v41-memory"
+
+        # Tour 1 : Filtrer la zone Administration
+        t1 = self.client.post(
+            "/supervisor/ask",
+            json={"question": "Montre les équipements de la zone Administration", "agent_id": "simulation-bouake", "session_id": sid},
+        ).json()
+        self.assertEqual(t1["intent"], "filtre_zone")
+        self.assertIn("192.168.8.14", t1["answer"])
+        self.assertIn("192.168.8.120", t1["answer"])
+
+        # Tour 2 : Suivi elliptique ("Et leurs adresses MAC et latences ?") résolu grâce à agent_sessions
+        t2 = self.client.post(
+            "/supervisor/ask",
+            json={"question": "Et leurs adresses MAC et latences ?", "agent_id": "simulation-bouake", "session_id": sid},
+        ).json()
+        self.assertEqual(t2["intent"], "suivi_contextuel")
+        self.assertIn("58:38:79:60:02:5f", t2["answer"])
+        self.assertIn("a4:bb:6d:21:09:44", t2["answer"])
+
+        # Tour 3 : Rappel méta de la conversation
+        t3 = self.client.post(
+            "/supervisor/ask",
+            json={"question": "Qu'est-ce que je viens de te demander ?", "agent_id": "simulation-bouake", "session_id": sid},
+        ).json()
+        self.assertEqual(t3["intent"], "memoire_conversation")
+        self.assertIn("Et leurs adresses MAC et latences ?", t3["answer"])
+
+    def test_v41_production_rbac_lock_when_api_key_enabled(self):
+        old_key = os.environ.get("DADEREZO_API_KEY")
+        os.environ["DADEREZO_API_KEY"] = "secret-prod-master-key"
+        try:
+            health = self.client.get("/health").json()
+            self.assertTrue(health["auth_enabled"])
+
+            # Les scénarios démo confinés à simulation-bouake restent jouables en lecture publique
+            scen = self.client.post("/demo/scenario/nominal")
+            self.assertEqual(scen.status_code, 200)
+
+            # Toute écriture anonyme ou approbation HITL sans clé est bloquée (401 / auth_requise)
+            r_unauth_pol = self.client.post(
+                "/network/policies/simulation-bouake",
+                json={"scope_type": "zone", "target_value": "Visiteurs", "internet_enabled": False},
+            )
+            self.assertEqual(r_unauth_pol.status_code, 401)
+
+            r_unauth_reboot = self.client.post(
+                "/supervisor/ask",
+                json={"question": "Redémarre le routeur principal", "agent_id": "simulation-bouake", "session_id": "sess-lock"},
+            ).json()
+            self.assertEqual(r_unauth_reboot["intent"], "auth_requise")
+            self.assertTrue(r_unauth_reboot["refused_write_action"])
+            self.assertIsNone(r_unauth_reboot["pending_approval"])
+
+            # Avec la clé maître X-API-Key, la demande HITL et son approbation fonctionnent
+            r_auth_reboot = self.client.post(
+                "/supervisor/ask",
+                headers={"X-API-Key": "secret-prod-master-key"},
+                json={"question": "Redémarre le routeur principal", "agent_id": "simulation-bouake", "session_id": "sess-lock"},
+            ).json()
+            self.assertEqual(r_auth_reboot["intent"], "validation_humaine_requise")
+            app_id = r_auth_reboot["pending_approval"]["id"]
+
+            # Un appelant anonyme ne peut PAS approuver cette demande !
+            r_unauth_app = self.client.post(f"/supervisor/approve/{app_id}", json={"decision": "approve"})
+            self.assertEqual(r_unauth_app.status_code, 401)
+
+            # L'administrateur authentifié peut la refuser ou l'approuver
+            r_auth_rej = self.client.post(
+                f"/supervisor/approve/{app_id}",
+                headers={"X-API-Key": "secret-prod-master-key"},
+                json={"decision": "reject"},
+            )
+            self.assertEqual(r_auth_rej.status_code, 200)
+            self.assertEqual(r_auth_rej.json()["approval"]["status"], "rejected")
+        finally:
+            if old_key is None:
+                os.environ.pop("DADEREZO_API_KEY", None)
+            else:
+                os.environ["DADEREZO_API_KEY"] = old_key
+
+    def test_19_pwa_manifest_service_worker_and_icons(self):
+        # 1. Web App Manifest
+        r_man = self.client.get("/manifest.webmanifest")
+        self.assertEqual(r_man.status_code, 200)
+        self.assertIn("application/manifest+json", r_man.headers.get("content-type", ""))
+        manifest = r_man.json()
+        self.assertEqual(manifest["short_name"], "Daderezo")
+        self.assertEqual(manifest["display"], "standalone")
+        self.assertEqual(manifest["start_url"], "/ui?source=pwa")
+        icon_srcs = {i["src"] for i in manifest["icons"]}
+        self.assertIn("/favicon-32.png?v=4.3", icon_srcs)
+        self.assertIn("/icon-192.png?v=4.3", icon_srcs)
+        self.assertIn("/icon-512.png?v=4.3", icon_srcs)
+        self.assertIn("/icon-maskable-512.png?v=4.3", icon_srcs)
+
+        # 2. Service Worker headers (Service-Worker-Allowed + no-cache)
+        r_sw = self.client.get("/sw.js")
+        self.assertEqual(r_sw.status_code, 200)
+        self.assertIn("application/javascript", r_sw.headers.get("content-type", ""))
+        self.assertEqual(r_sw.headers.get("service-worker-allowed"), "/")
+        self.assertEqual(r_sw.headers.get("cache-control"), "no-cache")
+        self.assertIn("daderezo-shell-v4.3", r_sw.text)
+
+        # 3. Offline fallback & PWA PNG icons (GET + HEAD)
+        r_off = self.client.get("/offline.html")
+        self.assertEqual(r_off.status_code, 200)
+        self.assertIn("Continuité Hors-Ligne", r_off.text)
+
+        for icon_path in ("/icon-192.png", "/icon-512.png", "/icon-maskable-512.png"):
+            r_ic = self.client.get(icon_path)
+            self.assertEqual(r_ic.status_code, 200)
+            self.assertEqual(r_ic.headers.get("content-type"), "image/png")
+            self.assertTrue(r_ic.content.startswith(b"\x89PNG"))
+            r_hd = self.client.head(icon_path)
+            self.assertEqual(r_hd.status_code, 200)
+
+        # 4. Landing & Supervisor HTML include manifest + SW registration + Install CTA
+        for page_path in ("/", "/ui"):
+            html = self.client.get(page_path).text
+            self.assertIn('rel="manifest" href="/manifest.webmanifest?v=4.3"', html)
+            self.assertIn("serviceWorker.register('/sw.js'", html)
+            self.assertIn('id="pwaInstallBtn"', html)
+
+    def test_20_contabo_watchdog_proactive_alerts(self):
+        import contabo_watchdog
+
+        contabo_watchdog._SENT_SIGNATURES.clear()
+        # Inject an agent with WAN outage + MAC spoofing alert
+        self.client.post(
+            "/register",
+            json={"agent_id": "site-contabo-test", "name": "Campus Abidjan", "site_name": "Campus Abidjan"},
+        )
+        self.client.post(
+            "/data",
+            json={
+                "agent_id": "site-contabo-test",
+                "site_name": "Campus Abidjan",
+                "internet_status": "down",
+                "probes": [
+                    {
+                        "ip": "192.168.50.1",
+                        "name": "Routeur Fibre",
+                        "mac": "AA:BB:CC:DD:EE:01",
+                        "status": "ok",
+                        "latency_ms": 2.0,
+                        "zone": "Infrastructure",
+                    }
+                ],
+                "alerts": [{"severity": "crit", "message": "Changement MAC suspect sur 192.168.50.22"}],
+            },
+        )
+        alerts_1 = contabo_watchdog.evaluate_once()
+        kinds = {a["kind"] for a in alerts_1 if a["agent_id"] == "site-contabo-test"}
+        self.assertIn("wan_down", kinds)
+        self.assertIn("security_alert", kinds)
+
+        # Anti-spam deduplication: immediate second pass produces 0 duplicate notifications
+        alerts_2 = contabo_watchdog.evaluate_once()
+        dup = [a for a in alerts_2 if a["agent_id"] == "site-contabo-test"]
+        self.assertEqual(len(dup), 0)
+
+        # Contabo files are downloadable for 1-click VPS provisioning
+        r_dl = self.client.get("/download/contabo_watchdog.py")
+        self.assertEqual(r_dl.status_code, 200)
+        r_dc = self.client.get("/download/docker-compose.contabo.yml")
+        self.assertEqual(r_dc.status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

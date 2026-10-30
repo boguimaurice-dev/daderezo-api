@@ -77,24 +77,28 @@ def build(db_path: str = DB, out_path: str = OUT, quiet: bool = False) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DADEREZO · Supervision locale</title>
+<meta name="theme-color" content="#031238">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4.3">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=4.3">
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png?v=4.3">
 <style>
 :root {{ color-scheme: light; }}
-body {{ font-family: "Segoe UI", system-ui, sans-serif; margin: 0; background: #f5f7f5; color: #1d2b26; }}
-header {{ background: #1e3a33; color: #d9e6df; padding: 14px 18px; }}
+body {{ font-family: "Segoe UI", system-ui, sans-serif; margin: 0; background: #f4f8ff; color: #031645; }}
+header {{ background: linear-gradient(135deg, #031238, #0066eb); color: #f1f6ff; padding: 14px 18px; border-bottom: 2px solid #00c8ff; }}
 header h1 {{ margin: 0; font-size: 20px; }}
-header p {{ margin: 4px 0 0; font-size: 13px; }}
+header p {{ margin: 4px 0 0; font-size: 13px; color: #cbdcff; }}
 main {{ padding: 18px; max-width: 1200px; margin: 0 auto; }}
-.card {{ background: #ffffff; border: 1px solid #cdd9d2; border-radius: 12px; padding: 16px; margin-bottom: 16px; }}
+.card {{ background: #ffffff; border: 1px solid #cbdcff; border-radius: 12px; padding: 16px; margin-bottom: 16px; }}
 .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }}
-.stat {{ background: #eef4f0; border: 1px solid #d3e0d8; border-radius: 10px; padding: 12px; }}
-.stat b {{ display: block; font-size: 20px; color: #1e6b57; }}
+.stat {{ background: #eaf2ff; border: 1px solid #cbdcff; border-radius: 10px; padding: 12px; }}
+.stat b {{ display: block; font-size: 20px; color: #0066eb; }}
 table {{ width: 100%; border-collapse: collapse; font-size: 14px; }}
-th, td {{ border: 1px solid #d3e0d8; padding: 10px; text-align: left; }}
-th {{ background: #eef4f0; }}
-.ok {{ color: #1e6b57; font-weight: bold; }}
-.down {{ color: #a34a3d; font-weight: bold; }}
+th, td {{ border: 1px solid #cbdcff; padding: 10px; text-align: left; }}
+th {{ background: #eaf2ff; }}
+.ok {{ color: #059669; font-weight: bold; }}
+.down {{ color: #dc2626; font-weight: bold; }}
 .alerts li {{ margin-bottom: 8px; }}
-.foot {{ margin-top: 16px; font-size: 12px; color: #6b7d75; }}
+.foot {{ margin-top: 16px; font-size: 12px; color: #4b638c; }}
 </style>
 </head>
 <body>

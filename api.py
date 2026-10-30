@@ -25,7 +25,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
 import agent_engine
@@ -55,9 +55,9 @@ ALLOWED_DOWNLOADS = {
 }
 
 app = FastAPI(
-    title="DADEREZO v4.0 Multi-Agent & Active Network Control API",
-    description="Supervision réseau, contrôle Internet granulaire (Box/Zone/Appareil), optimisation Multi-Box et partage Multimédia",
-    version="4.0.0",
+    title="DADEREZO v4.1 Multi-Agent & Active Network Control API",
+    description="Supervision réseau, mémoire multi-tours, audit sécurité, contrôle Internet granulaire (Box/Zone/Appareil), optimisation Multi-Box et partage Multimédia",
+    version="4.1.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -443,19 +443,61 @@ def _status_payload() -> dict:
         "service": "DADEREZO API",
         "status": "ok",
         "mode": "active_governed",
-        "version": "4.0.0",
-        "architecture": "multi_agent_z_v4",
+        "version": "4.1.0",
+        "architecture": "multi_agent_z_v4_1",
         "agents_pipeline": ["SENTINEL-SEC", "TOPO-SCAN", "DIAG-NET", "NET-CONTROL", "MEDIA-HUB"],
         "capabilities": [
             "internet_switch_global_subnet_device",
             "multi_box_auto_optimization",
             "multimedia_lan_cloud_sharing",
             "private_multitenant_saas",
+            "multi_turn_session_memory",
+            "security_posture_scoring",
         ],
         "db": storage.get_backend_mode(),
         "llm_configured": has_llm,
         "auth_enabled": bool(get_api_key()),
     }
+
+
+BRAND_ASSETS = {
+    "favicon.svg": ("favicon.svg", "image/svg+xml"),
+    "favicon.ico": ("favicon.ico", "image/x-icon"),
+    "apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+    "og-image.png": ("og-image.png", "image/png"),
+}
+
+
+def _serve_brand_asset(asset_key: str) -> Response:
+    fname, media_type = BRAND_ASSETS[asset_key]
+    fpath = os.path.join(HERE, fname)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail=f"Ressource {fname} introuvable.")
+    return FileResponse(
+        fpath,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@app.api_route("/favicon.svg", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_favicon_svg():
+    return _serve_brand_asset("favicon.svg")
+
+
+@app.api_route("/favicon.ico", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_favicon_ico():
+    return _serve_brand_asset("favicon.ico")
+
+
+@app.api_route("/apple-touch-icon.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_apple_touch_icon():
+    return _serve_brand_asset("apple-touch-icon.png")
+
+
+@app.api_route("/og-image.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_og_image():
+    return _serve_brand_asset("og-image.png")
 
 
 # ---------------------------------------------------------------------------
@@ -1260,8 +1302,8 @@ def ack_diagnostic_task(agent_id: str, task_id: int, result: str = "OK", ctx: di
 
 
 @app.post("/demo/scenario/{scenario}")
-def run_demo_scenario(scenario: str, ctx: dict = Depends(require_write_auth)):
-    """Banc d'essai interactif sur l'agent isolé `simulation-bouake`."""
+def run_demo_scenario(scenario: str, ctx: dict = Depends(require_read_auth)):
+    """Banc d'essai interactif strictement confiné à l'agent isolé `simulation-bouake`."""
     if os.environ.get("DADEREZO_ENABLE_DEMO", "1") == "0":
         raise HTTPException(status_code=403, detail="Mode démonstration désactivé.")
 
@@ -1454,10 +1496,16 @@ def supervisor_ask(
 @app.get("/supervisor/audit")
 def supervisor_audit(limit: int = Query(default=25, ge=1, le=100), ctx: dict = Depends(require_read_auth)):
     init_db()
+    allowed_ids = {a["id"] for a in _list_agents_for_ctx(ctx)}
+    pending = [
+        p
+        for p in storage.list_human_approvals(status="pending", limit=25)
+        if (p.get("agent_id") in allowed_ids) or (ctx["org_slug"] == "public-demo" and p.get("agent_id") == "simulation-bouake")
+    ]
     return {
         "db_backend": storage.get_backend_mode(),
         "audit_logs": storage.list_audit_logs(limit=limit),
-        "pending_approvals": storage.list_human_approvals(status="pending", limit=15),
+        "pending_approvals": pending[:15],
     }
 
 
@@ -1477,6 +1525,15 @@ def supervisor_decide_approval(
     dec = body.decision.strip().lower()
     if dec not in ("approve", "reject"):
         raise HTTPException(status_code=400, detail="Décision invalide ('approve' ou 'reject').")
+
+    existing = storage.get_human_approval(approval_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Demande d'approbation introuvable.")
+    target_aid = existing.get("agent_id") or "simulation-bouake"
+    _ensure_agent_tenant_access(target_aid, ctx)
+    if existing.get("status") != "pending":
+        raise HTTPException(status_code=409, detail=f"Cette demande a déjà été traitée ({existing.get('status')}).")
+
     now_iso = datetime.now(timezone.utc).isoformat()
     resolved = storage.resolve_human_approval(approval_id, dec, now_iso)
     if not resolved:

@@ -572,6 +572,155 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertEqual(owner_dash.status_code, 200)
         self.assertEqual(owner_dash.json()["summary"]["total_devices"], 2)
 
+    def test_v41_favicon_and_opengraph_social_preview(self):
+        for route, ctype in (
+            ("/favicon.svg", "image/svg+xml"),
+            ("/favicon.ico", "image/x-icon"),
+            ("/apple-touch-icon.png", "image/png"),
+            ("/og-image.png", "image/png"),
+        ):
+            r = self.client.get(route)
+            self.assertEqual(r.status_code, 200, route)
+            self.assertIn(ctype, r.headers.get("content-type", ""))
+            self.assertGreater(len(r.content), 500)
+
+        for html_route in ("/", "/ui"):
+            page = self.client.get(html_route, headers={"Accept": "text/html"}).text
+            self.assertIn('href="/favicon.svg"', page)
+            self.assertIn('property="og:image"', page)
+            self.assertIn("og-image.png", page)
+            self.assertIn('name="twitter:card" content="summary_large_image"', page)
+
+    def test_v41_openai_and_groq_base_url_detection(self):
+        import agent_engine
+
+        cfg_openai = agent_engine._detect_llm_config("sk-proj-testkey123456")
+        self.assertEqual(cfg_openai["base_url"], "https://api.openai.com/v1")
+        self.assertEqual(cfg_openai["model"], "gpt-4o-mini")
+
+        cfg_groq = agent_engine._detect_llm_config("gsk_testkey123456")
+        self.assertEqual(cfg_groq["base_url"], "https://api.groq.com/openai/v1")
+
+    def test_v41_conversational_comprehension_greeting_offtopic_security_score(self):
+        self.client.post("/demo/scenario/intrus")
+
+        # 1. Salutation naturelle -> pas de dump brut d'inventaire
+        r_hi = self.client.post(
+            "/supervisor/ask",
+            json={"question": "Bonjour !", "agent_id": "simulation-bouake", "session_id": "sess-v41-conv"},
+        ).json()
+        self.assertEqual(r_hi["intent"], "salutation_capacites")
+        self.assertIn("Bonjour", r_hi["answer"])
+
+        # 2. Question hors périmètre (culture générale) -> refus courtois, pas d'inventaire
+        r_off = self.client.post(
+            "/supervisor/ask",
+            json={
+                "question": "Quelle est la capitale du Ghana ?",
+                "agent_id": "simulation-bouake",
+                "session_id": "sess-v41-conv",
+            },
+        ).json()
+        self.assertEqual(r_off["intent"], "hors_perimetre")
+        self.assertIn("hors périmètre", r_off["answer"])
+        self.assertNotIn("Avec accès Internet (", r_off["answer"])
+
+        # 3. Audit de risque de sécurité -> score /100 et détection de l'intrus 192.168.8.217
+        r_sec = self.client.post(
+            "/supervisor/ask",
+            json={
+                "question": "Est-ce qu'il y a un risque de sécurité sur mon réseau ?",
+                "agent_id": "simulation-bouake",
+                "session_id": "sess-v41-conv",
+            },
+        ).json()
+        self.assertEqual(r_sec["intent"], "analyse_securite")
+        self.assertIn("/100", r_sec["answer"])
+        self.assertIn("192.168.8.217", r_sec["answer"])
+
+    def test_v41_multi_turn_session_memory_and_pronoun_resolution(self):
+        self.client.post("/demo/scenario/lan_seul")
+        sid = "sess-v41-memory"
+
+        # Tour 1 : Filtrer la zone Administration
+        t1 = self.client.post(
+            "/supervisor/ask",
+            json={"question": "Montre les équipements de la zone Administration", "agent_id": "simulation-bouake", "session_id": sid},
+        ).json()
+        self.assertEqual(t1["intent"], "filtre_zone")
+        self.assertIn("192.168.8.14", t1["answer"])
+        self.assertIn("192.168.8.120", t1["answer"])
+
+        # Tour 2 : Suivi elliptique ("Et leurs adresses MAC et latences ?") résolu grâce à agent_sessions
+        t2 = self.client.post(
+            "/supervisor/ask",
+            json={"question": "Et leurs adresses MAC et latences ?", "agent_id": "simulation-bouake", "session_id": sid},
+        ).json()
+        self.assertEqual(t2["intent"], "suivi_contextuel")
+        self.assertIn("58:38:79:60:02:5f", t2["answer"])
+        self.assertIn("a4:bb:6d:21:09:44", t2["answer"])
+
+        # Tour 3 : Rappel méta de la conversation
+        t3 = self.client.post(
+            "/supervisor/ask",
+            json={"question": "Qu'est-ce que je viens de te demander ?", "agent_id": "simulation-bouake", "session_id": sid},
+        ).json()
+        self.assertEqual(t3["intent"], "memoire_conversation")
+        self.assertIn("Et leurs adresses MAC et latences ?", t3["answer"])
+
+    def test_v41_production_rbac_lock_when_api_key_enabled(self):
+        old_key = os.environ.get("DADEREZO_API_KEY")
+        os.environ["DADEREZO_API_KEY"] = "secret-prod-master-key"
+        try:
+            health = self.client.get("/health").json()
+            self.assertTrue(health["auth_enabled"])
+
+            # Les scénarios démo confinés à simulation-bouake restent jouables en lecture publique
+            scen = self.client.post("/demo/scenario/nominal")
+            self.assertEqual(scen.status_code, 200)
+
+            # Toute écriture anonyme ou approbation HITL sans clé est bloquée (401 / auth_requise)
+            r_unauth_pol = self.client.post(
+                "/network/policies/simulation-bouake",
+                json={"scope_type": "zone", "target_value": "Visiteurs", "internet_enabled": False},
+            )
+            self.assertEqual(r_unauth_pol.status_code, 401)
+
+            r_unauth_reboot = self.client.post(
+                "/supervisor/ask",
+                json={"question": "Redémarre le routeur principal", "agent_id": "simulation-bouake", "session_id": "sess-lock"},
+            ).json()
+            self.assertEqual(r_unauth_reboot["intent"], "auth_requise")
+            self.assertTrue(r_unauth_reboot["refused_write_action"])
+            self.assertIsNone(r_unauth_reboot["pending_approval"])
+
+            # Avec la clé maître X-API-Key, la demande HITL et son approbation fonctionnent
+            r_auth_reboot = self.client.post(
+                "/supervisor/ask",
+                headers={"X-API-Key": "secret-prod-master-key"},
+                json={"question": "Redémarre le routeur principal", "agent_id": "simulation-bouake", "session_id": "sess-lock"},
+            ).json()
+            self.assertEqual(r_auth_reboot["intent"], "validation_humaine_requise")
+            app_id = r_auth_reboot["pending_approval"]["id"]
+
+            # Un appelant anonyme ne peut PAS approuver cette demande !
+            r_unauth_app = self.client.post(f"/supervisor/approve/{app_id}", json={"decision": "approve"})
+            self.assertEqual(r_unauth_app.status_code, 401)
+
+            # L'administrateur authentifié peut la refuser ou l'approuver
+            r_auth_rej = self.client.post(
+                f"/supervisor/approve/{app_id}",
+                headers={"X-API-Key": "secret-prod-master-key"},
+                json={"decision": "reject"},
+            )
+            self.assertEqual(r_auth_rej.status_code, 200)
+            self.assertEqual(r_auth_rej.json()["approval"]["status"], "rejected")
+        finally:
+            if old_key is None:
+                os.environ.pop("DADEREZO_API_KEY", None)
+            else:
+                os.environ["DADEREZO_API_KEY"] = old_key
+
 
 if __name__ == "__main__":
     unittest.main()

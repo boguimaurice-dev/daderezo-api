@@ -4,7 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#050811">
-<title>DADEREZO — Poste Superviseur · Supervision Réseau Multi-Agents</title>
+<title>DADEREZO v4.1 — Poste Superviseur · Supervision &amp; Contrôle Réseau Multi-Agents</title>
+<meta name="description" content="Console Superviseur Général DADEREZO v4.1 : diagnostic FAI/LAN, posture sécurité, interrupteurs Internet (Box/Zone/Poste), optimisation Multi-Box et Hub Multimédia.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="alternate icon" type="image/x-icon" href="/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="DADEREZO">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:url" content="https://daderezo-api-nine.vercel.app/ui">
+<meta property="og:title" content="DADEREZO v4.1 — Console Superviseur Général Multi-Agents">
+<meta property="og:description" content="Pilotez vos réseaux locaux à la voix et à l'écrit : 5 agents IA, mémoire multi-tours, Internet ON/OFF granulaire, Multi-Box et Hub Multimédia.">
+<meta property="og:image" content="https://daderezo-api-nine.vercel.app/og-image.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="DADEREZO v4.1 — Console Superviseur Général Multi-Agents">
+<meta name="twitter:description" content="Pilotez vos réseaux locaux à la voix et à l'écrit : 5 agents IA, mémoire multi-tours, Internet ON/OFF granulaire, Multi-Box et Hub Multimédia.">
+<meta name="twitter:image" content="https://daderezo-api-nine.vercel.app/og-image.png">
 <script>
 (function(){
   try {
@@ -2186,7 +2204,16 @@ async function applyInternetPolicy(scopeType, targetValue, internetEnabled) {
       })
     });
     if (!res.ok) {
-      if (previewEl) previewEl.textContent = 'Authentification requise pour modifier les politiques Internet.';
+      if (previewEl) previewEl.textContent = '🔒 Authentification requise : ouvrez votre Espace Privé ou renseignez X-API-Key.';
+      if (res.status === 401) {
+        const m = document.getElementById('authModal');
+        const msg = document.getElementById('authErrorMsg');
+        if (m) m.classList.remove('hidden');
+        if (msg) {
+          msg.textContent = '🔐 Mode production sécurisé (auth_enabled=true) : créez ou ouvrez votre Espace Privé pour piloter Internet et vos Box.';
+          msg.classList.remove('hidden');
+        }
+      }
       return;
     }
     const data = await res.json();

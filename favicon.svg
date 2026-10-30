@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#070B14"/>
+      <stop offset="100%" stop-color="#0F1B33"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E5FF"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#bg)" stroke="url(#accent)" stroke-width="2.2"/>
+  <circle cx="32" cy="32" r="21" fill="none" stroke="#00E5FF" stroke-opacity="0.18" stroke-width="1.2" stroke-dasharray="3 3"/>
+  <path d="M18 20 H44 L21 44 H46" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <circle cx="18" cy="20" r="4.2" fill="#00E5FF"/>
+  <circle cx="44" cy="20" r="3.6" fill="#10B981"/>
+  <circle cx="21" cy="44" r="3.6" fill="#00E5FF"/>
+  <circle cx="46" cy="44" r="4.2" fill="#10B981"/>
+</svg>

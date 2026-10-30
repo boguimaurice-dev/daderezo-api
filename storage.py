@@ -1245,6 +1245,19 @@ def list_human_approvals(status: Optional[str] = None, limit: int = 15) -> List[
     return [dict(zip(cols, r)) for r in rows]
 
 
+def get_human_approval(approval_id: int) -> Optional[dict]:
+    if get_backend_mode() == "supabase":
+        rows = _sb().request("GET", "human_approvals", f"id=eq.{int(approval_id)}&limit=1") or []
+        return rows[0] if rows else None
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"SELECT * FROM human_approvals WHERE id = {ph}", (approval_id,))
+        row = c.fetchone()
+        if not row:
+            return None
+        cols = [d[0] for d in c.description]
+        return dict(zip(cols, row))
+
+
 def resolve_human_approval(approval_id: int, decision: str, now_iso: str) -> Optional[dict]:
     new_status = "approved" if decision == "approve" else "rejected"
     if get_backend_mode() == "supabase":
@@ -1252,6 +1265,8 @@ def resolve_human_approval(approval_id: int, decision: str, now_iso: str) -> Opt
         if not rows:
             return None
         item = rows[0]
+        if item.get("status") != "pending":
+            return item
         _sb().request(
             "PATCH",
             "human_approvals",
@@ -1270,6 +1285,8 @@ def resolve_human_approval(approval_id: int, decision: str, now_iso: str) -> Opt
             return None
         cols = [d[0] for d in c.description]
         item = dict(zip(cols, row))
+        if item.get("status") != "pending":
+            return item
         c.execute(
             f"UPDATE human_approvals SET status = {ph}, decided_at = {ph} WHERE id = {ph}",
             (new_status, now_iso, approval_id),

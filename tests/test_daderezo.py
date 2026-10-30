@@ -823,6 +823,117 @@ class TestApiEndpoints(unittest.TestCase):
         r_dc = self.client.get("/download/docker-compose.contabo.yml")
         self.assertEqual(r_dc.status_code, 200)
 
+    def test_21_deepseek_provider_autodetection_and_react_tool_calling(self):
+        import io
+        import json
+        from unittest.mock import patch
+        import agent_engine
+
+        # 1. Auto-detection of 32-hex DeepSeek key vs OpenAI sk-proj- vs Groq gsk_
+        ds_hex = "sk-0123456789abcdef0123456789abcdef"
+        cfg_ds = agent_engine._detect_llm_config(header_key=ds_hex)
+        self.assertEqual(cfg_ds["provider"], "deepseek")
+        self.assertEqual(cfg_ds["base_url"], "https://api.deepseek.com")
+        self.assertEqual(cfg_ds["model"], "deepseek-chat")
+        self.assertTrue(cfg_ds["supports_tools"])
+
+        cfg_r1 = agent_engine._detect_llm_config(header_key="sk-anydeepseekkey", header_provider="deepseek_r1")
+        self.assertEqual(cfg_r1["provider"], "deepseek")
+        self.assertEqual(cfg_r1["model"], "deepseek-reasoner")
+        self.assertFalse(cfg_r1["supports_tools"])
+
+        # 2. Server /health reflects DEEPSEEK_API_KEY automatically
+        old_ds = os.environ.get("DEEPSEEK_API_KEY")
+        os.environ["DEEPSEEK_API_KEY"] = ds_hex
+        try:
+            h = self.client.get("/health").json()
+            self.assertTrue(h["llm_configured"])
+            self.assertEqual(h["llm_provider"], "deepseek")
+            self.assertEqual(h["llm_model"], "deepseek-chat")
+
+            # 3. Simulated 2-step ReAct Function-Calling roundtrip with DeepSeek V3
+            step_responses = [
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_ds_1",
+                                        "type": "function",
+                                        "function": {
+                                            "name": "inspect_lan_wan_devices",
+                                            "arguments": '{"zone": "Administration"}',
+                                        },
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                },
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "Après appel de `inspect_lan_wan_devices` sur la zone Administration, la passerelle 192.168.8.57 est active sur le LAN et dispose d'Internet.",
+                            }
+                        }
+                    ]
+                },
+            ]
+            call_idx = {"i": 0}
+
+            class _FakeHTTPResp:
+                def __init__(self, payload: dict):
+                    self._raw = json.dumps(payload).encode("utf-8")
+
+                def read(self):
+                    return self._raw
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    return False
+
+            def _fake_urlopen(req, timeout=15):
+                idx = min(call_idx["i"], len(step_responses) - 1)
+                call_idx["i"] += 1
+                self.assertIn("api.deepseek.com/chat/completions", req.full_url)
+                return _FakeHTTPResp(step_responses[idx])
+
+            with patch("agent_engine.urllib.request.urlopen", side_effect=_fake_urlopen):
+                self.client.post("/demo/scenario/nominal")
+                resp = self.client.post(
+                    "/supervisor/ask",
+                    json={
+                        "question": "Vérifie les postes de la zone Administration et leur accès Internet",
+                        "agent_id": "simulation-bouake",
+                        "session_id": "sess-deepseek-react",
+                    },
+                ).json()
+                self.assertIn("deepseek:deepseek-chat:react_tools", resp["engine_mode"])
+                self.assertIn("192.168.8.57", resp["answer"])
+                self.assertTrue(any(t["agent"] == "DEEPSEEK-REACT" and t["tool"] == "inspect_lan_wan_devices" for t in resp["agent_trace"]))
+        finally:
+            if old_ds is None:
+                os.environ.pop("DEEPSEEK_API_KEY", None)
+            else:
+                os.environ["DEEPSEEK_API_KEY"] = old_ds
+
+    def test_22_contabo_bootstrap_script_download_and_bash_syntax(self):
+        import subprocess
+
+        r_boot = self.client.get("/download/contabo_bootstrap.sh")
+        self.assertEqual(r_boot.status_code, 200)
+        self.assertIn("daderezo-gitops.timer", r_boot.text)
+        self.assertIn("DEEPSEEK_API_KEY", r_boot.text)
+        chk = subprocess.run(["bash", "-n", "contabo_bootstrap.sh"], capture_output=True, text=True)
+        self.assertEqual(chk.returncode, 0, chk.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

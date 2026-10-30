@@ -28,29 +28,331 @@ def normalize_fr(text: str) -> str:
     return re.sub(r"\s+", " ", stripped.lower()).strip()
 
 
-def _detect_llm_config(header_key: Optional[str] = None, header_model: Optional[str] = None) -> Optional[dict]:
-    key = (
-        (header_key or "").strip()
-        or os.environ.get("DADEREZO_LLM_API_KEY", "").strip()
-        or os.environ.get("GROQ_API_KEY", "").strip()
-        or os.environ.get("OPENAI_API_KEY", "").strip()
-    )
+def _detect_llm_config(
+    header_key: Optional[str] = None,
+    header_model: Optional[str] = None,
+    header_provider: Optional[str] = None,
+) -> Optional[dict]:
+    h_key = (header_key or "").strip()
+    env_deepseek = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    env_generic = os.environ.get("DADEREZO_LLM_API_KEY", "").strip()
+    env_groq = os.environ.get("GROQ_API_KEY", "").strip()
+    env_openai = os.environ.get("OPENAI_API_KEY", "").strip()
+
+    prov = (header_provider or os.environ.get("DADEREZO_LLM_PROVIDER", "") or "auto").strip().lower()
+    req_model = (header_model or "").strip() or os.environ.get("DADEREZO_LLM_MODEL", "").strip()
+
+    key = h_key or env_deepseek or env_generic or env_groq or env_openai
     if not key:
         return None
 
     explicit_base = os.environ.get("DADEREZO_LLM_BASE_URL", "").strip()
-    if explicit_base:
-        base_url = explicit_base.rstrip("/")
-        default_model = "gpt-4o-mini"
-    elif key.startswith("gsk_"):
+
+    # Détermination intelligente du fournisseur (DeepSeek, Groq, OpenAI, Ollama Contabo)
+    is_deepseek_hex = bool(re.fullmatch(r"sk-[0-9a-fA-F]{32}", key))
+    if prov in ("deepseek", "deepseek_r1") or req_model.startswith("deepseek"):
+        provider = "deepseek"
+        base_url = "https://api.deepseek.com"
+        default_model = "deepseek-reasoner" if prov == "deepseek_r1" else "deepseek-chat"
+    elif prov == "groq" or key.startswith("gsk_"):
+        provider = "groq"
         base_url = "https://api.groq.com/openai/v1"
         default_model = "llama-3.3-70b-versatile"
+    elif prov == "ollama":
+        provider = "ollama"
+        base_url = (explicit_base or "http://ollama:11434/v1").rstrip("/")
+        default_model = "qwen2.5:3b"
+    elif explicit_base and not h_key:
+        provider = "ollama" if "11434" in explicit_base or "ollama" in explicit_base.lower() else (
+            "deepseek" if "deepseek.com" in explicit_base.lower() else "custom"
+        )
+        base_url = explicit_base.rstrip("/")
+        default_model = "deepseek-chat" if provider == "deepseek" else "gpt-4o-mini"
+    elif (not h_key and env_deepseek and key == env_deepseek) or (prov == "auto" and is_deepseek_hex):
+        provider = "deepseek"
+        base_url = "https://api.deepseek.com"
+        default_model = "deepseek-chat"
     else:
+        provider = "openai"
         base_url = "https://api.openai.com/v1"
         default_model = "gpt-4o-mini"
 
-    model = (header_model or "").strip() or os.environ.get("DADEREZO_LLM_MODEL", "").strip() or default_model
-    return {"api_key": key, "base_url": base_url, "model": model}
+    model = req_model or default_model
+    supports_tools = provider in ("deepseek", "openai", "groq", "ollama") and "reasoner" not in model.lower()
+    return {
+        "api_key": key,
+        "base_url": base_url,
+        "model": model,
+        "provider": provider,
+        "supports_tools": supports_tools,
+    }
+
+
+def test_llm_connection(
+    header_key: Optional[str] = None,
+    header_model: Optional[str] = None,
+    header_provider: Optional[str] = None,
+) -> dict:
+    """Vérifie en direct une clé DeepSeek / Groq / OpenAI / Ollama Contabo."""
+    cfg = _detect_llm_config(header_key, header_model, header_provider)
+    if not cfg:
+        return {
+            "ok": False,
+            "configured": False,
+            "detail": "Aucune clé API LLM détectée (renseignez votre clé DeepSeek sk-... ou définissez DEEPSEEK_API_KEY).",
+        }
+    t0 = time.perf_counter()
+    payload: dict = {
+        "model": cfg["model"],
+        "messages": [
+            {"role": "system", "content": "Réponds uniquement: DADEREZO_OK"},
+            {"role": "user", "content": "Test de liaison agentique."},
+        ],
+        "max_tokens": 24,
+    }
+    if "reasoner" not in cfg["model"].lower():
+        payload["temperature"] = 0.0
+    req = urllib.request.Request(
+        f"{cfg['base_url']}/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {cfg['api_key']}",
+            "Content-Type": "application/json",
+            "User-Agent": "DADEREZO-Orchestrator/4.3",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            raw = json.loads(resp.read().decode("utf-8"))
+            reply = (raw.get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
+            ms = max(1, int((time.perf_counter() - t0) * 1000))
+            return {
+                "ok": True,
+                "configured": True,
+                "provider": cfg["provider"],
+                "model": cfg["model"],
+                "base_url": cfg["base_url"],
+                "supports_tools": cfg["supports_tools"],
+                "latency_ms": ms,
+                "sample_reply": reply[:120],
+            }
+    except Exception as exc:
+        ms = max(1, int((time.perf_counter() - t0) * 1000))
+        return {
+            "ok": False,
+            "configured": True,
+            "provider": cfg["provider"],
+            "model": cfg["model"],
+            "base_url": cfg["base_url"],
+            "latency_ms": ms,
+            "detail": f"Échec d'appel {cfg['provider']} ({cfg['model']}) : {exc}",
+        }
+
+
+def _call_llm_with_tools(
+    llm_cfg: dict,
+    question: str,
+    history: List[dict],
+    tool_evidence: dict,
+    trace_cb: Optional[Callable[[str, str, str, str, float, str], None]] = None,
+) -> Optional[str]:
+    """Boucle ReAct / Function-Calling native (jusqu'à 3 tours d'outils réels) compatible DeepSeek V3, OpenAI, Groq & Ollama."""
+    if not llm_cfg.get("supports_tools"):
+        return None
+
+    tools_spec = [
+        {
+            "type": "function",
+            "function": {
+                "name": "inspect_lan_wan_devices",
+                "description": "Retourne l'inventaire vérifié des équipements connectés au LAN, avec ou sans accès Internet (WAN), filtrable par zone ou statut.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "zone": {"type": "string", "description": "Filtre optionnel de zone (ex: Administration, Visiteurs, Salle Info)"},
+                        "only_without_internet": {"type": "boolean", "description": "Si true, ne renvoie que les postes privés d'Internet"},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_cybersecurity_posture",
+                "description": "Calcule le score de posture cybersécurité (/100), le niveau de risque et les équipements inconnus/intrus MAC.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "diagnose_isp_vs_lan",
+                "description": "Corrèle la latence passerelle LAN et la connectivité WAN pour distinguer une panne opérateur FAI d'une coupure locale.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_active_internet_policies",
+                "description": "Liste les politiques actives de coupure/ouverture Internet (Box principale, Zone/Sous-réseau, Appareil) et l'état du contrôle actif.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "list_multimedia_shares",
+                "description": "Retourne le nombre et l'état des fichiers multimédias partagés sur le Hub LAN/Cloud.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+    ]
+
+    def _exec_tool(fname: str, args: dict) -> dict:
+        if fname == "inspect_lan_wan_devices":
+            z = normalize_fr(str(args.get("zone") or ""))
+            only_no = bool(args.get("only_without_internet"))
+            yes_l = tool_evidence.get("devices_with_internet", [])
+            no_l = tool_evidence.get("devices_without_internet", [])
+            if z:
+                yes_l = [d for d in yes_l if z in normalize_fr(d.get("zone") or "")]
+                no_l = [d for d in no_l if z in normalize_fr(d.get("zone") or "")]
+            return {
+                "scope": tool_evidence.get("scope_label"),
+                "metrics": tool_evidence.get("metrics"),
+                "devices_with_internet": [] if only_no else yes_l,
+                "devices_without_internet": no_l,
+            }
+        if fname == "get_cybersecurity_posture":
+            return {
+                "security_audit": tool_evidence.get("security_audit"),
+                "active_internet_policies": tool_evidence.get("active_internet_policies"),
+            }
+        if fname == "diagnose_isp_vs_lan":
+            return {
+                "diagnostics": tool_evidence.get("diagnostics"),
+                "metrics": tool_evidence.get("metrics"),
+                "devices_without_internet": tool_evidence.get("devices_without_internet"),
+            }
+        if fname == "get_active_internet_policies":
+            return {
+                "active_internet_policies": tool_evidence.get("active_internet_policies"),
+                "net_control_result": tool_evidence.get("net_control_result"),
+            }
+        if fname == "list_multimedia_shares":
+            return {"shared_media_count": tool_evidence.get("shared_media_count", 0)}
+        return {"error": f"Outil inconnu: {fname}"}
+
+    system_prompt = (
+        "Tu es l'Orchestrateur Multi-Agents DADEREZO v4.3 propulsé par appel d'outils natifs (Function Calling).\n"
+        "RÈGLES STRICTES :\n"
+        "1. Appelle un ou plusieurs outils (`inspect_lan_wan_devices`, `get_cybersecurity_posture`, `diagnose_isp_vs_lan`, `get_active_internet_policies`, `list_multimedia_shares`) dès que tu as besoin de données réseau réelles.\n"
+        "2. Si une action de contrôle réseau vient déjà d'être exécutée ou mise en attente HITL, tiens compte de `RESULTAT_CONTROLE_DEJA_EXECUTE`.\n"
+        "3. N'invente JAMAIS une adresse IP, MAC ou statistique absente des résultats d'outils.\n"
+        "4. Distingue toujours clairement la connexion au réseau local (LAN) et l'accès effectif à Internet (WAN).\n"
+        "5. Si la demande est hors périmètre réseau (sport, météo, cuisine, culture générale), décline poliment sans appeler d'outil."
+    )
+
+    messages: List[dict] = [{"role": "system", "content": system_prompt}]
+    for turn in history[-8:]:
+        r = "assistant" if turn.get("role") == "assistant" else "user"
+        messages.append({"role": r, "content": str(turn.get("content", ""))[:900]})
+
+    ctrl_note = ""
+    if tool_evidence.get("net_control_result"):
+        ctrl_note = f"\n[RESULTAT_CONTROLE_DEJA_EXECUTE]: {json.dumps(tool_evidence['net_control_result'], ensure_ascii=False)}"
+    messages.append({"role": "user", "content": f"Périmètre actif: {tool_evidence.get('scope_label')}.{ctrl_note}\nQuestion: {question}"})
+
+    try:
+        for _step in range(3):
+            body = json.dumps(
+                {
+                    "model": llm_cfg["model"],
+                    "messages": messages,
+                    "tools": tools_spec,
+                    "tool_choice": "auto",
+                    "temperature": 0.15,
+                    "max_tokens": 800,
+                }
+            ).encode("utf-8")
+            req = urllib.request.Request(
+                f"{llm_cfg['base_url']}/chat/completions",
+                data=body,
+                headers={
+                    "Authorization": f"Bearer {llm_cfg['api_key']}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "DADEREZO-Orchestrator/4.3",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            msg = data["choices"][0]["message"]
+            tool_calls = msg.get("tool_calls") or []
+            if not tool_calls:
+                final_txt = (msg.get("content") or "").strip()
+                return final_txt if final_txt else None
+
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": msg.get("content") or "",
+                    "tool_calls": tool_calls,
+                }
+            )
+            for tc in tool_calls[:5]:
+                t_start = time.perf_counter()
+                fn_obj = tc.get("function") or {}
+                fn_name = fn_obj.get("name") or ""
+                try:
+                    fn_args = json.loads(fn_obj.get("arguments") or "{}")
+                except Exception:
+                    fn_args = {}
+                obs = _exec_tool(fn_name, fn_args)
+                if trace_cb:
+                    trace_cb(
+                        "DEEPSEEK-REACT" if llm_cfg.get("provider") == "deepseek" else "ORCHESTRATOR-REACT",
+                        "native_tool_call",
+                        fn_name,
+                        "OK",
+                        t_start,
+                        f"Appel natif IA ({llm_cfg['model']}) -> {fn_name}({json.dumps(fn_args, ensure_ascii=False)})",
+                    )
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.get("id") or f"call_{_step}",
+                        "content": json.dumps(obs, ensure_ascii=False),
+                    }
+                )
+
+        # Synthèse finale après les appels d'outils
+        body_final = json.dumps(
+            {
+                "model": llm_cfg["model"],
+                "messages": messages,
+                "temperature": 0.15,
+                "max_tokens": 800,
+            }
+        ).encode("utf-8")
+        req_final = urllib.request.Request(
+            f"{llm_cfg['base_url']}/chat/completions",
+            data=body_final,
+            headers={
+                "Authorization": f"Bearer {llm_cfg['api_key']}",
+                "Content-Type": "application/json",
+                "User-Agent": "DADEREZO-Orchestrator/4.3",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req_final, timeout=15) as resp_f:
+            data_f = json.loads(resp_f.read().decode("utf-8"))
+        txt_f = (data_f["choices"][0]["message"].get("content") or "").strip()
+        return txt_f if txt_f else None
+    except Exception:
+        return None
 
 
 def _call_llm_grounded(
@@ -60,7 +362,7 @@ def _call_llm_grounded(
     tool_evidence: dict,
 ) -> Optional[str]:
     system_prompt = (
-        "Tu es l'Orchestrateur Principal DADEREZO v4.1 (Supervision & Pilotage Actif Réseau, Box et Multimédia). "
+        "Tu es l'Orchestrateur Principal DADEREZO v4.3 (Supervision & Pilotage Actif Réseau, Box et Multimédia). "
         "Tu t'adresses au Superviseur Général en français clair, précis et structuré.\n"
         "RÈGLES STRICTES ANTI-HALLUCINATION & PÉRIMÈTRE :\n"
         "1. Utilise EXCLUSIVEMENT les chiffres, adresses IP, adresses MAC, box, médias et états présents dans `PREUVES_OUTILS`.\n"
@@ -84,21 +386,22 @@ def _call_llm_grounded(
         }
     )
 
-    body = json.dumps(
-        {"model": llm_cfg["model"], "messages": messages, "temperature": 0.15, "max_tokens": 750}
-    ).encode("utf-8")
+    payload: dict = {"model": llm_cfg["model"], "messages": messages, "max_tokens": 800}
+    if "reasoner" not in llm_cfg["model"].lower():
+        payload["temperature"] = 0.15
+    body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         f"{llm_cfg['base_url']}/chat/completions",
         data=body,
         headers={
             "Authorization": f"Bearer {llm_cfg['api_key']}",
             "Content-Type": "application/json",
-            "User-Agent": "DADEREZO-Orchestrator/4.1",
+            "User-Agent": "DADEREZO-Orchestrator/4.3",
         },
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=12) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             content = data["choices"][0]["message"]["content"].strip()
             return content if content else None
@@ -549,6 +852,7 @@ def run_multi_agent_mission(
     actor_name: str = "Superviseur Général",
     llm_api_key: Optional[str] = None,
     llm_model: Optional[str] = None,
+    llm_provider: Optional[str] = None,
 ) -> dict:
     """Exécute la chaîne des 5 agents spécialisés avec sécurité, mémoire multi-tours, contrôle actif et audit complet."""
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -1524,8 +1828,8 @@ def run_multi_agent_mission(
     refused_write = bool(net_control_result and net_control_result.get("status") == "auth_required")
 
     engine_mode = "multi_agent_autonomous"
-    llm_cfg = _detect_llm_config(llm_api_key, llm_model)
-    if llm_cfg and not refused_write:
+    llm_cfg = _detect_llm_config(llm_api_key, llm_model, llm_provider)
+    if llm_cfg and not refused_write and pending_approval is None:
         t_llm = time.perf_counter()
         evidence = {
             "scope_label": scope_label,
@@ -1552,11 +1856,22 @@ def run_multi_agent_mission(
                 for d in inet_no_devs
             ],
         }
-        llm_reply = _call_llm_grounded(llm_cfg, q_clean, history, evidence)
+        llm_reply = _call_llm_with_tools(llm_cfg, q_clean, history, evidence, trace_cb=_trace)
+        mode_tag = "react_tools"
+        if not llm_reply:
+            llm_reply = _call_llm_grounded(llm_cfg, q_clean, history, evidence)
+            mode_tag = "grounded"
         if llm_reply:
             deterministic_answer = llm_reply
-            engine_mode = f"multi_agent_llm ({llm_cfg['model']})"
-            _trace("ORCHESTRATOR-Z", "llm_synthesis", llm_cfg["model"], "OK", t_llm, "Synthèse générative ancrée.")
+            engine_mode = f"multi_agent_llm ({llm_cfg['provider']}:{llm_cfg['model']}:{mode_tag})"
+            _trace(
+                "ORCHESTRATOR-Z",
+                "llm_synthesis",
+                f"{llm_cfg['provider']}/{llm_cfg['model']}",
+                "OK",
+                t_llm,
+                f"Synthèse agentique {llm_cfg['provider']} ({mode_tag}).",
+            )
 
     storage.append_session_turn(
         sid,

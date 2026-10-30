@@ -1,0 +1,52 @@
+name: DADEREZO CI & Contabo Auto-Deploy
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Tests Unitaires & Intégration (22 tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Installation des dépendances
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt httpx
+      - name: Exécution de la suite de tests DADEREZO
+        run: python -m unittest discover -s tests -v
+
+  deploy-contabo:
+    name: Déploiement Push vers VPS Contabo (si secrets SSH configurés)
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      HAS_CONTABO_SSH: ${{ secrets.CONTABO_HOST != '' && secrets.CONTABO_SSH_KEY != '' }}
+    steps:
+      - name: Vérification du mode de synchronisation Contabo
+        if: env.HAS_CONTABO_SSH != 'true'
+        run: |
+          echo "Mode GitOps Pull actif (aucun secret SSH requis : contabo_bootstrap.sh synchronise /opt/daderezo toutes les 2 min)."
+      - name: Déploiement instantané SSH vers Contabo
+        if: env.HAS_CONTABO_SSH == 'true'
+        env:
+          CONTABO_HOST: ${{ secrets.CONTABO_HOST }}
+          CONTABO_USER: ${{ secrets.CONTABO_USER }}
+          CONTABO_PORT: ${{ secrets.CONTABO_PORT }}
+          CONTABO_SSH_KEY: ${{ secrets.CONTABO_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${CONTABO_SSH_KEY}" > ~/.ssh/id_contabo
+          chmod 600 ~/.ssh/id_contabo
+          SSH_PORT="${CONTABO_PORT:-22}"
+          SSH_USER="${CONTABO_USER:-root}"
+          ssh -p "${SSH_PORT}" -i ~/.ssh/id_contabo -o StrictHostKeyChecking=accept-new "${SSH_USER}@${CONTABO_HOST}" \
+            "cd /opt/daderezo && git fetch origin main && git reset --hard origin/main && docker compose -f docker-compose.contabo.yml up -d --build --remove-orphans"

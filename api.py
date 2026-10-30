@@ -54,12 +54,13 @@ ALLOWED_DOWNLOADS = {
     "net_controller.py",
     "contabo_watchdog.py",
     "docker-compose.contabo.yml",
+    "contabo_bootstrap.sh",
 }
 
 app = FastAPI(
-    title="DADEREZO v4.2 Multi-Agent, PWA & Active Network Control API",
-    description="Supervision réseau PWA installable, mémoire multi-tours, audit sécurité, contrôle Internet granulaire (Box/Zone/Appareil), optimisation Multi-Box et partage Multimédia",
-    version="4.2.0",
+    title="DADEREZO v4.3 Multi-Agent ReAct (DeepSeek / Contabo), PWA & Active Network Control API",
+    description="Supervision réseau PWA installable, ReAct Function-Calling natif DeepSeek, liaison auto GitOps Contabo, contrôle Internet granulaire, Multi-Box et partage Multimédia",
+    version="4.3.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -436,17 +437,13 @@ def _enrich_devices_internet(devices: List[dict], state: dict, policies: Optiona
 
 
 def _status_payload() -> dict:
-    has_llm = bool(
-        os.environ.get("DADEREZO_LLM_API_KEY", "").strip()
-        or os.environ.get("GROQ_API_KEY", "").strip()
-        or os.environ.get("OPENAI_API_KEY", "").strip()
-    )
+    llm_cfg = agent_engine._detect_llm_config()
     return {
         "service": "DADEREZO API",
         "status": "ok",
         "mode": "active_governed",
-        "version": "4.2.0",
-        "architecture": "multi_agent_z_v4_2",
+        "version": "4.3.0",
+        "architecture": "multi_agent_z_v4_3_react",
         "agents_pipeline": ["SENTINEL-SEC", "TOPO-SCAN", "DIAG-NET", "NET-CONTROL", "MEDIA-HUB"],
         "capabilities": [
             "internet_switch_global_subnet_device",
@@ -456,9 +453,13 @@ def _status_payload() -> dict:
             "multi_turn_session_memory",
             "security_posture_scoring",
             "installable_pwa_offline_resilient",
+            "deepseek_native_tool_calling",
+            "contabo_gitops_autodeploy",
         ],
         "db": storage.get_backend_mode(),
-        "llm_configured": has_llm,
+        "llm_configured": bool(llm_cfg),
+        "llm_provider": llm_cfg["provider"] if llm_cfg else None,
+        "llm_model": llm_cfg["model"] if llm_cfg else None,
         "auth_enabled": bool(get_api_key()),
     }
 
@@ -1562,6 +1563,7 @@ def supervisor_ask(
     ctx: dict = Depends(require_read_auth),
     x_llm_api_key: Optional[str] = Header(default=None, alias="X-LLM-Api-Key"),
     x_llm_model: Optional[str] = Header(default=None, alias="X-LLM-Model"),
+    x_llm_provider: Optional[str] = Header(default=None, alias="X-LLM-Provider"),
 ):
     init_db()
     if req.agent_id and req.agent_id.lower() != "all":
@@ -1578,6 +1580,21 @@ def supervisor_ask(
         actor_name=ctx["actor"],
         llm_api_key=x_llm_api_key,
         llm_model=x_llm_model,
+        llm_provider=x_llm_provider,
+    )
+
+
+@app.post("/supervisor/llm-check")
+def supervisor_llm_check(
+    ctx: dict = Depends(require_read_auth),
+    x_llm_api_key: Optional[str] = Header(default=None, alias="X-LLM-Api-Key"),
+    x_llm_model: Optional[str] = Header(default=None, alias="X-LLM-Model"),
+    x_llm_provider: Optional[str] = Header(default=None, alias="X-LLM-Provider"),
+):
+    return agent_engine.test_llm_connection(
+        header_key=x_llm_api_key,
+        header_model=x_llm_model,
+        header_provider=x_llm_provider,
     )
 
 

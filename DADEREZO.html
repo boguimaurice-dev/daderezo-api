@@ -1213,6 +1213,18 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
       </div>
     </div>
 
+    <div class="panel config-panel" style="margin-bottom:18px">
+      <h2 style="font-size:14.5px;margin:0 0 6px;color:var(--ink-strong)">🖥️ Liaison Automatique VPS Contabo 24/7 (Sentinelle + DeepSeek + Sync GitOps)</h2>
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px">Collez cette commande unique dans le terminal SSH de votre VPS Contabo (Ubuntu/Debian) : elle installe Docker, configure DeepSeek &amp; Supabase sans exposer vos secrets, et synchronise automatiquement chaque mise à jour GitHub <code>main</code> toutes les 2 minutes :</p>
+      <pre class="cmd-pre" id="contaboDeployCmd">curl -fsSL https://daderezo-api-nine.vercel.app/download/contabo_bootstrap.sh | sudo bash</pre>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:11px">
+        <button class="btn" id="copyContaboCmdBtn" type="button">📋 Copier la commande Contabo</button>
+        <a class="btn secondary" href="/download/contabo_bootstrap.sh" download>⬇ contabo_bootstrap.sh</a>
+        <a class="btn secondary" href="/download/docker-compose.contabo.yml" download>⬇ docker-compose.contabo.yml</a>
+        <a class="btn secondary" href="/download/contabo_watchdog.py" download>⬇ contabo_watchdog.py</a>
+      </div>
+    </div>
+
     <div class="panel config-panel">
       <div class="config-row"><b>Espace SaaS actif</b><span class="mono" id="cfgWorkspaceMode">Espace Démo Public (Isolé)</span></div>
       <div class="config-row"><b>Clé Sonde Privée (probe_api_key)</b><span class="mono" id="cfgPrivateProbeKey">Non connecté (mode démo)</span></div>
@@ -1225,10 +1237,27 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
       <div class="config-row"><b>Serveurs DNS</b><span class="mono" id="cfgDns">—</span></div>
       <div class="config-row">
         <div>
-          <b>Clé LLM externe optionnelle (Groq <code>gsk_…</code> ou OpenAI <code>sk-…</code>)</b><br>
-          <span>Active la rédaction générative avancée par-dessus les preuves d’outils des 5 agents.</span>
+          <b>Fournisseur &amp; Modèle IA Agentique (Function-Calling ReAct)</b><br>
+          <span>Choisissez <b>DeepSeek V3</b> pour l’appel natif d’outils multi-étapes ou <b>DeepSeek R1</b> pour le diagnostic approfondi.</span>
         </div>
-        <input class="cfg-input" id="cfgLlmKey" type="password" placeholder="Optionnel : gsk_... ou sk-...">
+        <select class="cfg-input" id="cfgLlmProvider" aria-label="Fournisseur IA">
+          <option value="auto">Détection auto (DeepSeek hex / Groq gsk_ / OpenAI)</option>
+          <option value="deepseek">DeepSeek V3 · deepseek-chat (Outils ReAct natifs)</option>
+          <option value="deepseek_r1">DeepSeek R1 · deepseek-reasoner (Raisonnement)</option>
+          <option value="groq">Groq · llama-3.3-70b-versatile</option>
+          <option value="openai">OpenAI · gpt-4o-mini</option>
+          <option value="ollama">VPS Contabo Local · Ollama (qwen2.5)</option>
+        </select>
+      </div>
+      <div class="config-row">
+        <div>
+          <b>Clé API DeepSeek (<code>sk-…</code>), Groq (<code>gsk_…</code>) ou OpenAI</b><br>
+          <span id="llmCheckStatus">Stockée uniquement dans votre navigateur (ou sur le serveur via <code>DEEPSEEK_API_KEY</code>).</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input class="cfg-input" id="cfgLlmKey" type="password" placeholder="Collez votre clé DeepSeek sk-...">
+          <button class="btn secondary" id="testLlmBtn" type="button">⚡ Tester l’IA</button>
+        </div>
       </div>
       <div class="config-row">
         <b>URL de l’API (vide = serveur courant)</b>
@@ -1365,6 +1394,8 @@ function getHeaders(json = false) {
   if (k) h['X-API-Key'] = k;
   const llmKey = (localStorage.getItem('daderezo_llm_key') || '').trim();
   if (llmKey) h['X-LLM-Api-Key'] = llmKey;
+  const llmProv = (localStorage.getItem('daderezo_llm_provider') || '').trim();
+  if (llmProv && llmProv !== 'auto') h['X-LLM-Provider'] = llmProv;
   return h;
 }
 
@@ -1404,14 +1435,54 @@ function updateProbeDeployCommand() {
 document.getElementById('cfgApiUrl').value = localStorage.getItem('daderezo_api_url') || '';
 document.getElementById('cfgApiKey').value = localStorage.getItem('daderezo_api_key') || '';
 document.getElementById('cfgLlmKey').value = localStorage.getItem('daderezo_llm_key') || '';
+document.getElementById('cfgLlmProvider').value = localStorage.getItem('daderezo_llm_provider') || 'auto';
 updateProbeDeployCommand();
 
 document.getElementById('saveCfgBtn').addEventListener('click', () => {
   localStorage.setItem('daderezo_api_url', document.getElementById('cfgApiUrl').value.trim());
   localStorage.setItem('daderezo_api_key', document.getElementById('cfgApiKey').value.trim());
   localStorage.setItem('daderezo_llm_key', document.getElementById('cfgLlmKey').value.trim());
+  localStorage.setItem('daderezo_llm_provider', document.getElementById('cfgLlmProvider').value);
+  const st = document.getElementById('llmCheckStatus');
+  if (st) st.textContent = '✅ Configuration sauvegardée localement.';
   refreshAll();
 });
+
+const copyContaboBtn = document.getElementById('copyContaboCmdBtn');
+if (copyContaboBtn) {
+  copyContaboBtn.addEventListener('click', async () => {
+    const cmd = document.getElementById('contaboDeployCmd').textContent;
+    try {
+      if (navigator.clipboard) await navigator.clipboard.writeText(cmd);
+      copyContaboBtn.textContent = '✓ Commande Contabo copiée !';
+      setTimeout(() => { copyContaboBtn.textContent = '📋 Copier la commande Contabo'; }, 2200);
+    } catch (_) {}
+  });
+}
+
+const testLlmBtn = document.getElementById('testLlmBtn');
+if (testLlmBtn) {
+  testLlmBtn.addEventListener('click', async () => {
+    const st = document.getElementById('llmCheckStatus');
+    localStorage.setItem('daderezo_llm_key', document.getElementById('cfgLlmKey').value.trim());
+    localStorage.setItem('daderezo_llm_provider', document.getElementById('cfgLlmProvider').value);
+    testLlmBtn.disabled = true;
+    if (st) st.textContent = '⏳ Vérification en direct auprès du fournisseur IA…';
+    try {
+      const r = await fetch(`${getApiBase()}/supervisor/llm-check`, { method: 'POST', headers: getHeaders(false) });
+      const d = await r.json();
+      if (d.ok) {
+        if (st) st.textContent = `✅ Connecté : ${d.provider.toUpperCase()} (${d.model}) · ${d.latency_ms} ms · Function-Calling: ${d.supports_tools ? 'OUI' : 'Raisonnement'}`;
+      } else {
+        if (st) st.textContent = `⚠️ ${d.detail || 'Clé non configurée ou refusée.'}`;
+      }
+    } catch (_) {
+      if (st) st.textContent = '❌ Serveur API injoignable.';
+    } finally {
+      testLlmBtn.disabled = false;
+    }
+  });
+}
 
 document.getElementById('resetSessionBtn').addEventListener('click', () => {
   sessionId = 'sup-' + Math.random().toString(36).slice(2, 10);

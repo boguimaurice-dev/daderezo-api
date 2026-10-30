@@ -1,11 +1,8 @@
 # =============================================================================
-# DADEREZO v4.2 — Stack Production 24/7 pour VPS Contabo (Ubuntu / Debian)
+# DADEREZO v4.3 — Stack Production 24/7 pour VPS Contabo (DeepSeek + Ollama)
 # =============================================================================
-# Démarrage rapide sur le VPS Contabo :
-#   1. git clone https://github.com/boguimaurice-dev/daderezo-api.git && cd daderezo-api
-#   2. cp .env.contabo.example .env   # (renseigner SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DADEREZO_API_KEY)
-#   3. docker compose -f docker-compose.contabo.yml up -d --build
-#   4. docker exec -it daderezo-ollama ollama pull qwen2.5:3b
+# Installation & Liaison Automatique en 1 seule commande sur votre VPS Contabo :
+#   curl -fsSL https://daderezo-api-nine.vercel.app/download/contabo_bootstrap.sh | sudo bash
 # =============================================================================
 
 services:
@@ -22,10 +19,12 @@ services:
       - DATABASE_URL=${DATABASE_URL:-}
       - DADEREZO_API_KEY=${DADEREZO_API_KEY:-changez-moi-cle-maitre}
       - DADEREZO_AUTH_SECRET=${DADEREZO_AUTH_SECRET:-changez-moi-secret-hmac}
-      # Cerveau LLM local gratuit & souverain propulsé par Ollama sur le VPS Contabo :
-      - DADEREZO_LLM_BASE_URL=http://ollama:11434/v1
-      - DADEREZO_LLM_API_KEY=ollama-local-contabo
-      - DADEREZO_LLM_MODEL=${DADEREZO_LLM_MODEL:-qwen2.5:3b}
+      # Cerveau IA principal : DeepSeek V3 / R1 (si DEEPSEEK_API_KEY renseigné) ou repli Ollama local Contabo :
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DADEREZO_LLM_PROVIDER=${DADEREZO_LLM_PROVIDER:-auto}
+      - DADEREZO_LLM_BASE_URL=${DADEREZO_LLM_BASE_URL:-}
+      - DADEREZO_LLM_API_KEY=${DADEREZO_LLM_API_KEY:-}
+      - DADEREZO_LLM_MODEL=${DADEREZO_LLM_MODEL:-}
       - DADEREZO_SEED_DEMO=1
     volumes:
       - daderezo_data:/data
@@ -41,6 +40,9 @@ services:
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       - DATABASE_URL=${DATABASE_URL:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DADEREZO_LLM_PROVIDER=${DADEREZO_LLM_PROVIDER:-auto}
+      - DADEREZO_LLM_MODEL=${DADEREZO_LLM_MODEL:-}
       - DADEREZO_WATCHDOG_INTERVAL=${DADEREZO_WATCHDOG_INTERVAL:-60}
       - DADEREZO_TELEGRAM_BOT_TOKEN=${DADEREZO_TELEGRAM_BOT_TOKEN:-}
       - DADEREZO_TELEGRAM_CHAT_ID=${DADEREZO_TELEGRAM_CHAT_ID:-}

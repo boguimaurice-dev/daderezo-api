@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#031238">
+<title>Daderezo — Mode Hors-Ligne (Continuité LAN)</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<style>
+  body{
+    margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;
+    background:radial-gradient(circle at 20% 0%,#072366,#020b22 70%);
+    color:#f1f6ff;font:15px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;
+  }
+  .card{
+    max-width:480px;width:100%;background:rgba(8,22,56,.92);border:1px solid rgba(0,184,255,.4);
+    border-radius:18px;padding:28px;text-align:center;box-shadow:0 22px 54px rgba(0,0,0,.5);
+  }
+  img{width:76px;height:76px;border-radius:16px;margin-bottom:12px}
+  h1{margin:0 0 8px;font-size:22px}
+  .rezo{color:#00c8ff}
+  p{color:#9db5dc;font-size:14px;margin:0 0 18px}
+  .actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  a,button{
+    background:linear-gradient(135deg,#0066ff,#00b4ff);color:#fff;border:0;border-radius:10px;
+    padding:10px 16px;font-weight:700;text-decoration:none;cursor:pointer;font-size:13.5px;
+  }
+  a.sec{background:#0b1d48;border:1px solid rgba(96,165,250,.3);color:#cbdcff}
+</style>
+</head>
+<body>
+  <div class="card">
+    <img src="/logo-icon.png" alt="Logo Daderezo">
+    <h1>Dade<span class="rezo">rezo</span> · Continuité Hors-Ligne</h1>
+    <p>
+      Votre appareil n’a momentanément plus accès à Internet (coupure FAI ou Wi-Fi).
+      La console Superviseur installée reste accessible en cache local, et votre sonde locale continue de servir le LAN sur le port <code>8090</code>.
+    </p>
+    <div class="actions">
+      <a href="/ui">Ouvrir la Console en Cache</a>
+      <button type="button" onclick="location.reload()">Réessayer la connexion</button>
+    </div>
+  </div>
+</body>
+</html>

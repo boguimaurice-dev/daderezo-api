@@ -395,7 +395,7 @@ def upsert_agent(
         )
 
 
-def list_agents_raw(org_slug: Optional[str] = None) -> List[dict]:
+def list_agents_raw(org_slug: Optional[str] = None, include_all_orgs: bool = False) -> List[dict]:
     if get_backend_mode() == "supabase":
         rows = _sb().request("GET", "agents", "order=last_seen.desc") or []
     else:
@@ -405,6 +405,8 @@ def list_agents_raw(org_slug: Optional[str] = None) -> List[dict]:
             cols = [d[0] for d in c.description]
         rows = [dict(zip(cols, r)) for r in r_all]
 
+    if include_all_orgs:
+        return rows
     if org_slug:
         return [r for r in rows if (r.get("org_slug") or "public-demo") == org_slug]
     # Sans session privée : ne montrer que les agents publics/legacy, jamais les organisations privées d'autres clients

@@ -7,9 +7,15 @@
 <meta name="description" content="Supervisez, auditez et pilotez vos réseaux locaux (LAN &amp; Internet WAN, Multi-Box Wi-Fi et Hub Multimédia) par la voix et l'écrit grâce à 5 agents IA spécialisés.">
 <meta name="theme-color" content="#031238">
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/x-icon" href="/favicon.ico">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daderezo">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="DADEREZO">
 <meta property="og:locale" content="fr_FR">
@@ -396,6 +402,7 @@ footer{
     </nav>
 
     <div class="nav-actions">
+      <button class="btn secondary" id="pwaInstallBtn" type="button" title="Installer l'application Daderezo sur votre téléphone ou PC">📲 Installer l’App</button>
       <button class="btn secondary" id="themeToggleBtn" type="button" title="Basculer entre le mode clair et le mode sombre">☀️ Mode Clair</button>
       <a class="btn secondary" href="/ui?auth=1">🔐 Espace Privé</a>
       <a class="btn" href="/ui">Poste Superviseur →</a>
@@ -1082,6 +1089,56 @@ document.getElementById('copyCmdBtn').addEventListener('click', async () => {
 
 loadHeroTelemetry();
 runDemoAsk(null);
+
+/* PWA SERVICE WORKER & INSTALL PROMPT */
+(function initDaderezoPWA() {
+  const installBtn = document.getElementById('pwaInstallBtn');
+  let deferredPrompt = null;
+  const isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  if (isStandalone && installBtn) installBtn.style.display = 'none';
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+    });
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (installBtn) installBtn.style.display = 'inline-flex';
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    if (installBtn) installBtn.style.display = 'none';
+  });
+
+  if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice.catch(() => {});
+        deferredPrompt = null;
+        return;
+      }
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+      const msg = isIOS
+        ? "Sur iPhone / iPad : appuyez sur le bouton Partager (⬆️) de Safari puis « Sur l'écran d'accueil » pour installer Daderezo."
+        : "Pour installer Daderezo : cliquez sur l'icône d'installation dans la barre d'adresse de Chrome / Edge (ou Menu ⋮ → « Installer Daderezo »).";
+      let toast = document.getElementById('pwaInstallToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'pwaInstallToast';
+        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;max-width:380px;z-index:9999;padding:14px 18px;border-radius:14px;background:#061c5c;color:#f1f6ff;border:1px solid rgba(56,189,248,.5);box-shadow:0 16px 40px rgba(1,8,28,.65);font-size:13px;line-height:1.5;';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = '📲 ' + msg;
+      toast.style.display = 'block';
+      setTimeout(() => { if (toast) toast.style.display = 'none'; }, 7500);
+    });
+  }
+})();
 </script>
 </body>
 </html>

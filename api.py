@@ -52,12 +52,14 @@ ALLOWED_DOWNLOADS = {
     "devices.json",
     "make_dashboard.py",
     "net_controller.py",
+    "contabo_watchdog.py",
+    "docker-compose.contabo.yml",
 }
 
 app = FastAPI(
-    title="DADEREZO v4.1 Multi-Agent & Active Network Control API",
-    description="Supervision réseau, mémoire multi-tours, audit sécurité, contrôle Internet granulaire (Box/Zone/Appareil), optimisation Multi-Box et partage Multimédia",
-    version="4.1.0",
+    title="DADEREZO v4.2 Multi-Agent, PWA & Active Network Control API",
+    description="Supervision réseau PWA installable, mémoire multi-tours, audit sécurité, contrôle Internet granulaire (Box/Zone/Appareil), optimisation Multi-Box et partage Multimédia",
+    version="4.2.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -443,8 +445,8 @@ def _status_payload() -> dict:
         "service": "DADEREZO API",
         "status": "ok",
         "mode": "active_governed",
-        "version": "4.1.0",
-        "architecture": "multi_agent_z_v4_1",
+        "version": "4.2.0",
+        "architecture": "multi_agent_z_v4_2",
         "agents_pipeline": ["SENTINEL-SEC", "TOPO-SCAN", "DIAG-NET", "NET-CONTROL", "MEDIA-HUB"],
         "capabilities": [
             "internet_switch_global_subnet_device",
@@ -453,6 +455,7 @@ def _status_payload() -> dict:
             "private_multitenant_saas",
             "multi_turn_session_memory",
             "security_posture_scoring",
+            "installable_pwa_offline_resilient",
         ],
         "db": storage.get_backend_mode(),
         "llm_configured": has_llm,
@@ -465,15 +468,21 @@ BRAND_ASSETS = {
     "favicon.ico": ("favicon.ico", "image/x-icon"),
     "favicon.png": ("favicon.png", "image/png"),
     "apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+    "icon-192.png": ("icon-192.png", "image/png"),
+    "icon-512.png": ("icon-512.png", "image/png"),
+    "icon-maskable-512.png": ("icon-maskable-512.png", "image/png"),
     "logo-icon.png": ("logo-icon.png", "image/png"),
     "logo-orbit.png": ("logo-orbit.png", "image/png"),
     "og-image.png": ("og-image.png", "image/png"),
     "banner-network.jpg": ("banner-network.jpg", "image/jpeg"),
     "banner-partner.jpg": ("banner-partner.jpg", "image/jpeg"),
+    "manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
+    "sw.js": ("sw.js", "application/javascript"),
+    "offline.html": ("offline.html", "text/html; charset=utf-8"),
 }
 
 
-def _serve_brand_asset(asset_key: str, request: Request) -> Response:
+def _serve_brand_asset(asset_key: str, request: Request, extra_headers: Optional[Dict[str, str]] = None) -> Response:
     fname, media_type = BRAND_ASSETS[asset_key]
     fpath = os.path.join(HERE, fname)
     if not os.path.exists(fpath):
@@ -481,12 +490,45 @@ def _serve_brand_asset(asset_key: str, request: Request) -> Response:
     with open(fpath, "rb") as f:
         raw = f.read()
     headers = {
-        "Cache-Control": "public, max-age=86400",
+        "Cache-Control": "no-cache" if asset_key == "sw.js" else "public, max-age=86400",
         "Content-Length": str(len(raw)),
     }
+    if extra_headers:
+        headers.update(extra_headers)
     if request.method == "HEAD":
         return Response(content=b"", media_type=media_type, headers=headers)
     return Response(content=raw, media_type=media_type, headers=headers)
+
+
+@app.api_route("/manifest.webmanifest", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/manifest.json", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_manifest(request: Request):
+    return _serve_brand_asset("manifest.webmanifest", request)
+
+
+@app.api_route("/sw.js", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_service_worker(request: Request):
+    return _serve_brand_asset("sw.js", request, extra_headers={"Service-Worker-Allowed": "/"})
+
+
+@app.api_route("/offline.html", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_offline_fallback(request: Request):
+    return _serve_brand_asset("offline.html", request)
+
+
+@app.api_route("/icon-192.png", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_icon_192(request: Request):
+    return _serve_brand_asset("icon-192.png", request)
+
+
+@app.api_route("/icon-512.png", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_icon_512(request: Request):
+    return _serve_brand_asset("icon-512.png", request)
+
+
+@app.api_route("/icon-maskable-512.png", methods=["GET", "HEAD"], include_in_schema=False)
+def pwa_icon_maskable_512(request: Request):
+    return _serve_brand_asset("icon-maskable-512.png", request)
 
 
 @app.api_route("/favicon.svg", methods=["GET", "HEAD"], include_in_schema=False)

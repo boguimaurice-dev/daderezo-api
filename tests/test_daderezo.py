@@ -727,6 +727,92 @@ class TestApiEndpoints(unittest.TestCase):
             else:
                 os.environ["DADEREZO_API_KEY"] = old_key
 
+    def test_19_pwa_manifest_service_worker_and_icons(self):
+        # 1. Web App Manifest
+        r_man = self.client.get("/manifest.webmanifest")
+        self.assertEqual(r_man.status_code, 200)
+        self.assertIn("application/manifest+json", r_man.headers.get("content-type", ""))
+        manifest = r_man.json()
+        self.assertEqual(manifest["short_name"], "Daderezo")
+        self.assertEqual(manifest["display"], "standalone")
+        self.assertEqual(manifest["start_url"], "/ui?source=pwa")
+        icon_srcs = {i["src"] for i in manifest["icons"]}
+        self.assertIn("/icon-192.png", icon_srcs)
+        self.assertIn("/icon-512.png", icon_srcs)
+        self.assertIn("/icon-maskable-512.png", icon_srcs)
+
+        # 2. Service Worker headers (Service-Worker-Allowed + no-cache)
+        r_sw = self.client.get("/sw.js")
+        self.assertEqual(r_sw.status_code, 200)
+        self.assertIn("application/javascript", r_sw.headers.get("content-type", ""))
+        self.assertEqual(r_sw.headers.get("service-worker-allowed"), "/")
+        self.assertEqual(r_sw.headers.get("cache-control"), "no-cache")
+        self.assertIn("daderezo-shell-v4.2", r_sw.text)
+
+        # 3. Offline fallback & PWA PNG icons (GET + HEAD)
+        r_off = self.client.get("/offline.html")
+        self.assertEqual(r_off.status_code, 200)
+        self.assertIn("Continuité Hors-Ligne", r_off.text)
+
+        for icon_path in ("/icon-192.png", "/icon-512.png", "/icon-maskable-512.png"):
+            r_ic = self.client.get(icon_path)
+            self.assertEqual(r_ic.status_code, 200)
+            self.assertEqual(r_ic.headers.get("content-type"), "image/png")
+            self.assertTrue(r_ic.content.startswith(b"\x89PNG"))
+            r_hd = self.client.head(icon_path)
+            self.assertEqual(r_hd.status_code, 200)
+
+        # 4. Landing & Supervisor HTML include manifest + SW registration + Install CTA
+        for page_path in ("/", "/ui"):
+            html = self.client.get(page_path).text
+            self.assertIn('rel="manifest" href="/manifest.webmanifest"', html)
+            self.assertIn("serviceWorker.register('/sw.js'", html)
+            self.assertIn('id="pwaInstallBtn"', html)
+
+    def test_20_contabo_watchdog_proactive_alerts(self):
+        import contabo_watchdog
+
+        contabo_watchdog._SENT_SIGNATURES.clear()
+        # Inject an agent with WAN outage + MAC spoofing alert
+        self.client.post(
+            "/register",
+            json={"agent_id": "site-contabo-test", "name": "Campus Abidjan", "site_name": "Campus Abidjan"},
+        )
+        self.client.post(
+            "/data",
+            json={
+                "agent_id": "site-contabo-test",
+                "site_name": "Campus Abidjan",
+                "internet_status": "down",
+                "probes": [
+                    {
+                        "ip": "192.168.50.1",
+                        "name": "Routeur Fibre",
+                        "mac": "AA:BB:CC:DD:EE:01",
+                        "status": "ok",
+                        "latency_ms": 2.0,
+                        "zone": "Infrastructure",
+                    }
+                ],
+                "alerts": [{"severity": "crit", "message": "Changement MAC suspect sur 192.168.50.22"}],
+            },
+        )
+        alerts_1 = contabo_watchdog.evaluate_once()
+        kinds = {a["kind"] for a in alerts_1 if a["agent_id"] == "site-contabo-test"}
+        self.assertIn("wan_down", kinds)
+        self.assertIn("security_alert", kinds)
+
+        # Anti-spam deduplication: immediate second pass produces 0 duplicate notifications
+        alerts_2 = contabo_watchdog.evaluate_once()
+        dup = [a for a in alerts_2 if a["agent_id"] == "site-contabo-test"]
+        self.assertEqual(len(dup), 0)
+
+        # Contabo files are downloadable for 1-click VPS provisioning
+        r_dl = self.client.get("/download/contabo_watchdog.py")
+        self.assertEqual(r_dl.status_code, 200)
+        r_dc = self.client.get("/download/docker-compose.contabo.yml")
+        self.assertEqual(r_dc.status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

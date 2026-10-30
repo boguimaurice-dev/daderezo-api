@@ -577,6 +577,7 @@ class TestApiEndpoints(unittest.TestCase):
             ("/favicon.svg", "image/svg+xml"),
             ("/favicon.ico", "image/x-icon"),
             ("/favicon.png", "image/png"),
+            ("/favicon-32.png", "image/png"),
             ("/apple-touch-icon.png", "image/png"),
             ("/logo-icon.png", "image/png"),
             ("/logo-orbit.png", "image/png"),
@@ -589,9 +590,17 @@ class TestApiEndpoints(unittest.TestCase):
             self.assertIn(ctype, r.headers.get("content-type", ""))
             self.assertGreater(len(r.content), 500)
 
+        svg_txt = self.client.get("/favicon.svg").text
+        self.assertIn("#00D4FF", svg_txt)
+        self.assertIn("#0077FF", svg_txt)
+        self.assertIn("#031C6C", svg_txt)
+        self.assertNotIn("#10B981", svg_txt)
+
         for html_route in ("/", "/ui"):
             page = self.client.get(html_route, headers={"Accept": "text/html"}).text
-            self.assertIn('href="/favicon.png"', page)
+            self.assertIn('href="/favicon.svg?v=4.3"', page)
+            self.assertIn('href="/favicon-32.png?v=4.3"', page)
+            self.assertIn('href="/favicon.png?v=4.3"', page)
             self.assertIn('src="/logo-icon.png"', page)
             self.assertIn('property="og:image"', page)
             self.assertIn("og-image.png", page)
@@ -737,9 +746,10 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertEqual(manifest["display"], "standalone")
         self.assertEqual(manifest["start_url"], "/ui?source=pwa")
         icon_srcs = {i["src"] for i in manifest["icons"]}
-        self.assertIn("/icon-192.png", icon_srcs)
-        self.assertIn("/icon-512.png", icon_srcs)
-        self.assertIn("/icon-maskable-512.png", icon_srcs)
+        self.assertIn("/favicon-32.png?v=4.3", icon_srcs)
+        self.assertIn("/icon-192.png?v=4.3", icon_srcs)
+        self.assertIn("/icon-512.png?v=4.3", icon_srcs)
+        self.assertIn("/icon-maskable-512.png?v=4.3", icon_srcs)
 
         # 2. Service Worker headers (Service-Worker-Allowed + no-cache)
         r_sw = self.client.get("/sw.js")
@@ -747,7 +757,7 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertIn("application/javascript", r_sw.headers.get("content-type", ""))
         self.assertEqual(r_sw.headers.get("service-worker-allowed"), "/")
         self.assertEqual(r_sw.headers.get("cache-control"), "no-cache")
-        self.assertIn("daderezo-shell-v4.2", r_sw.text)
+        self.assertIn("daderezo-shell-v4.3", r_sw.text)
 
         # 3. Offline fallback & PWA PNG icons (GET + HEAD)
         r_off = self.client.get("/offline.html")
@@ -765,7 +775,7 @@ class TestApiEndpoints(unittest.TestCase):
         # 4. Landing & Supervisor HTML include manifest + SW registration + Install CTA
         for page_path in ("/", "/ui"):
             html = self.client.get(page_path).text
-            self.assertIn('rel="manifest" href="/manifest.webmanifest"', html)
+            self.assertIn('rel="manifest" href="/manifest.webmanifest?v=4.3"', html)
             self.assertIn("serviceWorker.register('/sw.js'", html)
             self.assertIn('id="pwaInstallBtn"', html)
 

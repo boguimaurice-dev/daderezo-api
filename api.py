@@ -467,6 +467,7 @@ BRAND_ASSETS = {
     "favicon.svg": ("favicon.svg", "image/svg+xml"),
     "favicon.ico": ("favicon.ico", "image/x-icon"),
     "favicon.png": ("favicon.png", "image/png"),
+    "favicon-32.png": ("favicon-32.png", "image/png"),
     "apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
     "icon-192.png": ("icon-192.png", "image/png"),
     "icon-512.png": ("icon-512.png", "image/png"),
@@ -489,8 +490,14 @@ def _serve_brand_asset(asset_key: str, request: Request, extra_headers: Optional
         raise HTTPException(status_code=404, detail=f"Ressource {fname} introuvable.")
     with open(fpath, "rb") as f:
         raw = f.read()
+    if asset_key == "sw.js":
+        cache_ctl = "no-cache"
+    elif asset_key.startswith("favicon") or asset_key == "manifest.webmanifest":
+        cache_ctl = "public, max-age=3600, must-revalidate"
+    else:
+        cache_ctl = "public, max-age=86400"
     headers = {
-        "Cache-Control": "no-cache" if asset_key == "sw.js" else "public, max-age=86400",
+        "Cache-Control": cache_ctl,
         "Content-Length": str(len(raw)),
     }
     if extra_headers:
@@ -544,6 +551,11 @@ def brand_favicon_ico(request: Request):
 @app.api_route("/favicon.png", methods=["GET", "HEAD"], include_in_schema=False)
 def brand_favicon_png(request: Request):
     return _serve_brand_asset("favicon.png", request)
+
+
+@app.api_route("/favicon-32.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_favicon_32_png(request: Request):
+    return _serve_brand_asset("favicon-32.png", request)
 
 
 @app.api_route("/apple-touch-icon.png", methods=["GET", "HEAD"], include_in_schema=False)

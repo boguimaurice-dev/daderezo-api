@@ -1,17 +1,18 @@
 /* Daderezo PWA Service Worker v4.2 — Résilience Hors-Ligne & Cache Intelligent */
-const CACHE_SHELL = 'daderezo-shell-v4.2';
-const CACHE_DATA = 'daderezo-telemetry-v4.2';
+const CACHE_SHELL = 'daderezo-shell-v4.3';
+const CACHE_DATA = 'daderezo-telemetry-v4.3';
 
 const SHELL_ASSETS = [
   '/',
   '/ui',
   '/offline.html',
-  '/manifest.webmanifest',
-  '/favicon.png',
-  '/favicon.svg',
+  '/manifest.webmanifest?v=4.3',
+  '/favicon.svg?v=4.3',
+  '/favicon.png?v=4.3',
+  '/favicon-32.png?v=4.3',
   '/logo-icon.png',
-  '/icon-192.png',
-  '/icon-512.png'
+  '/icon-192.png?v=4.3',
+  '/icon-512.png?v=4.3'
 ];
 
 self.addEventListener('install', (event) => {

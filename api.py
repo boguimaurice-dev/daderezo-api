@@ -463,8 +463,13 @@ def _status_payload() -> dict:
 BRAND_ASSETS = {
     "favicon.svg": ("favicon.svg", "image/svg+xml"),
     "favicon.ico": ("favicon.ico", "image/x-icon"),
+    "favicon.png": ("favicon.png", "image/png"),
     "apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+    "logo-icon.png": ("logo-icon.png", "image/png"),
+    "logo-orbit.png": ("logo-orbit.png", "image/png"),
     "og-image.png": ("og-image.png", "image/png"),
+    "banner-network.jpg": ("banner-network.jpg", "image/jpeg"),
+    "banner-partner.jpg": ("banner-partner.jpg", "image/jpeg"),
 }
 
 
@@ -494,14 +499,39 @@ def brand_favicon_ico(request: Request):
     return _serve_brand_asset("favicon.ico", request)
 
 
+@app.api_route("/favicon.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_favicon_png(request: Request):
+    return _serve_brand_asset("favicon.png", request)
+
+
 @app.api_route("/apple-touch-icon.png", methods=["GET", "HEAD"], include_in_schema=False)
 def brand_apple_touch_icon(request: Request):
     return _serve_brand_asset("apple-touch-icon.png", request)
 
 
+@app.api_route("/logo-icon.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_logo_icon(request: Request):
+    return _serve_brand_asset("logo-icon.png", request)
+
+
+@app.api_route("/logo-orbit.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_logo_orbit(request: Request):
+    return _serve_brand_asset("logo-orbit.png", request)
+
+
 @app.api_route("/og-image.png", methods=["GET", "HEAD"], include_in_schema=False)
 def brand_og_image(request: Request):
     return _serve_brand_asset("og-image.png", request)
+
+
+@app.api_route("/banner-network.jpg", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_banner_network(request: Request):
+    return _serve_brand_asset("banner-network.jpg", request)
+
+
+@app.api_route("/banner-partner.jpg", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_banner_partner(request: Request):
+    return _serve_brand_asset("banner-partner.jpg", request)
 
 
 # ---------------------------------------------------------------------------

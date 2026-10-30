@@ -576,8 +576,13 @@ class TestApiEndpoints(unittest.TestCase):
         for route, ctype in (
             ("/favicon.svg", "image/svg+xml"),
             ("/favicon.ico", "image/x-icon"),
+            ("/favicon.png", "image/png"),
             ("/apple-touch-icon.png", "image/png"),
+            ("/logo-icon.png", "image/png"),
+            ("/logo-orbit.png", "image/png"),
             ("/og-image.png", "image/png"),
+            ("/banner-network.jpg", "image/jpeg"),
+            ("/banner-partner.jpg", "image/jpeg"),
         ):
             r = self.client.get(route)
             self.assertEqual(r.status_code, 200, route)
@@ -586,7 +591,8 @@ class TestApiEndpoints(unittest.TestCase):
 
         for html_route in ("/", "/ui"):
             page = self.client.get(html_route, headers={"Accept": "text/html"}).text
-            self.assertIn('href="/favicon.svg"', page)
+            self.assertIn('href="/favicon.png"', page)
+            self.assertIn('src="/logo-icon.png"', page)
             self.assertIn('property="og:image"', page)
             self.assertIn("og-image.png", page)
             self.assertIn('name="twitter:card" content="summary_large_image"', page)

@@ -25,7 +25,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
 import agent_engine
@@ -468,36 +468,40 @@ BRAND_ASSETS = {
 }
 
 
-def _serve_brand_asset(asset_key: str) -> Response:
+def _serve_brand_asset(asset_key: str, request: Request) -> Response:
     fname, media_type = BRAND_ASSETS[asset_key]
     fpath = os.path.join(HERE, fname)
     if not os.path.exists(fpath):
         raise HTTPException(status_code=404, detail=f"Ressource {fname} introuvable.")
-    return FileResponse(
-        fpath,
-        media_type=media_type,
-        headers={"Cache-Control": "public, max-age=86400"},
-    )
+    with open(fpath, "rb") as f:
+        raw = f.read()
+    headers = {
+        "Cache-Control": "public, max-age=86400",
+        "Content-Length": str(len(raw)),
+    }
+    if request.method == "HEAD":
+        return Response(content=b"", media_type=media_type, headers=headers)
+    return Response(content=raw, media_type=media_type, headers=headers)
 
 
 @app.api_route("/favicon.svg", methods=["GET", "HEAD"], include_in_schema=False)
-def brand_favicon_svg():
-    return _serve_brand_asset("favicon.svg")
+def brand_favicon_svg(request: Request):
+    return _serve_brand_asset("favicon.svg", request)
 
 
 @app.api_route("/favicon.ico", methods=["GET", "HEAD"], include_in_schema=False)
-def brand_favicon_ico():
-    return _serve_brand_asset("favicon.ico")
+def brand_favicon_ico(request: Request):
+    return _serve_brand_asset("favicon.ico", request)
 
 
 @app.api_route("/apple-touch-icon.png", methods=["GET", "HEAD"], include_in_schema=False)
-def brand_apple_touch_icon():
-    return _serve_brand_asset("apple-touch-icon.png")
+def brand_apple_touch_icon(request: Request):
+    return _serve_brand_asset("apple-touch-icon.png", request)
 
 
 @app.api_route("/og-image.png", methods=["GET", "HEAD"], include_in_schema=False)
-def brand_og_image():
-    return _serve_brand_asset("og-image.png")
+def brand_og_image(request: Request):
+    return _serve_brand_asset("og-image.png", request)
 
 
 # ---------------------------------------------------------------------------

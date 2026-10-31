@@ -830,7 +830,7 @@ class TestApiEndpoints(unittest.TestCase):
         import agent_engine
 
         # 1. Auto-detection of 32-hex DeepSeek key vs OpenAI sk-proj- vs Groq gsk_
-        ds_hex = "sk-0123456789abcdef0123456789abcdef"
+        ds_hex = "sk-" + ("a1" * 16)
         cfg_ds = agent_engine._detect_llm_config(header_key=ds_hex)
         self.assertEqual(cfg_ds["provider"], "deepseek")
         self.assertEqual(cfg_ds["base_url"], "https://api.deepseek.com")

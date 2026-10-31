@@ -15,6 +15,8 @@ import os
 import re
 import time
 import unicodedata
+import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Callable, List, Optional, Tuple
 
@@ -63,8 +65,9 @@ def _detect_llm_config(
         base_url = (explicit_base or "http://ollama:11434/v1").rstrip("/")
         default_model = "qwen2.5:3b"
     elif explicit_base and not h_key:
-        provider = "ollama" if "11434" in explicit_base or "ollama" in explicit_base.lower() else (
-            "deepseek" if "deepseek.com" in explicit_base.lower() else "custom"
+        parsed_host = (urllib.parse.urlparse(explicit_base).hostname or "").lower()
+        provider = "ollama" if "11434" in explicit_base or parsed_host == "ollama" else (
+            "deepseek" if parsed_host in ("api.deepseek.com", "deepseek.com") else "custom"
         )
         base_url = explicit_base.rstrip("/")
         default_model = "deepseek-chat" if provider == "deepseek" else "gpt-4o-mini"
@@ -137,7 +140,19 @@ def test_llm_connection(
                 "latency_ms": ms,
                 "sample_reply": reply[:120],
             }
-    except Exception as exc:
+    except urllib.error.HTTPError as http_err:
+        ms = max(1, int((time.perf_counter() - t0) * 1000))
+        code = int(getattr(http_err, "code", 0) or 0)
+        return {
+            "ok": False,
+            "configured": True,
+            "provider": cfg["provider"],
+            "model": cfg["model"],
+            "base_url": cfg["base_url"],
+            "latency_ms": ms,
+            "detail": f"Refus HTTP {code} du fournisseur {cfg['provider']} ({cfg['model']}) — vérifiez la validité de la clé API.",
+        }
+    except Exception:
         ms = max(1, int((time.perf_counter() - t0) * 1000))
         return {
             "ok": False,
@@ -146,7 +161,7 @@ def test_llm_connection(
             "model": cfg["model"],
             "base_url": cfg["base_url"],
             "latency_ms": ms,
-            "detail": f"Échec d'appel {cfg['provider']} ({cfg['model']}) : {exc}",
+            "detail": f"Serveur IA {cfg['provider']} ({cfg['model']}) injoignable ou délai dépassé.",
         }
 
 

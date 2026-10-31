@@ -10,6 +10,7 @@
           "net_controller.py",
           "agent_engine.py",
           "contabo_watchdog.py",
+          "contabo_bootstrap.sh",
           "docker-compose.contabo.yml",
           "landing.html",
           "DADEREZO.html",

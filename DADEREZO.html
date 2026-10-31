@@ -1589,17 +1589,26 @@ async function downloadPreconfiguredProbe() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const txt = await res.text();
     const blob = new Blob([txt], { type: 'text/x-python;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = blobUrl;
     a.download = 'daderezo_sonde.py';
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
   } catch (_) {
-    window.location.href = url;
+    const safeRel = `/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
+    const a = document.createElement('a');
+    a.href = safeRel;
+    a.download = 'daderezo_sonde.py';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 }
+
+let serverLlmStatus = { configured: false, provider: null, model: null };
 
 function updateProbeDeployCommand() {
   const el = document.getElementById('probeDeployCmd');
@@ -1609,11 +1618,13 @@ function updateProbeDeployCommand() {
   const stepAiTitle = document.getElementById('workStepAiTitle');
   const stepAiDesc = document.getElementById('workStepAiDesc');
   const hasLocalLlm = Boolean((localStorage.getItem('daderezo_llm_key') || '').trim());
+  const hasAnyLlm = hasLocalLlm || serverLlmStatus.configured;
 
   if (stepAiTitle && stepAiDesc) {
-    stepAiTitle.textContent = hasLocalLlm ? '2 · Cerveau DeepSeek : ✅ Actif' : '2 · Cerveau DeepSeek : ⚡ Prêt';
-    stepAiDesc.textContent = hasLocalLlm
-      ? 'Clé IA détectée : vos vrais appareils seront analysés par DeepSeek sans aucun mélange avec la démo.'
+    const provLabel = serverLlmStatus.provider ? serverLlmStatus.provider.toUpperCase() : 'DEEPSEEK';
+    stepAiTitle.textContent = hasAnyLlm ? `2 · Cerveau ${provLabel} : ✅ Actif` : '2 · Cerveau DeepSeek : ⚡ Prêt';
+    stepAiDesc.textContent = hasAnyLlm
+      ? `Moteur ${provLabel} (${serverLlmStatus.model || 'ReAct'}) connecté : vos vrais équipements seront analysés sans aucune donnée fictive.`
       : 'Renseignez votre clé DeepSeek dans « Ma Sonde & IA DeepSeek » (ou sur Vercel) pour le raisonnement ReAct.';
   }
 
@@ -3254,6 +3265,20 @@ if (_urlParams.get('focus') === 'voice') {
     if (inp) inp.focus();
   }, 350);
 }
+
+fetch(`${getApiBase()}/health`, { headers: { 'Accept': 'application/json' } })
+  .then(r => r.ok ? r.json() : null)
+  .then(h => {
+    if (h && h.llm_configured) {
+      serverLlmStatus = { configured: true, provider: h.llm_provider, model: h.llm_model };
+      const st = document.getElementById('llmCheckStatus');
+      if (st && !(localStorage.getItem('daderezo_llm_key') || '').trim()) {
+        st.textContent = `✅ Clé serveur active sur Vercel : ${(h.llm_provider || 'deepseek').toUpperCase()} (${h.llm_model || 'deepseek-chat'}).`;
+      }
+      updateProbeDeployCommand();
+    }
+  })
+  .catch(() => {});
 
 checkAuthSession().then(() => {
   refreshAll();

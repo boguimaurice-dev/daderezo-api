@@ -30,19 +30,30 @@ def normalize_fr(text: str) -> str:
     return re.sub(r"\s+", " ", stripped.lower()).strip()
 
 
+def _get_env_ci(key_name: str) -> str:
+    val = os.environ.get(key_name, "").strip()
+    if val:
+        return val
+    target = key_name.lower()
+    for k, v in os.environ.items():
+        if k.lower() == target and v and v.strip():
+            return v.strip()
+    return ""
+
+
 def _detect_llm_config(
     header_key: Optional[str] = None,
     header_model: Optional[str] = None,
     header_provider: Optional[str] = None,
 ) -> Optional[dict]:
     h_key = (header_key or "").strip()
-    env_deepseek = os.environ.get("DEEPSEEK_API_KEY", "").strip()
-    env_generic = os.environ.get("DADEREZO_LLM_API_KEY", "").strip()
-    env_groq = os.environ.get("GROQ_API_KEY", "").strip()
-    env_openai = os.environ.get("OPENAI_API_KEY", "").strip()
+    env_deepseek = _get_env_ci("DEEPSEEK_API_KEY")
+    env_generic = _get_env_ci("DADEREZO_LLM_API_KEY")
+    env_groq = _get_env_ci("GROQ_API_KEY")
+    env_openai = _get_env_ci("OPENAI_API_KEY")
 
-    prov = (header_provider or os.environ.get("DADEREZO_LLM_PROVIDER", "") or "auto").strip().lower()
-    req_model = (header_model or "").strip() or os.environ.get("DADEREZO_LLM_MODEL", "").strip()
+    prov = (header_provider or _get_env_ci("DADEREZO_LLM_PROVIDER") or "auto").strip().lower()
+    req_model = (header_model or "").strip() or _get_env_ci("DADEREZO_LLM_MODEL")
 
     key = h_key or env_deepseek or env_generic or env_groq or env_openai
     if not key:

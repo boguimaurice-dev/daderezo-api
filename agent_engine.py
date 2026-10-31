@@ -1199,9 +1199,18 @@ def run_multi_agent_mission(
         }
 
     if not dashboards:
+        is_priv = org_slug != "public-demo"
         msg = (
-            "Aucune sonde réseau n'est enregistrée dans cet espace. "
-            "Lancez `agent_client.py` avec votre clé privée organisation ou ouvrez le banc de démonstration."
+            "🟢 Mode Travail Actif isolé : aucune fausse donnée de simulation n'est injectée ici, et votre première sonde réelle n'est pas encore en ligne.\n"
+            "• Étape immédiate : cliquez sur « ⬇ Télécharger ma Sonde Prête à Lancer (daderezo_sonde.py) » puis exécutez `python daderezo_sonde.py` sur un PC de votre réseau local.\n"
+            "• Dès le premier signal (~5 secondes), vos vrais routeurs, box et équipements s'afficheront automatiquement et DeepSeek les analysera en direct."
+            if is_priv
+            else "Aucune sonde réseau n'est enregistrée dans cet espace. Lancez `daderezo_sonde.py` ou activez un scénario du banc de démonstration."
+        )
+        spoken = (
+            "Vous êtes en mode travail réel sans données simulées, en attente du premier signal de votre sonde locale. Téléchargez et lancez daderezo sonde sur votre ordinateur pour voir vos vrais appareils."
+            if is_priv
+            else msg
         )
         return {
             "status": "ok",
@@ -1209,9 +1218,9 @@ def run_multi_agent_mission(
             "engine_mode": "multi_agent_autonomous",
             "intent": "aucune_sonde",
             "scope": "global" if wants_global else "site",
-            "site_label": "Aucun site enregistré",
+            "site_label": "Mode Travail · En attente de sonde réelle" if is_priv else "Aucun site enregistré",
             "answer": msg,
-            "spoken_text": msg,
+            "spoken_text": spoken,
             "metrics": metrics,
             "devices": [],
             "with_internet": [],
@@ -1220,7 +1229,7 @@ def run_multi_agent_mission(
             "task_queued": None,
             "pending_approval": None,
             "agent_trace": agent_trace,
-            "security_check": {"verdict": "ALLOW", "authorized": can_write},
+            "security_check": {"verdict": "ALLOW", "authorized": can_write, "org_slug": org_slug},
             "refused_write_action": False,
         }
 

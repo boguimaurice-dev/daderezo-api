@@ -934,6 +934,90 @@ class TestApiEndpoints(unittest.TestCase):
         chk = subprocess.run(["bash", "-n", "contabo_bootstrap.sh"], capture_output=True, text=True)
         self.assertEqual(chk.returncode, 0, chk.stderr)
 
+    def test_23_strict_work_mode_no_simulation_leak_and_single_file_probe(self):
+        import ast
+
+        # Seed demo simulation first to prove it NEVER leaks into a private workspace
+        self.client.post("/demo/scenario/nominal")
+
+        # Unauthenticated probe script request is rejected
+        unauth_probe = self.client.get("/probe/daderezo_sonde.py")
+        self.assertEqual(unauth_probe.status_code, 401)
+
+        # Create private workspace (including apostrophe in org_name to verify safe codegen)
+        signup = self.client.post(
+            "/auth/signup",
+            json={
+                "email": "maurice.workmode@daderezo.ci",
+                "password": "PasswordWork2026!",
+                "full_name": "Maurice Bogui",
+                "org_name": "Communauté Sainte Marie l'Espérance",
+            },
+        )
+        self.assertEqual(signup.status_code, 200)
+        body = signup.json()
+        token = body["token"]
+        probe_key = body["user"]["probe_api_key"]
+        org_slug = body["user"]["org_slug"]
+        auth_h = {"Authorization": f"Bearer {token}"}
+
+        # 1. Before real probe connects: 0 agents in Work Mode (ZERO simulation-bouake leak!)
+        priv_agents_empty = self.client.get("/agents", headers=auth_h).json()
+        self.assertEqual(priv_agents_empty, [])
+
+        # 2. Reading simulation-bouake dashboard from Work Mode is strictly forbidden (403)
+        sim_block = self.client.get("/dashboard/simulation-bouake", headers=auth_h)
+        self.assertEqual(sim_block.status_code, 403)
+
+        # 3. Asking Supervisor in empty Work Mode returns honest 'aucune_sonde' with daderezo_sonde.py guidance
+        ask_empty = self.client.post(
+            "/supervisor/ask",
+            headers=auth_h,
+            json={"question": "Combien d'appareils sont connectés ?", "session_id": f"work-{org_slug}"},
+        ).json()
+        self.assertEqual(ask_empty["intent"], "aucune_sonde")
+        self.assertEqual(ask_empty["metrics"]["total_devices"], 0)
+        self.assertIn("daderezo_sonde.py", ask_empty["answer"])
+
+        # 4. Single-file pre-configured probe downloads cleanly and parses as valid Python 3 AST
+        probe_res = self.client.get(f"/probe/daderezo_sonde.py?probe_key={probe_key}")
+        self.assertEqual(probe_res.status_code, 200)
+        self.assertIn(probe_key, probe_res.text)
+        self.assertIn(f"{org_slug}-principal", probe_res.text)
+        ast.parse(probe_res.text)
+
+        # 5. Once the real probe transmits telemetry, ONLY real devices appear in Work Mode
+        ingest = self.client.post(
+            "/data",
+            headers={"X-API-Key": probe_key},
+            json={
+                "agent_id": f"{org_slug}-principal",
+                "nom": "Sonde Réelle Bouaké",
+                "site_name": "Réseau Réel Bouaké",
+                "ip_local": "192.168.1.45",
+                "gw": "192.168.1.1",
+                "gw_status": "up",
+                "internet_status": "up",
+                "wan_latency_ms": 24.5,
+                "probes": [
+                    {"ip": "192.168.1.1", "mac": "48:2c:a0:11:22:33", "name": "Box Fibre Réelle", "zone": "Cœur réseau", "status": "up", "type": "gateway", "latency_ms": 1.4},
+                    {"ip": "192.168.1.45", "mac": "00:e0:4c:aa:bb:cc", "name": "PC Sonde Maurice", "zone": "Supervision", "status": "up", "type": "probe", "latency_ms": 0.2},
+                    {"ip": "192.168.1.88", "mac": "3c:22:fb:44:55:66", "name": "MacBook Direction", "zone": "Réseau local", "status": "up", "type": "host", "latency_ms": 3.1},
+                ],
+            },
+        )
+        self.assertEqual(ingest.status_code, 200)
+
+        priv_agents_live = self.client.get("/agents", headers=auth_h).json()
+        self.assertEqual(len(priv_agents_live), 1)
+        self.assertEqual(priv_agents_live[0]["id"], f"{org_slug}-principal")
+        self.assertFalse(priv_agents_live[0]["is_simulation"])
+
+        ui_html = self.client.get("/ui").text
+        self.assertIn("switchWorkModeBtn", ui_html)
+        self.assertIn("realWorkOnboardingCard", ui_html)
+        self.assertIn("downloadSingleProbeBtn", ui_html)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -242,8 +242,14 @@ def _ensure_agent_tenant_access(agent_id: str, ctx: dict) -> Optional[dict]:
     if not ag:
         return None
     ag_org = ag.get("org_slug") or "public-demo"
-    # L'espace démo `simulation-bouake` reste consultable pour tester, mais un réseau privé est strictement isolé
-    if ag_org != "public-demo" and ag_org != ctx["org_slug"]:
+    if ctx["org_slug"] != "public-demo":
+        # En Mode Travail Privé : séparation stricte, aucune lecture/mélange avec simulation-bouake ou un autre tenant
+        if ag_org != ctx["org_slug"] or str(agent_id).startswith("simulation-"):
+            raise HTTPException(
+                status_code=403,
+                detail="Mode Travail Actif isolé : cette sonde n'appartient pas à votre espace réseau privé.",
+            )
+    elif ag_org != "public-demo":
         raise HTTPException(
             status_code=403,
             detail="Accès refusé : cette sonde appartient à un espace réseau privé isolé.",
@@ -442,8 +448,8 @@ def _status_payload() -> dict:
         "service": "DADEREZO API",
         "status": "ok",
         "mode": "active_governed",
-        "version": "4.3.0",
-        "architecture": "multi_agent_z_v4_3_react",
+        "version": "4.4.0",
+        "architecture": "multi_agent_z_v4_4_lucid_workmode",
         "agents_pipeline": ["SENTINEL-SEC", "TOPO-SCAN", "DIAG-NET", "NET-CONTROL", "MEDIA-HUB"],
         "capabilities": [
             "internet_switch_global_subnet_device",
@@ -455,6 +461,8 @@ def _status_payload() -> dict:
             "installable_pwa_offline_resilient",
             "deepseek_native_tool_calling",
             "contabo_gitops_autodeploy",
+            "strict_work_vs_simulation_separation",
+            "single_file_preconfigured_probe",
         ],
         "db": storage.get_backend_mode(),
         "llm_configured": bool(llm_cfg),
@@ -627,6 +635,404 @@ def supervision_ui():
         raise HTTPException(status_code=404, detail="Interface DADEREZO.html introuvable")
     with open(ui_path, "r", encoding="utf-8") as f:
         return HTMLResponse(f.read())
+
+
+def _build_single_file_probe_script(api_url: str, org_slug: str, org_name: str, probe_key: str) -> str:
+    safe_api = json.dumps(api_url.rstrip("/"))
+    safe_agent_id = json.dumps(f"{org_slug}-principal")
+    safe_org_name = json.dumps(org_name)
+    safe_probe_key = json.dumps(probe_key)
+    return f'''#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+DADEREZO v4.4 — Sonde Terrain Réelle Autonome (1 seul fichier · Zéro dépendance externe).
+Pré-configurée pour l'espace privé isolé : {org_name} ({org_slug})
+
+Usage sur Windows, Linux ou macOS :
+    python daderezo_sonde.py
+"""
+import concurrent.futures
+import ipaddress
+import json
+import os
+import platform
+import re
+import socket
+import subprocess
+import sys
+import time
+import urllib.parse
+import urllib.request
+
+API_URL = os.environ.get("DADEREZO_API_URL", {safe_api})
+AGENT_ID = os.environ.get("DADEREZO_AGENT_ID", {safe_agent_id})
+SITE_NAME = os.environ.get("DADEREZO_SITE_NAME", {safe_org_name})
+PROBE_API_KEY = os.environ.get("DADEREZO_PROBE_KEY", {safe_probe_key})
+SCAN_INTERVAL = int(os.environ.get("DADEREZO_INTERVAL", "15"))
+TASK_POLL_SECONDS = int(os.environ.get("DADEREZO_TASK_POLL", "5"))
+
+OUI_VENDORS = {{
+    "00:e0:4c": "Realtek", "fc:ec:da": "Ubiquiti", "74:ac:b9": "Ubiquiti", "24:5a:4c": "Ubiquiti",
+    "b0:be:76": "TP-Link", "50:c7:bf": "TP-Link", "c0:25:e9": "TP-Link", "dc:a6:32": "Raspberry Pi",
+    "b8:27:eb": "Raspberry Pi", "28:6c:07": "Xiaomi", "48:2c:a0": "Huawei / Box", "00:46:4b": "Huawei / Box",
+    "f8:23:b2": "Orange / Livebox", "3c:22:fb": "Apple", "f0:18:98": "Apple", "a4:83:e7": "Apple",
+    "38:f9:d3": "Apple", "dc:a9:04": "Apple", "e4:5f:01": "Raspberry Pi", "00:1a:2b": "Cisco",
+}}
+
+
+def _run_cmd(cmd, timeout=4.0):
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, errors="ignore")
+        return res.stdout or ""
+    except Exception:
+        return ""
+
+
+def _ping_host(ip_str, timeout_ms=900):
+    sys_name = platform.system().lower()
+    if "windows" in sys_name:
+        cmd = ["ping", "-n", "1", "-w", str(timeout_ms), ip_str]
+    elif "darwin" in sys_name:
+        cmd = ["ping", "-c", "1", "-W", str(timeout_ms), ip_str]
+    else:
+        sec = max(1, int(round(timeout_ms / 1000.0)))
+        cmd = ["ping", "-c", "1", "-W", str(sec), ip_str]
+    t0 = time.perf_counter()
+    out = _run_cmd(cmd, timeout=max(2.0, timeout_ms / 1000.0 + 1.2))
+    elapsed = round((time.perf_counter() - t0) * 1000.0, 1)
+    m = re.search(r"(?:time|temps)[=<]\\s*([0-9]+(?:[.,][0-9]+)?)\\s*ms", out, re.IGNORECASE)
+    if m:
+        return True, float(m.group(1).replace(",", "."))
+    if "ttl=" in out.lower() or "1 received" in out.lower() or "perte 0%" in out.lower() or "0% packet loss" in out.lower():
+        return True, elapsed
+    return False, None
+
+
+def _detect_local_network():
+    ip_local = "127.0.0.1"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(1.5)
+        s.connect(("1.1.1.1", 80))
+        ip_local = s.getsockname()[0]
+        s.close()
+    except Exception:
+        try:
+            ip_local = socket.gethostbyname(socket.gethostname())
+        except Exception:
+            pass
+
+    mask = "255.255.255.0"
+    gw = ""
+    mac_local = ""
+    dns_list = []
+    sys_name = platform.system().lower()
+
+    if "windows" in sys_name:
+        out = _run_cmd(["ipconfig", "/all"], timeout=5.0)
+        blocks = re.split(r"\\r?\\n(?=\\S.*:)", out)
+        for blk in blocks:
+            if ip_local and ip_local in blk:
+                m_mask = re.search(r"(?:Masque|Subnet Mask)[^:]*:\\s*([0-9.]+)", blk, re.I)
+                if m_mask:
+                    mask = m_mask.group(1)
+                m_gw = re.search(r"(?:Passerelle|Default Gateway)[^:]*:\\s*([0-9.]+)", blk, re.I)
+                if m_gw:
+                    gw = m_gw.group(1)
+                m_mac = re.search(r"(?:Adresse physique|Physical Address)[^:]*:\\s*([0-9A-Fa-f-]{17})", blk, re.I)
+                if m_mac:
+                    mac_local = m_mac.group(1).replace("-", ":").lower()
+                for m_dns in re.findall(r"(?:Serveurs DNS|DNS Servers)[^:]*:\\s*([0-9.]+)", blk, re.I):
+                    if m_dns not in dns_list:
+                        dns_list.append(m_dns)
+    else:
+        r_out = _run_cmd(["ip", "route"], timeout=3.0) or _run_cmd(["route", "-n", "get", "default"], timeout=3.0)
+        m_gw = re.search(r"default via ([0-9.]+)", r_out) or re.search(r"gateway:\\s*([0-9.]+)", r_out)
+        if m_gw:
+            gw = m_gw.group(1)
+        a_out = _run_cmd(["ip", "-o", "-f", "inet", "addr", "show"], timeout=3.0)
+        for line in a_out.splitlines():
+            if ip_local in line:
+                m_cidr = re.search(r"inet\\s+([0-9.]+/[0-9]+)", line)
+                if m_cidr:
+                    try:
+                        mask = str(ipaddress.IPv4Interface(m_cidr.group(1)).netmask)
+                    except Exception:
+                        pass
+        link_out = _run_cmd(["ip", "link"], timeout=3.0)
+        m_mac = re.search(r"link/ether\\s+([0-9a-f:]{17})", link_out, re.I)
+        if m_mac:
+            mac_local = m_mac.group(1).lower()
+        try:
+            with open("/etc/resolv.conf", "r", encoding="utf-8", errors="ignore") as rf:
+                for ln in rf:
+                    if ln.strip().startswith("nameserver"):
+                        parts = ln.split()
+                        if len(parts) >= 2 and parts[1] not in dns_list:
+                            dns_list.append(parts[1])
+        except Exception:
+            pass
+
+    if not gw and ip_local.count(".") == 3 and not ip_local.startswith("127."):
+        gw = ".".join(ip_local.split(".")[:3]) + ".1"
+    return ip_local, mask, gw, mac_local, dns_list
+
+
+def _parse_arp_table():
+    entries = {{}}
+    out = _run_cmd(["arp", "-a"], timeout=4.0) + "\\n" + _run_cmd(["ip", "neigh"], timeout=3.0)
+    for line in out.splitlines():
+        m_ip = re.search(r"\\b([0-9]{{1,3}}(?:\\.[0-9]{{1,3}}){{3}})\\b", line)
+        m_mac = re.search(r"([0-9a-fA-F]{{1,2}}(?:[:-][0-9a-fA-F]{{1,2}}){{5}})", line)
+        if not m_ip:
+            continue
+        ip_s = m_ip.group(1)
+        try:
+            ip_obj = ipaddress.IPv4Address(ip_s)
+            if ip_obj.is_multicast or ip_obj.is_loopback or ip_s.endswith(".255") or ip_s.endswith(".0"):
+                continue
+        except Exception:
+            continue
+        mac_s = ""
+        if m_mac:
+            octets = re.split(r"[:-]", m_mac.group(1).lower())
+            mac_s = ":".join(o.zfill(2) for o in octets)
+            if mac_s in ("ff:ff:ff:ff:ff:ff", "00:00:00:00:00:00"):
+                continue
+        if ip_s not in entries or (mac_s and not entries[ip_s]):
+            entries[ip_s] = mac_s
+    return entries
+
+
+def _friendly_name(ip_s, mac_s, ip_local, gw):
+    if ip_s == gw:
+        return "Box / Passerelle Principale", "gateway", "Cœur réseau"
+    if ip_s == ip_local:
+        host = platform.node() or "PC-Sonde"
+        return f"Sonde DADEREZO ({{host}})", "probe", "Supervision"
+    vendor = OUI_VENDORS.get((mac_s or "")[:8].lower(), "")
+    hostname = ""
+    try:
+        socket.setdefaulttimeout(0.35)
+        h, _, _ = socket.gethostbyaddr(ip_s)
+        if h and h != ip_s:
+            hostname = h.split(".")[0]
+    except Exception:
+        pass
+    if hostname and vendor:
+        label = f"{{hostname}} ({{vendor}})"
+    elif hostname:
+        label = hostname
+    elif vendor:
+        label = f"Équipement {{vendor}} ({{ip_s}})"
+    else:
+        label = f"Appareil réseau {{ip_s}}"
+    role = "relay" if "ubiquiti" in vendor.lower() or "tp-link" in vendor.lower() else "host"
+    return label, role, "Réseau local"
+
+
+def collect_real_snapshot(do_sweep=False, known_macs=None):
+    known_macs = known_macs if known_macs is not None else set()
+    ip_local, mask, gw, mac_local, dns_list = _detect_local_network()
+
+    if do_sweep and ip_local.count(".") == 3 and not ip_local.startswith("127."):
+        prefix = ".".join(ip_local.split(".")[:3])
+        targets = [f"{{prefix}}.{{i}}" for i in range(1, 255) if f"{{prefix}}.{{i}}" != ip_local]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=48) as ex:
+            list(ex.map(lambda t: _ping_host(t, timeout_ms=450), targets))
+
+    gw_ok, gw_lat = _ping_host(gw, timeout_ms=1000) if gw else (False, None)
+    wan1_ok, wan1_lat = _ping_host("1.1.1.1", timeout_ms=1300)
+    wan2_ok, wan2_lat = (True, wan1_lat) if wan1_ok else _ping_host("8.8.8.8", timeout_ms=1300)
+    inet_up = wan1_ok or wan2_ok
+    wan_lat = wan1_lat if wan1_ok else wan2_lat
+
+    arp_map = _parse_arp_table()
+    if gw and gw not in arp_map:
+        arp_map[gw] = ""
+    if ip_local and not ip_local.startswith("127."):
+        arp_map[ip_local] = mac_local or arp_map.get(ip_local, "")
+
+    candidate_ips = sorted(arp_map.keys(), key=lambda x: tuple(int(p) for p in x.split(".")))
+    ping_results = {{}}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=24) as ex:
+        futs = {{ex.submit(_ping_host, ip_s, 750): ip_s for ip_s in candidate_ips if ip_s != ip_local}}
+        for f, ip_s in futs.items():
+            try:
+                ping_results[ip_s] = f.result()
+            except Exception:
+                ping_results[ip_s] = (False, None)
+    ping_results[ip_local] = (True, 0.2)
+
+    probes = []
+    alerts = []
+    for ip_s in candidate_ips:
+        mac_s = arp_map.get(ip_s) or None
+        ok, lat = ping_results.get(ip_s, (False, None))
+        # Si présent fraîchement dans la table ARP mais bloque ICMP (ex: smartphone/Windows firewall), marquer en ligne
+        is_up = bool(ok or mac_s)
+        name, dev_type, zone = _friendly_name(ip_s, mac_s, ip_local, gw)
+        probes.append({{
+            "ip": ip_s,
+            "mac": mac_s,
+            "name": name,
+            "zone": zone,
+            "status": "up" if is_up else "down",
+            "type": dev_type,
+            "latency_ms": lat if lat is not None else (1.5 if is_up else None),
+        }})
+        if mac_s and mac_s not in known_macs and ip_s not in (ip_local, gw):
+            if known_macs:
+                alerts.append({{"severity": "nouveau", "message": f"Nouvel équipement réel détecté : {{name}} ({{ip_s}} · {{mac_s}})"}})
+            known_macs.add(mac_s)
+        elif mac_s:
+            known_macs.add(mac_s)
+
+    if gw and not gw_ok:
+        alerts.append({{"severity": "critique", "message": f"Passerelle locale {{gw}} injoignable en ICMP."}})
+    elif not inet_up:
+        alerts.append({{"severity": "panne", "message": "Réseau local actif mais sortie Internet FAI indisponible (1.1.1.1 / 8.8.8.8)."}})
+
+    return {{
+        "agent_id": AGENT_ID,
+        "nom": f"{{SITE_NAME}} (Sonde Réelle)",
+        "site_name": SITE_NAME,
+        "ip_local": ip_local,
+        "mask": mask,
+        "gw": gw,
+        "mac_local": mac_local or None,
+        "dns": dns_list,
+        "gw_status": "up" if gw_ok else "down",
+        "gw_latency_ms": gw_lat,
+        "internet_status": "up" if inet_up else "down",
+        "wan_latency_ms": wan_lat,
+        "probes": probes,
+        "alerts": alerts,
+    }}
+
+
+def _api_call(method, path, body=None):
+    headers = {{
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-API-Key": PROBE_API_KEY,
+    }}
+    data = json.dumps(body).encode("utf-8") if body is not None else (b"" if method == "POST" else None)
+    req = urllib.request.Request(f"{{API_URL}}{{path}}", data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def main():
+    print("=" * 68)
+    print(f"  DADEREZO v4.4 · SONDE TERRAIN RÉELLE ACTIVE")
+    print(f"  Organisation : {{SITE_NAME}}")
+    print(f"  Identifiant  : {{AGENT_ID}}")
+    print(f"  Serveur SaaS : {{API_URL}}")
+    print("=" * 68)
+    known_macs = set()
+    first_cycle = True
+
+    try:
+        _api_call("POST", "/register", {{"agent_id": AGENT_ID, "nom": f"{{SITE_NAME}} (Sonde Réelle)"}})
+        print("[OK] Sonde enregistrée dans votre Espace Privé isolé.")
+    except Exception as exc:
+        print(f"[INFO] Enregistrement initial : {{exc}}")
+
+    last_scan_ts = 0.0
+    while True:
+        now = time.time()
+        if first_cycle or (now - last_scan_ts >= SCAN_INTERVAL):
+            try:
+                if first_cycle:
+                    print("[SCAN] Premier balayage réel de votre sous-réseau en cours (~3 secondes)...")
+                snap = collect_real_snapshot(do_sweep=first_cycle, known_macs=known_macs)
+                res = _api_call("POST", "/data", snap)
+                up_n = sum(1 for p in snap["probes"] if p["status"] == "up")
+                print(
+                    f"[EN DIRECT] {{up_n}}/{{len(snap['probes'])}} équipements réels transmis "
+                    f"| Passerelle {{snap['gw']}} ({{snap['gw_status']}}) | Internet : {{snap['internet_status']}}"
+                )
+                first_cycle = False
+                last_scan_ts = time.time()
+            except KeyboardInterrupt:
+                raise
+            except Exception as exc:
+                print(f"[RECONNEXION] Envoi télémétrie différé : {{exc}}")
+                last_scan_ts = time.time()
+
+        try:
+            tasks = _api_call("GET", f"/tasks/{{urllib.parse.quote(AGENT_ID)}}?limit=5")
+            for t in (tasks if isinstance(tasks, list) else []):
+                if t.get("status") != "pending":
+                    continue
+                tid = t.get("id")
+                act = t.get("action", "scan")
+                print(f"[ORDRE REÇU] Exécution immédiate de « {{act}} » (#{{tid}})...")
+                snap = collect_real_snapshot(do_sweep=(act == "sweep"), known_macs=known_macs)
+                _api_call("POST", "/data", snap)
+                q = urllib.parse.urlencode({{"result": f"Action réelle {{act}} exécutée ({{len(snap['probes'])}} équipements relevés)"}})
+                _api_call("POST", f"/tasks/{{urllib.parse.quote(AGENT_ID)}}/{{tid}}/ack?{{q}}")
+        except KeyboardInterrupt:
+            raise
+        except Exception:
+            pass
+
+        time.sleep(TASK_POLL_SECONDS)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\\nArrêt propre de la sonde DADEREZO.")
+        sys.exit(0)
+'''
+
+
+@app.get("/probe/daderezo_sonde.py")
+def download_preconfigured_single_probe(
+    request: Request,
+    probe_key: Optional[str] = Query(default=None),
+    token: Optional[str] = Query(default=None),
+    x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+    authorization: Optional[str] = Header(default=None, alias="Authorization"),
+):
+    """Génère en 1 fichier autonome la sonde réelle pré-configurée pour l'Espace Privé de l'utilisateur."""
+    init_db()
+    user = None
+    cand_probe = (probe_key or x_api_key or "").strip()
+    cand_bearer = (token or "").strip()
+    if not cand_bearer and authorization and authorization.lower().startswith("bearer "):
+        cand_bearer = authorization[7:].strip()
+
+    if cand_probe.startswith("dzk_"):
+        user = storage.get_saas_user_by_probe_key(cand_probe)
+    elif cand_bearer.startswith("dzt_"):
+        claims = _verify_saas_token(cand_bearer)
+        if claims and claims.get("email"):
+            user = storage.get_saas_user_by_email(claims["email"])
+
+    if not user or not user.get("probe_api_key"):
+        raise HTTPException(
+            status_code=401,
+            detail="Connectez-vous à votre Espace Privé pour télécharger votre sonde pré-configurée.",
+        )
+
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme or "https"
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "daderezo-api-nine.vercel.app"
+    base_url = f"{proto}://{host}"
+    script_text = _build_single_file_probe_script(
+        api_url=base_url,
+        org_slug=user["org_slug"],
+        org_name=user["org_name"],
+        probe_key=user["probe_api_key"],
+    )
+    return PlainTextResponse(
+        script_text,
+        media_type="text/x-python; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="daderezo_sonde.py"'},
+    )
 
 
 @app.get("/download/{filename}")
@@ -838,11 +1244,9 @@ def receive_data(data: AgentData, ctx: dict = Depends(require_write_auth)):
 def _list_agents_for_ctx(ctx: dict) -> List[dict]:
     init_db()
     rows = storage.list_agents_raw(org_slug=ctx["org_slug"])
-    # Si un nouvel utilisateur privé n'a pas encore lancé sa sonde terrain, lui laisser aussi accès au banc `simulation-bouake` pour comparer
-    if ctx["org_slug"] != "public-demo" and not rows:
-        sim = storage.get_agent_raw("simulation-bouake")
-        if sim:
-            rows = [sim]
+    if ctx["org_slug"] != "public-demo":
+        # Séparation stricte en Mode Travail Privé : ne jamais mélanger simulation-bouake avec les vraies sondes
+        rows = [r for r in rows if not str(r.get("id", "")).startswith("simulation-")]
     enriched = [_compute_agent_liveness(r) for r in rows]
     enriched.sort(key=lambda a: (1 if a.get("is_simulation") else 0, 0 if a.get("status") == "online" else 1))
     return enriched
@@ -1607,9 +2011,24 @@ def supervisor_audit(limit: int = Query(default=25, ge=1, le=100), ctx: dict = D
         for p in storage.list_human_approvals(status="pending", limit=25)
         if (p.get("agent_id") in allowed_ids) or (ctx["org_slug"] == "public-demo" and p.get("agent_id") == "simulation-bouake")
     ]
+    raw_logs = storage.list_audit_logs(limit=max(limit * 2, 50))
+    if ctx["org_slug"] != "public-demo":
+        org_tag = ctx["org_slug"].lower()
+        org_name_tag = (ctx.get("org_name") or "").lower()
+        filtered_logs = [
+            l for l in raw_logs
+            if org_tag in str(l.get("session_id", "")).lower()
+            or org_tag in str(l.get("details", "")).lower()
+            or (org_name_tag and org_name_tag in str(l.get("details", "")).lower())
+            or any(aid.lower() in str(l.get("details", "")).lower() for aid in allowed_ids)
+        ]
+        audit_logs = filtered_logs[:limit]
+    else:
+        audit_logs = raw_logs[:limit]
     return {
         "db_backend": storage.get_backend_mode(),
-        "audit_logs": storage.list_audit_logs(limit=limit),
+        "workspace_mode": ctx["mode"],
+        "audit_logs": audit_logs,
         "pending_approvals": pending[:15],
     }
 

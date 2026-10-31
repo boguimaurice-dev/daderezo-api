@@ -582,8 +582,72 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
 .view{display:none}.view.active{display:block}
 .footnote{font:500 11px/1.5 var(--mono);color:var(--muted);margin-top:16px}
 
+/* v4.4 : SÉPARATION STRICTE MODE TRAVAIL ACTIF vs MODE SIMULATION */
+body[data-workspace="work"] [data-sim-only]{display:none !important}
+body:not([data-workspace="work"]) [data-work-only]{display:none !important}
+
+.mode-switch-group{
+  display:inline-flex;align-items:center;gap:3px;padding:3px;border-radius:10px;
+  background:var(--bg-soft);border:1px solid var(--line-bright);
+}
+.mode-switch-btn{
+  border:0;background:transparent;color:var(--muted);height:30px;padding:0 11px;
+  border-radius:7px;font:700 11px/1 var(--mono);cursor:pointer;display:inline-flex;
+  align-items:center;gap:6px;transition:all .15s ease;white-space:nowrap;
+}
+.mode-switch-btn:hover{color:var(--ink-strong);background:var(--bg-hover)}
+.mode-switch-btn.active-sim{
+  background:var(--violet-soft);color:var(--violet-ink);border:1px solid rgba(168,85,247,.42);
+}
+.mode-switch-btn.active-work{
+  background:var(--emerald-soft);color:var(--emerald-ink);border:1px solid rgba(16,185,129,.48);
+  box-shadow:0 0 14px rgba(16,185,129,.18);
+}
+
+.ws-banner{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+  padding:13px 18px;border-radius:13px;margin-bottom:20px;border:1px solid var(--line);
+}
+.ws-banner.sim{
+  background:linear-gradient(90deg,var(--violet-soft),var(--bg-card));
+  border-color:rgba(168,85,247,.40);
+}
+.ws-banner.work-live{
+  background:linear-gradient(90deg,var(--emerald-soft),var(--bg-card));
+  border-color:rgba(16,185,129,.48);
+}
+.ws-banner.work-waiting{
+  background:linear-gradient(90deg,var(--brand-soft),var(--bg-card));
+  border-color:rgba(0,136,255,.46);
+}
+.ws-banner-title{
+  display:flex;align-items:center;flex-wrap:wrap;gap:9px;font-size:13px;font-weight:800;color:var(--ink-strong);
+}
+.ws-banner-sub{font-size:12px;color:var(--muted);margin-top:3px}
+
+.work-onboard-card{
+  background:linear-gradient(155deg,var(--bg-console),var(--bg-card));
+  border:1.5px solid rgba(0,180,255,.48);border-radius:16px;padding:20px 22px;
+  margin-bottom:20px;box-shadow:var(--shadow);
+}
+.work-steps{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:14px 0 16px;
+}
+.work-step{
+  padding:12px 14px;border-radius:11px;background:var(--bg-well);border:1px solid var(--line);
+}
+.work-step b{display:block;font-size:12.5px;color:var(--ink-strong);margin-bottom:4px}
+.work-step span{font-size:11.5px;color:var(--muted);line-height:1.45;display:block}
+.work-step.done{border-color:rgba(16,185,129,.42);background:var(--emerald-soft)}
+.work-step.waiting{border-color:rgba(0,180,255,.48)}
+
+body[data-workspace="work"] .site-card{
+  border-color:rgba(16,185,129,.42);background:linear-gradient(180deg,var(--emerald-soft),var(--bg-soft));
+}
+body[data-workspace="work"] .site-card-eyebrow{color:var(--emerald-ink)}
+
 @media(max-width:1024px){
-  .kpis,.sup-metrics,.agent-pipeline,.net-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpis,.sup-metrics,.agent-pipeline,.net-grid-3,.work-steps{grid-template-columns:repeat(2,minmax(0,1fr))}
   .lower{grid-template-columns:1fr}
 }
 @media(max-width:780px){
@@ -611,13 +675,13 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
   </div>
 
   <div class="site-card">
-    <div class="site-card-eyebrow">PERIMETRE ACTIF</div>
+    <div class="site-card-eyebrow" id="sidebarEyebrow">BANC DE SIMULATION</div>
     <b id="sidebarSite">Sainte Marie de Bouaké</b>
-    <small id="sidebarSub">Côte d’Ivoire · Architecture Multi-Agents</small>
+    <small id="sidebarSub">Données d’exercice · Bac à sable</small>
   </div>
 
   <nav class="nav" aria-label="Sections">
-    <a class="nav-link" href="/">
+    <a class="nav-link" href="/" data-sim-only>
       <span class="nav-left"><span class="nav-idx">←</span><span class="nav-label">Accueil SaaS & Démo</span></span>
     </a>
     <button class="active" data-view="overview" type="button">
@@ -642,30 +706,34 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
       <span class="nav-left"><span class="nav-idx">05</span><span class="nav-label">Preuves & Audit IA</span></span>
       <span class="nav-badge" id="navAlertCount">0</span>
     </button>
-    <button data-view="testlab" type="button">
-      <span class="nav-left"><span class="nav-idx">06</span><span class="nav-label">Red Team & Lab</span></span>
+    <button data-view="testlab" type="button" data-sim-only>
+      <span class="nav-left"><span class="nav-idx">06</span><span class="nav-label">Red Team & Lab (Démo)</span></span>
     </button>
     <button data-view="config" type="button">
-      <span class="nav-left"><span class="nav-idx">07</span><span class="nav-label">Sonde & Espace Privé</span></span>
+      <span class="nav-left"><span class="nav-idx" id="navConfigIdx">07</span><span class="nav-label">Ma Sonde &amp; IA DeepSeek</span></span>
     </button>
   </nav>
 
   <div class="side-bottom">
     <div class="mode" id="sidebarSecMode">PILOTAGE ACTIF SÉCURISÉ</div>
-    Contrôle Internet 3 niveaux, optimisation Multi-Box, Hub Multimédia LAN/Cloud &amp; isolation SaaS privée.
+    <span id="sidebarBottomDesc">Contrôle Internet 3 niveaux, optimisation Multi-Box, Hub Multimédia LAN/Cloud &amp; isolation SaaS privée.</span>
   </div>
 </aside>
 
 <main>
   <div class="topline">
-    <div class="eyebrow" id="topEyebrow">DADEREZO v4.1 · SUPERVISION, PILOTAGE BOX &amp; MULTIMÉDIA</div>
+    <div class="eyebrow" id="topEyebrow">DADEREZO v4.4 · MODE SIMULATION vs MODE TRAVAIL RÉEL</div>
     <div class="top-right">
+      <div class="mode-switch-group" role="group" aria-label="Basculer entre Simulation et Mode Travail Réel">
+        <button class="mode-switch-btn active-sim" id="switchDemoModeBtn" type="button" title="Explorer le bac à sable fictif">🧪 Simulation</button>
+        <button class="mode-switch-btn" id="switchWorkModeBtn" type="button" title="Travailler uniquement sur votre vrai réseau privé (zéro simulation)">🟢 Mode Travail Réel</button>
+      </div>
       <button class="btn secondary" id="themeToggleBtn" type="button" title="Basculer entre le mode clair et le mode sombre">☀️ Clair</button>
-      <button class="btn secondary" id="authAccountBtn" type="button" title="Se connecter ou créer un espace réseau privé isolé">🔐 Espace Privé</button>
+      <button class="btn secondary" id="authAccountBtn" type="button" title="Se connecter ou gérer votre Espace Privé">🔐 Espace Privé</button>
       <select id="agentSelect" class="site-select" aria-label="Sélectionner le site supervisé">
         <option value="">Chargement des sondes…</option>
       </select>
-      <div class="truth-pill sim" id="sourceTruthPill" title="Indique si vous consultez l'espace démo public ou votre réseau privé isolé">
+      <div class="truth-pill sim" id="sourceTruthPill" title="Source exacte des chiffres affichés à l'écran">
         <span class="dot"></span><span id="sourceTruthText">VÉRIFICATION…</span>
       </div>
       <div class="truth-pill db" id="dbTruthPill" title="Moteur de base de données actif">
@@ -678,24 +746,71 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
     </div>
   </div>
 
+  <!-- BANDEAU DE LUCIDITÉ : DISTINCTION IMMÉDIATE SIMULATION vs RÉSEAU RÉEL -->
+  <div class="ws-banner sim" id="workspaceModeBanner">
+    <div>
+      <div class="ws-banner-title" id="wsBannerTitle">🧪 BAC À SABLE DE SIMULATION · DONNÉES D’EXERCICE</div>
+      <div class="ws-banner-sub" id="wsBannerSub">Vous consultez les 7 équipements fictifs de démonstration (<code>simulation-bouake</code>). Passez en <b>Mode Travail Réel</b> pour éliminer le superflu et piloter uniquement votre vraie sonde.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap" id="wsBannerActions">
+      <button class="btn" id="bannerGoWorkBtn" type="button">🟢 Passer en Mode Travail Réel</button>
+    </div>
+  </div>
+
   <!-- =====================================================================
        01 · COMMANDEMENT IA & VUE D'ENSEMBLE
        ===================================================================== -->
   <section class="view active" id="overview">
     <div class="heading">
       <div>
-        <div class="eyebrow">01 · OBSERVE · CORRELATE · DEFEND</div>
-        <h1>Poste du Superviseur Général</h1>
+        <div class="eyebrow" id="overviewEyebrow">01 · OBSERVE · CORRELATE · DEFEND</div>
+        <h1 id="overviewMainTitle">Poste du Superviseur Général</h1>
         <p id="overviewSub">Orchestration multi-agents en temps réel : inventaire LAN, accès Internet effectif, sécurité MAC et diagnostic FAI.</p>
       </div>
       <div class="date" id="lastSeenLabel">En attente de collecte</div>
+    </div>
+
+    <!-- ASSISTANT DE MISE EN SERVICE RÉELLE (AFFICHÉ UNIQUEMENT EN MODE TRAVAIL QUAND 0 SONDE CONNECTÉE) -->
+    <div class="work-onboard-card hidden" id="realWorkOnboardingCard" data-work-only>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="eyebrow" style="color:var(--emerald-ink)">MODE TRAVAIL ACTIF · AUCUNE FAUSSE DONNÉE AFFICHÉE</div>
+          <h2 style="margin:6px 0 4px;font-size:19px;color:var(--ink-strong)">Branchez votre 1re Sonde Réelle en 30 secondes</h2>
+          <p style="margin:0;font-size:13px;color:var(--muted)">Votre espace privé est prêt et débarrassé de toute simulation. Lancez le fichier unique <code>daderezo_sonde.py</code> sur un PC connecté à votre Wi-Fi / LAN pour voir apparaître vos vrais équipements ici.</p>
+        </div>
+        <span class="pill-status warn" id="workRadarBadge">🔄 Radar en écoute (5s)…</span>
+      </div>
+
+      <div class="work-steps">
+        <div class="work-step done">
+          <b>1 · Espace Privé Isolé : ✅ Actif</b>
+          <span id="workStepOrgDesc">Organisation isolée prête. Aucune donnée de démonstration ne pollue cet écran.</span>
+        </div>
+        <div class="work-step done" id="workStepAiBox">
+          <b id="workStepAiTitle">2 · Cerveau DeepSeek : ⚡ Prêt</b>
+          <span id="workStepAiDesc">DeepSeek analysera uniquement les équipements remontés par votre vraie sonde.</span>
+        </div>
+        <div class="work-step waiting">
+          <b>3 · Sonde Locale : ⏳ En attente du 1er signal</b>
+          <span>1 seul fichier Python autonome (zéro installation complexe), déjà pré-rempli avec votre clé secrète.</span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px">
+        <button class="btn" id="downloadSingleProbeBtn" type="button" style="min-height:42px;padding:0 18px;font-size:13px">⬇ Télécharger ma Sonde Prête à Lancer (daderezo_sonde.py)</button>
+        <button class="btn secondary" id="copyWinProbeCmdBtn" type="button" style="min-height:42px">📋 Copier commande 1-clic Windows (PowerShell)</button>
+        <button class="btn secondary" id="copyLinProbeCmdBtn" type="button" style="min-height:42px">📋 Copier commande Linux / Mac</button>
+      </div>
+
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:4px">Ou lancez directement dans <b>PowerShell</b> (Windows) ou <b>Terminal</b> sur un PC de votre réseau :</div>
+      <pre class="cmd-pre" id="workQuickProbeCmd">python daderezo_sonde.py</pre>
     </div>
 
     <div class="notice hidden" id="onboardingNotice">
       <div class="notice-mark">!</div>
       <div>
         <strong id="noticeTitle">Aucune sonde enregistrée</strong>
-        <p id="noticeBody">Ouvrez l’onglet <b>05 · Sonde & Cerveau IA</b> pour copier la commande <code>agent_client.py</code> à lancer sur le PC du réseau local.</p>
+        <p id="noticeBody">Ouvrez l’onglet <b>Ma Sonde &amp; IA DeepSeek</b> pour télécharger et lancer votre sonde locale.</p>
       </div>
     </div>
 
@@ -759,9 +874,11 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
 
       <div class="sup-chips" aria-label="Missions rapides Superviseur Général">
         <button class="sup-chip" type="button" data-ask="Combien d'appareils sont connectés au réseau et lesquels ont ou n'ont pas accès à Internet ?">📊 Appareils connectés &amp; Internet</button>
-        <button class="sup-chip" type="button" data-ask="Optimise toutes les box et les canaux Wi-Fi pour un fonctionnement optimal">🚀 Optimiser toutes les Box</button>
-        <button class="sup-chip" type="button" data-ask="Coupe Internet dans la zone Communauté">⛔ Couper Internet Communauté</button>
-        <button class="sup-chip" type="button" data-ask="Active Internet dans la zone Communauté">✅ Activer Internet Communauté</button>
+        <button class="sup-chip" type="button" data-work-only data-ask="Analyse l'état réel de ma connexion FAI, de ma passerelle et des latences mesurées par ma sonde">🔍 Diagnostic réel FAI vs LAN</button>
+        <button class="sup-chip" type="button" data-work-only data-ask="Vérifie la posture de sécurité de mon réseau et signale tout appareil ou adresse MAC inhabituelle">🛡️ Audit Sécurité &amp; MAC</button>
+        <button class="sup-chip" type="button" data-ask="Optimise toutes les box et les canaux Wi-Fi pour un fonctionnement optimal">🚀 Optimiser mes Box</button>
+        <button class="sup-chip" type="button" data-sim-only data-ask="Coupe Internet dans la zone Communauté">⛔ Couper Internet Communauté</button>
+        <button class="sup-chip" type="button" data-sim-only data-ask="Active Internet dans la zone Communauté">✅ Activer Internet Communauté</button>
         <button class="sup-chip" type="button" data-ask="Quels fichiers multimédias sont partagés sur le réseau ?">📁 Fichiers &amp; Multimédias</button>
         <button class="sup-chip" type="button" data-ask="Rédige un ticket technique complet pour l'opérateur FAI avec toutes les preuves réseau">📋 Ticket opérateur FAI</button>
       </div>
@@ -815,8 +932,8 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
       </div>
     </div>
 
-    <!-- BARRE DE SIMULATION 1 CLIC -->
-    <div class="sim-strip">
+    <!-- BARRE DE SIMULATION 1 CLIC (STRICTEMENT MASQUÉE EN MODE TRAVAIL RÉEL) -->
+    <div class="sim-strip" id="simStrip" data-sim-only>
       <div style="font-size:12px">
         <strong style="color:var(--emerald-ink);font-family:var(--mono)">SIMULATEUR D’INCIDENTS :</strong>
         <span id="liveActionFeedback" style="color:var(--muted);margin-left:7px">Injectez une situation sur <code>simulation-bouake</code> pour observer la réaction des 4 agents.</span>
@@ -905,7 +1022,7 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel" data-sim-only>
         <div class="panel-head">
           <div>
             <h2>Architecture de Gouvernance &amp; Pilotage</h2>
@@ -916,6 +1033,19 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
           <div class="rule"><span class="rule-num">01</span><p><strong>SENTINEL-SEC &amp; Isolation SaaS</strong><br>Bloque toute injection de prompt et isole strictement les réseaux privés par clé organisationnelle (<code>dzk_…</code>).</p></div>
           <div class="rule"><span class="rule-num">02</span><p><strong>Pilotage Internet 3 Niveaux</strong><br>Activez ou coupez Internet depuis la Box Principale, par Sous-réseau/Zone ou sur un Appareil tout en gardant le LAN local actif.</p></div>
           <div class="rule"><span class="rule-num">03</span><p><strong>Optimisation Multi-Box &amp; Hub Média</strong><br>Canaux Wi-Fi sans collision, DNS 1.1.1.1, QoS intelligent et partage de fichiers/multimédias LAN + Cloud.</p></div>
+        </div>
+      </div>
+
+      <div class="panel" data-work-only>
+        <div class="panel-head">
+          <div>
+            <h2>🎯 Lucidité Opérationnelle · Que voir &amp; que faire ?</h2>
+            <p>Priorités directes calculées sur votre vrai réseau (sans bruit de simulation).</p>
+          </div>
+          <span class="tag ok" id="workActionStatusTag">Mode Travail</span>
+        </div>
+        <div class="rule-list" id="workLucidActionList">
+          <div class="rule"><span class="rule-num">01</span><p><strong>1. Connecter votre sonde réelle</strong><br>Téléchargez <code>daderezo_sonde.py</code> ci-dessus et lancez-la sur un PC du réseau pour afficher vos vrais appareils.</p></div>
         </div>
       </div>
     </div>
@@ -1202,10 +1332,15 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
     </div>
 
     <div class="panel config-panel" style="margin-bottom:18px">
-      <h2 style="font-size:14.5px;margin:0 0 6px;color:var(--ink-strong)">Commande de déploiement sonde v4.1 (Collecte + Pilotage Box + Hub Multimédia LAN :8090)</h2>
-      <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px" id="probePrivacyHint">Connectez-vous à votre Espace Privé pour insérer automatiquement votre clé d’isolation <code>--api-key dzk_...</code> dans la commande ci-dessous :</p>
-      <pre class="cmd-pre" id="probeDeployCmd">python agent_client.py --api https://daderezo-api-nine.vercel.app --agent mon-site-principal --nom "Mon Réseau Privé" --task-poll 5 --media-port 8090</pre>
+      <h2 style="font-size:14.5px;margin:0 0 6px;color:var(--ink-strong)">📡 Sonde Terrain Réelle v4.4 — 1 Seul Fichier Prêt à Lancer (Recommandé)</h2>
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px" id="probePrivacyHint">Connectez-vous à votre Espace Privé pour télécharger en 1 clic <code>daderezo_sonde.py</code> déjà pré-rempli avec votre clé secrète <code>dzk_...</code> :</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0">
+        <button class="btn" id="downloadSingleProbeCfgBtn" type="button">⬇ Télécharger daderezo_sonde.py (1 fichier tout-en-un)</button>
+        <button class="btn secondary" id="copyProbeCmdCfgBtn" type="button">📋 Copier la commande 1-clic</button>
+      </div>
+      <pre class="cmd-pre" id="probeDeployCmd">python daderezo_sonde.py</pre>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:11px">
+        <span style="font-size:11.5px;color:var(--muted);align-self:center">Modules avancés (Hub Média LAN :8090) :</span>
         <a class="btn secondary" href="/download/agent_client.py" download>⬇ agent_client.py</a>
         <a class="btn secondary" href="/download/net_controller.py" download>⬇ net_controller.py</a>
         <a class="btn secondary" href="/download/collector.py" download>⬇ collector.py</a>
@@ -1385,13 +1520,15 @@ function getApiBase() {
   return '';
 }
 
-function getHeaders(json = false) {
+function getHeaders(json = false, forceAuth = false) {
   const h = { 'Accept': 'application/json' };
   if (json) h['Content-Type'] = 'application/json';
   const saasTok = (localStorage.getItem('daderezo_saas_token') || '').trim();
-  if (saasTok) h['Authorization'] = `Bearer ${saasTok}`;
+  if (saasTok && (forceAuth || workspaceViewMode === 'work')) {
+    h['Authorization'] = `Bearer ${saasTok}`;
+  }
   const k = (localStorage.getItem('daderezo_api_key') || '').trim();
-  if (k) h['X-API-Key'] = k;
+  if (k && workspaceViewMode === 'work') h['X-API-Key'] = k;
   const llmKey = (localStorage.getItem('daderezo_llm_key') || '').trim();
   if (llmKey) h['X-LLM-Api-Key'] = llmKey;
   const llmProv = (localStorage.getItem('daderezo_llm_provider') || '').trim();
@@ -1410,26 +1547,145 @@ let cachedMedia = [];
 let currentMediaCat = 'all';
 let mainBoxInternetOn = true;
 let currentAuthUser = null;
+let workspaceViewMode = 'demo'; // 'demo' | 'work'
 let statusFilter = 'all';
 let isStandaloneMode = false;
 let currentApprovalId = null;
 
-function updateProbeDeployCommand() {
-  const originUrl = (window.location.origin && window.location.protocol.startsWith('http'))
-    ? window.location.origin
-    : 'https://daderezo-api-nine.vercel.app';
-  const el = document.getElementById('probeDeployCmd');
-  const hint = document.getElementById('probePrivacyHint');
-  if (!el) return;
+function getOriginBaseUrl() {
+  const saved = (localStorage.getItem('daderezo_api_url') || '').trim();
+  if (saved) return saved.replace(/\/+$/, '');
+  if (window.location.origin && window.location.protocol.startsWith('http')) return window.location.origin;
+  return 'https://daderezo-api-nine.vercel.app';
+}
+
+function getWinProbeCommand() {
+  const originUrl = getOriginBaseUrl();
   if (currentAuthUser && currentAuthUser.probe_api_key) {
-    el.textContent =
-      `python agent_client.py --api ${originUrl} --agent ${currentAuthUser.org_slug}-principal --nom "${currentAuthUser.org_name}" --api-key ${currentAuthUser.probe_api_key} --task-poll 5 --media-port 8090`;
-    if (hint) hint.innerHTML = `✅ <b>Clé privée active</b> : cette sonde remontera exclusivement dans votre espace isolé <code>${esc(currentAuthUser.org_name)}</code>.`;
-  } else {
-    el.textContent =
-      `python agent_client.py --api ${originUrl} --agent sainte-marie-bouake --nom "Communauté Sainte Marie de Bouaké" --task-poll 5 --media-port 8090`;
-    if (hint) hint.innerHTML = `Connectez-vous à votre <b>Espace Privé</b> pour insérer automatiquement votre clé d’isolation <code>--api-key dzk_...</code> dans la commande ci-dessous :`;
+    const url = `${originUrl}/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
+    return `curl.exe -fsSL "${url}" -o daderezo_sonde.py; python daderezo_sonde.py`;
   }
+  return `python daderezo_sonde.py`;
+}
+
+function getLinProbeCommand() {
+  const originUrl = getOriginBaseUrl();
+  if (currentAuthUser && currentAuthUser.probe_api_key) {
+    const url = `${originUrl}/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
+    return `curl -fsSL "${url}" -o daderezo_sonde.py && python3 daderezo_sonde.py`;
+  }
+  return `python3 daderezo_sonde.py`;
+}
+
+async function downloadPreconfiguredProbe() {
+  if (!currentAuthUser || !currentAuthUser.probe_api_key) {
+    setAuthTab('login');
+    openAuthModal();
+    return;
+  }
+  const url = `${getApiBase()}/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
+  try {
+    const res = await fetch(url, { headers: getHeaders(false, true) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const txt = await res.text();
+    const blob = new Blob([txt], { type: 'text/x-python;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'daderezo_sonde.py';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  } catch (_) {
+    window.location.href = url;
+  }
+}
+
+function updateProbeDeployCommand() {
+  const el = document.getElementById('probeDeployCmd');
+  const quickEl = document.getElementById('workQuickProbeCmd');
+  const hint = document.getElementById('probePrivacyHint');
+  const stepOrg = document.getElementById('workStepOrgDesc');
+  const stepAiTitle = document.getElementById('workStepAiTitle');
+  const stepAiDesc = document.getElementById('workStepAiDesc');
+  const hasLocalLlm = Boolean((localStorage.getItem('daderezo_llm_key') || '').trim());
+
+  if (stepAiTitle && stepAiDesc) {
+    stepAiTitle.textContent = hasLocalLlm ? '2 · Cerveau DeepSeek : ✅ Actif' : '2 · Cerveau DeepSeek : ⚡ Prêt';
+    stepAiDesc.textContent = hasLocalLlm
+      ? 'Clé IA détectée : vos vrais appareils seront analysés par DeepSeek sans aucun mélange avec la démo.'
+      : 'Renseignez votre clé DeepSeek dans « Ma Sonde & IA DeepSeek » (ou sur Vercel) pour le raisonnement ReAct.';
+  }
+
+  if (currentAuthUser && currentAuthUser.probe_api_key) {
+    const winCmd = getWinProbeCommand();
+    if (el) el.textContent = winCmd;
+    if (quickEl) quickEl.textContent = winCmd;
+    if (stepOrg) stepOrg.textContent = `Espace « ${currentAuthUser.org_name} » actif. Isolation stricte par clé privée.`;
+    if (hint) hint.innerHTML = `✅ <b>Clé privée active</b> : téléchargez <code>daderezo_sonde.py</code> en 1 clic ou collez cette commande PowerShell sur un PC de votre réseau <b>${esc(currentAuthUser.org_name)}</b> :`;
+  } else {
+    if (el) el.textContent = 'Connectez-vous à votre Espace Privé pour générer votre sonde daderezo_sonde.py pré-configurée.';
+    if (quickEl) quickEl.textContent = 'python daderezo_sonde.py';
+    if (hint) hint.innerHTML = `Connectez-vous à votre <b>Espace Privé</b> pour télécharger en 1 clic <code>daderezo_sonde.py</code> déjà pré-rempli avec votre clé secrète <code>dzk_...</code> :`;
+  }
+}
+
+function applyWorkspaceChrome() {
+  const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+  document.body.setAttribute('data-workspace', isWork ? 'work' : 'demo');
+
+  const btnDemo = document.getElementById('switchDemoModeBtn');
+  const btnWork = document.getElementById('switchWorkModeBtn');
+  if (btnDemo) btnDemo.className = `mode-switch-btn ${!isWork ? 'active-sim' : ''}`;
+  if (btnWork) btnWork.className = `mode-switch-btn ${isWork ? 'active-work' : ''}`;
+
+  const cfgIdx = document.getElementById('navConfigIdx');
+  if (cfgIdx) cfgIdx.textContent = isWork ? '06' : '07';
+
+  const sideEyebrow = document.getElementById('sidebarEyebrow');
+  const sideSec = document.getElementById('sidebarSecMode');
+  const sideDesc = document.getElementById('sidebarBottomDesc');
+  const supIn = document.getElementById('supervisorInput');
+  const ovTitle = document.getElementById('overviewMainTitle');
+  const ovSub = document.getElementById('overviewSub');
+
+  if (isWork) {
+    if (sideEyebrow) sideEyebrow.textContent = 'ESPACE PRIVÉ · TRAVAIL RÉEL';
+    if (sideSec) sideSec.textContent = 'ZÉRO SIMULATION · RÉSEAU RÉEL';
+    if (sideDesc) sideDesc.textContent = `Organisation « ${currentAuthUser.org_name} » isolée. Seules vos vraies sondes apparaissent ici.`;
+    if (ovTitle) ovTitle.textContent = `Poste de Travail · ${currentAuthUser.org_name}`;
+    if (ovSub) ovSub.textContent = 'Exploitation réelle épurée : uniquement la télémétrie de votre sonde terrain et le diagnostic DeepSeek en direct.';
+    if (supIn) supIn.placeholder = 'Mission sur votre vrai réseau : « Quels appareils sont connectés ? », « Diagnostique ma connexion FAI », « Optimise mes box »…';
+    const activeLab = document.querySelector('.view.active#testlab');
+    if (activeLab) {
+      const ovBtn = document.querySelector('.nav button[data-view="overview"]');
+      if (ovBtn) ovBtn.click();
+    }
+  } else {
+    if (sideEyebrow) sideEyebrow.textContent = 'BANC DE SIMULATION';
+    if (sideSec) sideSec.textContent = 'BAC À SABLE D’EXERCICE';
+    if (sideDesc) sideDesc.textContent = 'Données fictives d’entraînement (simulation-bouake). Cliquez sur « Mode Travail Réel » pour piloter votre vrai réseau.';
+    if (ovTitle) ovTitle.textContent = 'Poste du Superviseur Général (Simulation)';
+    if (ovSub) ovSub.textContent = 'Bac à sable de démonstration : testez librement les pannes fictives et la réaction des 5 agents avant de passer en Mode Travail Réel.';
+    if (supIn) supIn.placeholder = 'Tester en simulation : « Coupe Internet dans la zone Communauté », « Optimise toutes les box », « Combien d’appareils ont Internet ? »';
+  }
+  updateProbeDeployCommand();
+}
+
+async function setWorkspaceViewMode(nextMode) {
+  if (nextMode === 'work' && !currentAuthUser) {
+    setAuthTab('login');
+    const fb = document.getElementById('authFeedbackMsg');
+    if (fb) fb.textContent = 'Connectez-vous (ou créez votre espace) pour activer le Mode Travail Réel sans simulation.';
+    openAuthModal();
+    return;
+  }
+  workspaceViewMode = nextMode === 'work' ? 'work' : 'demo';
+  currentAgentId = '';
+  document.getElementById('supervisorReplyBox').classList.add('hidden');
+  applyWorkspaceChrome();
+  await refreshAll();
+  loadMedia();
 }
 
 document.getElementById('cfgApiUrl').value = localStorage.getItem('daderezo_api_url') || '';
@@ -1447,6 +1703,49 @@ document.getElementById('saveCfgBtn').addEventListener('click', () => {
   if (st) st.textContent = '✅ Configuration sauvegardée localement.';
   refreshAll();
 });
+
+document.getElementById('switchDemoModeBtn').addEventListener('click', () => setWorkspaceViewMode('demo'));
+document.getElementById('switchWorkModeBtn').addEventListener('click', () => setWorkspaceViewMode('work'));
+const bannerGoWorkBtn = document.getElementById('bannerGoWorkBtn');
+if (bannerGoWorkBtn) bannerGoWorkBtn.addEventListener('click', () => setWorkspaceViewMode('work'));
+
+['downloadSingleProbeBtn', 'downloadSingleProbeCfgBtn'].forEach(id => {
+  const b = document.getElementById(id);
+  if (b) b.addEventListener('click', downloadPreconfiguredProbe);
+});
+
+const copyWinProbeBtn = document.getElementById('copyWinProbeCmdBtn');
+if (copyWinProbeBtn) {
+  copyWinProbeBtn.addEventListener('click', async () => {
+    try {
+      if (navigator.clipboard) await navigator.clipboard.writeText(getWinProbeCommand());
+      copyWinProbeBtn.textContent = '✓ Commande Windows copiée !';
+      setTimeout(() => { copyWinProbeBtn.textContent = '📋 Copier commande 1-clic Windows (PowerShell)'; }, 2200);
+    } catch (_) {}
+  });
+}
+
+const copyLinProbeBtn = document.getElementById('copyLinProbeCmdBtn');
+if (copyLinProbeBtn) {
+  copyLinProbeBtn.addEventListener('click', async () => {
+    try {
+      if (navigator.clipboard) await navigator.clipboard.writeText(getLinProbeCommand());
+      copyLinProbeBtn.textContent = '✓ Commande Linux/Mac copiée !';
+      setTimeout(() => { copyLinProbeBtn.textContent = '📋 Copier commande Linux / Mac'; }, 2200);
+    } catch (_) {}
+  });
+}
+
+const copyProbeCfgBtn = document.getElementById('copyProbeCmdCfgBtn');
+if (copyProbeCfgBtn) {
+  copyProbeCfgBtn.addEventListener('click', async () => {
+    try {
+      if (navigator.clipboard) await navigator.clipboard.writeText(getWinProbeCommand());
+      copyProbeCfgBtn.textContent = '✓ Commande copiée !';
+      setTimeout(() => { copyProbeCfgBtn.textContent = '📋 Copier la commande 1-clic'; }, 2200);
+    } catch (_) {}
+  });
+}
 
 const copyContaboBtn = document.getElementById('copyContaboCmdBtn');
 if (copyContaboBtn) {
@@ -1550,8 +1849,13 @@ function renderEquipmentTable() {
           ${polOn ? '🟢 Internet ON' : '🔴 Internet OFF'}
          </button>`;
 
+    const isRealRow = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+    const srcTag = isRealRow
+      ? '<span class="tag ok" style="padding:2px 7px;font-size:9.5px;margin-left:6px">SONDE RÉELLE</span>'
+      : '<span class="tag" style="padding:2px 7px;font-size:9.5px;margin-left:6px">SIMULÉ</span>';
+
     return `<tr>
-      <td><strong>${esc(d.name || 'Poste réseau')}</strong><br><small style="color:var(--muted)">${esc(d.internet_reason || '')}</small></td>
+      <td><strong>${esc(d.name || 'Poste réseau')}</strong>${srcTag}<br><small style="color:var(--muted)">${esc(d.internet_reason || '')}</small></td>
       <td class="mono">${esc(d.ip)}</td>
       <td class="mono">${esc(d.mac || '—')}</td>
       <td>${esc(d.zone || 'Réseau local')} · <small style="color:var(--muted)">${esc(d.type || 'host')}</small></td>
@@ -1645,18 +1949,162 @@ function applyStandaloneScenario(key) {
   else if (key === 'retablissement') standaloneStore.alerts.unshift({ severity: 'retabli', message: 'Accès Internet rétabli (32 ms)', ts });
 }
 
+function renderWorkLucidActions(data) {
+  const listEl = document.getElementById('workLucidActionList');
+  const tagEl = document.getElementById('workActionStatusTag');
+  if (!listEl) return;
+
+  if (!data || !data.agent) {
+    if (tagEl) { tagEl.textContent = 'En attente sonde'; tagEl.className = 'tag'; }
+    listEl.innerHTML = `
+      <div class="rule"><span class="rule-num">01</span><p><strong>Aucune fausse donnée affichée</strong><br>Contrairement au mode simulation, tous les compteurs restent à <code>0</code> tant que votre vraie sonde locale n’a pas émis.</p></div>
+      <div class="rule"><span class="rule-num">02</span><p><strong>Action immédiate : lancer <code>daderezo_sonde.py</code></strong><br>Cliquez sur « ⬇ Télécharger ma Sonde Prête à Lancer » en haut de page puis exécutez <code>python daderezo_sonde.py</code> sur votre PC.</p></div>
+      <div class="rule"><span class="rule-num">03</span><p><strong>Détection automatique en 5 secondes</strong><br>Dès le 1er envoi, vos vrais routeurs, smartphones, imprimantes et PC apparaîtront ici sans rafraîchir la page.</p></div>`;
+    return;
+  }
+
+  const state = data.state || {};
+  const devs = data.devices || [];
+  const upCount = devs.filter(d => d.status === 'up').length;
+  const downCount = devs.length - upCount;
+  const inetStatus = state.internet_status || 'unknown';
+  const gwStatus = state.gw_status || 'unknown';
+
+  let step1 = '';
+  if (gwStatus === 'down') {
+    if (tagEl) { tagEl.textContent = 'Urgence Passerelle'; tagEl.className = 'tag err'; }
+    step1 = `<strong>🔴 Passerelle locale (${esc(state.gw || 'routeur')}) injoignable</strong><br>Vérifiez l’alimentation électrique et le câble LAN de votre box principale avant toute action FAI.`;
+  } else if (inetStatus === 'down') {
+    if (tagEl) { tagEl.textContent = 'Coupure FAI'; tagEl.className = 'tag err'; }
+    step1 = `<strong>🟠 LAN actif (${upCount} appareils), mais sortie Internet FAI coupée</strong><br>Votre réseau interne fonctionne : demandez à DeepSeek ci-dessus de générer le ticket technique opérateur.`;
+  } else {
+    if (tagEl) { tagEl.textContent = 'Réseau Réel Actif'; tagEl.className = 'tag ok'; }
+    step1 = `<strong>🟢 Liaison FAI &amp; Passerelle (${esc(state.gw || 'OK')}) opérationnelles</strong><br>Latence WAN réelle : <code>${state.wan_latency_ms ? Number(state.wan_latency_ms).toFixed(0) + ' ms' : 'OK'}</code> · Sonde <code>${esc(state.ip_local || data.agent.ip || '')}</code> en ligne.`;
+  }
+
+  const step2 = downCount > 0
+    ? `<strong>⚠️ ${downCount} équipement(s) hors ligne sur ${devs.length} connus</strong><br>Ouvrez l’onglet <b>02 · Contrôle Internet &amp; LAN</b> et filtrez sur « Hors ligne » pour identifier les postes éteints ou déconnectés.`
+    : `<strong>✅ ${upCount}/${devs.length} équipements réels répondent sur votre LAN</strong><br>Consultez l’onglet <b>02 · Contrôle Internet &amp; LAN</b> pour piloter l’accès Internet par appareil ou sous-réseau.`;
+
+  const step3 = `<strong>⚡ Actions directes recommandées</strong><br>Cliquez sur <b>⚡ Scanner</b> en haut à droite pour forcer un relevé immédiat, ou interrogez <b>DeepSeek</b> sur vos vraies adresses IP/MAC.`;
+
+  listEl.innerHTML = `
+    <div class="rule"><span class="rule-num">01</span><p>${step1}</p></div>
+    <div class="rule"><span class="rule-num">02</span><p>${step2}</p></div>
+    <div class="rule"><span class="rule-num">03</span><p>${step3}</p></div>`;
+}
+
+function renderEmptyWorkWorkspace(dbBackendName = 'SUPABASE') {
+  const orgName = currentAuthUser ? currentAuthUser.org_name : 'Mon Organisation';
+  cachedDevices = [];
+  cachedPolicies = [];
+  cachedBoxes = [];
+  cachedMedia = [];
+  mainBoxInternetOn = true;
+
+  document.getElementById('onboardingNotice').classList.add('hidden');
+  const onboardCard = document.getElementById('realWorkOnboardingCard');
+  if (onboardCard) onboardCard.classList.remove('hidden');
+
+  const banner = document.getElementById('workspaceModeBanner');
+  const bTitle = document.getElementById('wsBannerTitle');
+  const bSub = document.getElementById('wsBannerSub');
+  const bAct = document.getElementById('wsBannerActions');
+  if (banner) banner.className = 'ws-banner work-waiting';
+  if (bTitle) bTitle.innerHTML = `🟡 MODE TRAVAIL ACTIF · ESPACE PRIVÉ « ${esc(orgName)} » (0 DONNÉE SIMULÉE)`;
+  if (bSub) bSub.innerHTML = `Toutes les données fictives de simulation sont masquées. Lancez <code>daderezo_sonde.py</code> sur un PC de votre réseau pour voir vos vrais équipements en direct.`;
+  if (bAct) bAct.innerHTML = `<button class="btn secondary" type="button" id="bannerPeekDemoBtn">🧪 Voir la Démo</button>`;
+  const peekBtn = document.getElementById('bannerPeekDemoBtn');
+  if (peekBtn) peekBtn.addEventListener('click', () => setWorkspaceViewMode('demo'));
+
+  const truthPill = document.getElementById('sourceTruthPill');
+  const truthText = document.getElementById('sourceTruthText');
+  truthPill.className = 'truth-pill real';
+  truthText.textContent = 'MODE TRAVAIL · 0 SONDE';
+
+  const pill = document.getElementById('collectorPill');
+  const pillText = document.getElementById('collectorText');
+  pill.className = 'collector-pill offline';
+  pillText.textContent = 'EN ATTENTE SONDE';
+
+  document.getElementById('dbTruthText').textContent = dbBackendName === 'SUPABASE' ? 'DB : SUPABASE PG17' : `DB : ${dbBackendName}`;
+  document.getElementById('sidebarSite').textContent = orgName;
+  document.getElementById('sidebarSub').textContent = '0 sonde connectée · Zéro simulation';
+  document.getElementById('cfgSite').textContent = orgName;
+  document.getElementById('cfgAgentId').textContent = 'En attente de 1re connexion sonde';
+  document.getElementById('cfgIp').textContent = '—';
+  document.getElementById('cfgMask').textContent = '—';
+  document.getElementById('cfgGw').textContent = '—';
+  document.getElementById('cfgDns').textContent = '—';
+  document.getElementById('lastSeenLabel').textContent = 'AUCUNE SONDE ACTIVE · ÉCOUTE AUTO 5S';
+
+  const kpiHealth = document.getElementById('kpiHealth');
+  kpiHealth.textContent = 'Attente sonde';
+  kpiHealth.className = 'kpi-value warn';
+  document.getElementById('kpiHealthNote').textContent = 'Aucune fausse donnée injectée';
+
+  const kpiInet = document.getElementById('kpiInternet');
+  kpiInet.textContent = '—';
+  kpiInet.className = 'kpi-value';
+  document.getElementById('kpiInternetNote').textContent = 'Sera mesuré par votre sonde réelle';
+
+  document.getElementById('kpiDevices').textContent = '0';
+  document.getElementById('kpiDevicesNote').textContent = 'Aucun équipement fictif affiché';
+  document.getElementById('kpiGateway').textContent = '—';
+  document.getElementById('kpiGateway').className = 'kpi-value';
+  document.getElementById('kpiGatewayNote').textContent = 'En attente du 1er scan réel';
+
+  document.getElementById('navEquipCount').textContent = '0';
+  document.getElementById('navBoxCount').textContent = '0';
+  document.getElementById('navAlertCount').textContent = '0';
+  document.getElementById('navMediaCount').textContent = '0';
+
+  document.getElementById('wanBox').className = 'device';
+  document.getElementById('wanMeta').textContent = 'En attente sonde réelle';
+  document.getElementById('gwBox').className = 'device';
+  document.getElementById('gwTitle').textContent = 'Passerelle réelle';
+  document.getElementById('gwMeta').textContent = 'En attente sonde réelle';
+  document.getElementById('topoTag').textContent = 'ATTENTE 1ER SIGNAL';
+  document.getElementById('topoTag').className = 'tag';
+  document.getElementById('zoneCoreMeta').textContent = '0 détecté';
+  document.getElementById('zoneLanMeta').textContent = '0 détecté';
+  document.getElementById('zoneProbeMeta').textContent = 'Lancez daderezo_sonde.py';
+
+  document.getElementById('overviewAlertTag').textContent = '0 événement réel';
+  const emptyAlertHtml = '<div class="blank-state"><b>Aucune alerte sur votre réseau réel</b><span>Les vrais événements apparaîtront dès le démarrage de votre sonde locale.</span></div>';
+  document.getElementById('overviewAlerts').innerHTML = emptyAlertHtml;
+  document.getElementById('fullAlertsList').innerHTML = emptyAlertHtml;
+  document.getElementById('equipTableBody').innerHTML = '<tr><td colspan="8" class="blank-state"><b>Mode Travail Actif · 0 équipement simulé</b><span>Lancez <code>daderezo_sonde.py</code> sur un PC de votre réseau pour voir apparaître vos vrais appareils ici.</span></td></tr>';
+  renderBoxesGrid([]);
+  renderInternetSwitchState();
+  renderWorkLucidActions(null);
+}
+
 async function refreshAll() {
   const base = getApiBase();
   const select = document.getElementById('agentSelect');
+  const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+  applyWorkspaceChrome();
+
   try {
     const agentsRes = await fetch(`${base}/agents`, { headers: getHeaders() });
     if (!agentsRes.ok) throw new Error(`HTTP ${agentsRes.status}`);
-    const agents = await agentsRes.json();
+    const allAgents = await agentsRes.json();
     isStandaloneMode = false;
 
+    const agents = isWork
+      ? allAgents.filter(a => !a.is_simulation && !String(a.id).startsWith('simulation-'))
+      : allAgents.filter(a => a.is_simulation || String(a.id).startsWith('simulation-'));
+
     if (!agents.length) {
-      select.innerHTML = '<option value="">Aucune sonde enregistrée</option>';
-      document.getElementById('onboardingNotice').classList.remove('hidden');
+      currentAgentId = '';
+      if (isWork) {
+        select.innerHTML = `<option value="">[ESPACE PRIVÉ] En attente de votre 1re sonde réelle…</option>`;
+        renderEmptyWorkWorkspace('SUPABASE');
+      } else {
+        select.innerHTML = '<option value="">Aucune sonde de démo</option>';
+        document.getElementById('onboardingNotice').classList.remove('hidden');
+      }
       return;
     }
 
@@ -1666,7 +2114,7 @@ async function refreshAll() {
     }
 
     select.innerHTML = agents.map(a => {
-      const prefix = a.is_simulation ? '[DÉMO] ' : '[SONDE RÉELLE] ';
+      const prefix = a.is_simulation ? '[SIMULATION] ' : '[SONDE RÉELLE] ';
       return `<option value="${esc(a.id)}" ${a.id === currentAgentId ? 'selected' : ''}>${esc(prefix + (a.nom || a.id))} (${a.status === 'online' ? 'en ligne' : 'hors ligne'})</option>`;
     }).join('');
 
@@ -1675,6 +2123,11 @@ async function refreshAll() {
     const data = await dashRes.json();
     updateUI(data);
   } catch (_) {
+    if (isWork) {
+      // En Mode Travail Réel : interdiction absolue d'injecter de fausses données de simulation en cas de coupure réseau
+      select.innerHTML = '<option value="">[MODE TRAVAIL] Reconnexion au serveur…</option>';
+      return;
+    }
     isStandaloneMode = true;
     currentAgentId = 'simulation-bouake';
     select.innerHTML = '<option value="simulation-bouake">[APERÇU] Sainte Marie de Bouaké</option>';
@@ -1713,15 +2166,45 @@ function updateUI(data) {
   document.getElementById('onboardingNotice').classList.add('hidden');
 
   const isSim = Boolean(agent.is_simulation || String(agent.id).startsWith('simulation-'));
+  const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser) && !isSim;
+  const onboardCard = document.getElementById('realWorkOnboardingCard');
+  if (onboardCard) onboardCard.classList.add('hidden');
+
   truthPill.className = `truth-pill ${isSim ? 'sim' : 'real'}`;
-  truthText.textContent = isSim ? 'MODE SIMULATION' : 'SONDE TERRAIN RÉELLE';
+  truthText.textContent = isSim ? 'MODE SIMULATION (FICTIF)' : '🟢 SONDE RÉELLE CERTIFIÉE';
 
   const isOnline = agent.status === 'online';
   pill.className = `collector-pill ${isOnline ? 'online' : 'offline'}`;
-  pillText.textContent = isOnline ? 'AGENT EN LIGNE' : 'HORS LIGNE';
+  pillText.textContent = isOnline ? (isSim ? 'DÉMO ACTIVE' : 'SONDE EN DIRECT') : 'SONDE HORS LIGNE';
 
-  const siteName = state.site_name || agent.nom || 'Sainte Marie de Bouaké';
+  const siteName = state.site_name || agent.nom || 'Site supervisé';
   document.getElementById('sidebarSite').textContent = siteName;
+  document.getElementById('sidebarSub').textContent = isSim
+    ? 'Données fictives · Bac à sable'
+    : `${devices.length} appareil(s) réel(s) · IP ${state.ip_local || agent.ip || 'active'}`;
+
+  const banner = document.getElementById('workspaceModeBanner');
+  const bTitle = document.getElementById('wsBannerTitle');
+  const bSub = document.getElementById('wsBannerSub');
+  const bAct = document.getElementById('wsBannerActions');
+  if (isWork) {
+    if (banner) banner.className = 'ws-banner work-live';
+    if (bTitle) bTitle.innerHTML = `🟢 MODE TRAVAIL ACTIF · TÉLÉMÉTRIE RÉELLE CERTIFIÉE (${esc(siteName)})`;
+    if (bSub) bSub.innerHTML = `Source directe : sonde locale <code>${esc(agent.id)}</code> (${esc(state.ip_local || agent.ip || 'en ligne')}) · <b>${devices.length} équipement(s) réel(s)</b> · Aucune donnée de simulation.`;
+    if (bAct) bAct.innerHTML = `<button class="btn secondary" type="button" id="bannerPeekDemoLiveBtn">🧪 Comparer avec la Démo</button>`;
+    const pBtn = document.getElementById('bannerPeekDemoLiveBtn');
+    if (pBtn) pBtn.addEventListener('click', () => setWorkspaceViewMode('demo'));
+    renderWorkLucidActions(data);
+  } else {
+    if (banner) banner.className = 'ws-banner sim';
+    if (bTitle) bTitle.innerHTML = `🧪 BAC À SABLE DE SIMULATION · DONNÉES D’EXERCICE`;
+    if (bSub) bSub.innerHTML = currentAuthUser
+      ? `Vous consultez la simulation publique. Votre espace privé <b>${esc(currentAuthUser.org_name)}</b> est prêt : basculez en <b>Mode Travail Réel</b> pour voir uniquement votre vraie sonde.`
+      : `Vous consultez les 7 équipements fictifs de démonstration (<code>simulation-bouake</code>). Passez en <b>Mode Travail Réel</b> pour éliminer le superflu et piloter uniquement votre vraie sonde.`;
+    if (bAct) bAct.innerHTML = `<button class="btn" type="button" id="bannerBackWorkBtn">🟢 Passer en Mode Travail Réel</button>`;
+    const wBtn = document.getElementById('bannerBackWorkBtn');
+    if (wBtn) wBtn.addEventListener('click', () => setWorkspaceViewMode('work'));
+  }
   document.getElementById('cfgSite').textContent = siteName;
   document.getElementById('cfgAgentId').textContent = agent.id;
   document.getElementById('cfgIp').textContent = state.ip_local || agent.ip || '—';
@@ -2275,13 +2758,36 @@ function renderInternetSwitchState() {
   const polCountTag = document.getElementById('activePolicyCountTag');
   if (polCountTag) polCountTag.textContent = `${cachedPolicies.length} règle(s)`;
 
-  document.querySelectorAll('[data-zone-toggle]').forEach(btn => {
-    const zName = btn.getAttribute('data-zone-toggle');
+  const zContainer = document.getElementById('zoneSwitchContainer');
+  if (!zContainer) return;
+
+  const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+  let zonesList = ['Visiteurs', 'Communauté', 'Accueil', 'Administration'];
+  if (isWork) {
+    const dynamicZones = new Set();
+    cachedDevices.forEach(d => { if (d.zone && d.zone !== 'Supervision') dynamicZones.add(d.zone); });
+    cachedPolicies.forEach(p => { if (p.scope_type === 'zone' && p.target_value) dynamicZones.add(p.target_value); });
+    zonesList = [...dynamicZones];
+  }
+
+  if (!zonesList.length) {
+    zContainer.innerHTML = '<span style="font-size:12px;color:var(--muted)">Vos vraies zones réseau apparaîtront ici dès que la sonde est active (ou utilisez un CIDR ci-dessous).</span>';
+    return;
+  }
+
+  zContainer.innerHTML = zonesList.map(zName => {
     const pol = cachedPolicies.find(p => p.scope_type === 'zone' && (p.target_value || '').toLowerCase() === zName.toLowerCase());
     const zOn = pol ? Boolean(pol.internet_enabled) : true;
-    btn.className = `switch-btn ${zOn ? 'on' : 'off'}`;
-    btn.textContent = `${zName === 'Administration' ? 'Admin' : zName} : ${zOn ? 'ON' : 'OFF'}`;
-    btn.dataset.currentState = zOn ? '1' : '0';
+    const shortName = zName === 'Administration' ? 'Admin' : zName;
+    return `<button class="switch-btn ${zOn ? 'on' : 'off'}" type="button" data-zone-toggle="${esc(zName)}" data-current-state="${zOn ? '1' : '0'}">${esc(shortName)} : ${zOn ? 'ON' : 'OFF'}</button>`;
+  }).join('');
+
+  zContainer.querySelectorAll('[data-zone-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const zName = btn.getAttribute('data-zone-toggle');
+      const curOn = btn.dataset.currentState !== '0';
+      applyInternetPolicy('zone', zName, !curOn);
+    });
   });
 }
 
@@ -2322,14 +2828,6 @@ async function applyInternetPolicy(scopeType, targetValue, internetEnabled) {
 
 document.getElementById('mainBoxSwitchBtn').addEventListener('click', () => {
   applyInternetPolicy('global', 'main_box', !mainBoxInternetOn);
-});
-
-document.querySelectorAll('[data-zone-toggle]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const zName = btn.getAttribute('data-zone-toggle');
-    const curOn = btn.dataset.currentState !== '0';
-    applyInternetPolicy('zone', zName, !curOn);
-  });
 });
 
 document.getElementById('subnetCutBtn').addEventListener('click', () => {
@@ -2553,10 +3051,18 @@ function renderMediaGrid() {
   });
 }
 
+function getEffectiveMediaAgentId() {
+  if (currentAgentId) return currentAgentId;
+  if (workspaceViewMode === 'work' && currentAuthUser) return `${currentAuthUser.org_slug}-principal`;
+  return 'simulation-bouake';
+}
+
 async function loadMedia() {
-  if (!currentAgentId || isStandaloneMode) return;
+  if (isStandaloneMode) return;
+  const mediaAid = getEffectiveMediaAgentId();
+  if (!mediaAid) return;
   try {
-    const res = await fetch(`${getApiBase()}/media/${encodeURIComponent(currentAgentId)}`, { headers: getHeaders() });
+    const res = await fetch(`${getApiBase()}/media/${encodeURIComponent(mediaAid)}`, { headers: getHeaders() });
     if (res.ok) {
       cachedMedia = await res.json();
       const badge = document.getElementById('navMediaCount');
@@ -2596,7 +3102,7 @@ document.getElementById('uploadMediaBtn').addEventListener('click', () => {
   const reader = new FileReader();
   reader.onload = async () => {
     try {
-      const res = await fetch(`${getApiBase()}/media/${encodeURIComponent(currentAgentId || 'simulation-bouake')}`, {
+      const res = await fetch(`${getApiBase()}/media/${encodeURIComponent(getEffectiveMediaAgentId())}`, {
         method: 'POST',
         headers: getHeaders(true),
         body: JSON.stringify({
@@ -2649,6 +3155,7 @@ document.getElementById('tabLoginBtn').addEventListener('click', () => setAuthTa
 
 function applyAuthUserUI(user) {
   currentAuthUser = user || null;
+  workspaceViewMode = user ? 'work' : 'demo';
   const authBtn = document.getElementById('authAccountBtn');
   const loggedBox = document.getElementById('authLoggedBox');
   const formsBox = document.getElementById('authFormsBox');
@@ -2663,24 +3170,24 @@ function applyAuthUserUI(user) {
     document.getElementById('authOrgTitle').textContent = `Espace Privé : ${user.org_name}`;
     document.getElementById('authUserEmail').textContent = `${user.full_name || ''} (${user.email})`;
     document.getElementById('authProbeKeyDisplay').textContent = user.probe_api_key || '';
-    if (wsModeEl) wsModeEl.textContent = `ESPACE PRIVÉ ISOLÉ (${user.org_slug})`;
+    if (wsModeEl) wsModeEl.textContent = `MODE TRAVAIL ACTIF ISOLÉ (${user.org_slug})`;
     if (pkEl) pkEl.textContent = user.probe_api_key || '—';
   } else {
     authBtn.textContent = '🔐 Espace Privé';
     authBtn.className = 'btn secondary';
     loggedBox.classList.add('hidden');
     formsBox.classList.remove('hidden');
-    if (wsModeEl) wsModeEl.textContent = 'Espace Démo Public (Isolé)';
-    if (pkEl) pkEl.textContent = 'Non connecté (mode démo)';
+    if (wsModeEl) wsModeEl.textContent = 'Espace Démo Public (Simulation)';
+    if (pkEl) pkEl.textContent = 'Non connecté (mode simulation)';
   }
-  updateProbeDeployCommand();
+  applyWorkspaceChrome();
 }
 
 async function checkAuthSession() {
   const tok = (localStorage.getItem('daderezo_saas_token') || '').trim();
   if (!tok) { applyAuthUserUI(null); return; }
   try {
-    const res = await fetch(`${getApiBase()}/auth/me`, { headers: getHeaders() });
+    const res = await fetch(`${getApiBase()}/auth/me`, { headers: getHeaders(false, true) });
     if (res.ok) {
       const data = await res.json();
       if (data.authenticated && data.user) {
@@ -2720,6 +3227,7 @@ document.getElementById('submitAuthBtn').addEventListener('click', async () => {
     fb.textContent = '';
     currentAgentId = '';
     applyAuthUserUI(data.user);
+    closeAuthModal();
     await refreshAll();
     loadMedia();
   } catch (_) {
@@ -2752,6 +3260,12 @@ checkAuthSession().then(() => {
   loadMedia();
 });
 setInterval(refreshAll, 15000);
+// Radar rapide (5s) en Mode Travail Actif tant que la 1re sonde réelle n'a pas encore émis
+setInterval(() => {
+  if (workspaceViewMode === 'work' && currentAuthUser && !currentAgentId) {
+    refreshAll();
+  }
+}, 5000);
 
 /* PWA SERVICE WORKER, OFFLINE INDICATOR & INSTALL PROMPT */
 (function initDaderezoSupervisorPWA() {

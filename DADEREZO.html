@@ -1771,6 +1771,19 @@ function getApiBase() {
   return '';
 }
 
+let runtimeApiKeyOverride = '';
+let runtimeLlmKeyOverride = '';
+try {
+  localStorage.removeItem('daderezo_api_key');
+  localStorage.removeItem('daderezo_llm_key');
+} catch (_) {}
+
+function generateSecureSessionId() {
+  const arr = new Uint8Array(8);
+  window.crypto.getRandomValues(arr);
+  return 'sup-' + Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 function getHeaders(json = false, forceAuth = false) {
   const h = { 'Accept': 'application/json' };
   if (json) h['Content-Type'] = 'application/json';
@@ -1778,9 +1791,9 @@ function getHeaders(json = false, forceAuth = false) {
   if (saasTok && (forceAuth || workspaceViewMode === 'work')) {
     h['Authorization'] = `Bearer ${saasTok}`;
   }
-  const k = (localStorage.getItem('daderezo_api_key') || '').trim();
+  const k = runtimeApiKeyOverride.trim();
   if (k && workspaceViewMode === 'work') h['X-API-Key'] = k;
-  const llmKey = (localStorage.getItem('daderezo_llm_key') || '').trim();
+  const llmKey = runtimeLlmKeyOverride.trim();
   if (llmKey) h['X-LLM-Api-Key'] = llmKey;
   const llmProv = (localStorage.getItem('daderezo_llm_provider') || '').trim();
   if (llmProv && llmProv !== 'auto') h['X-LLM-Provider'] = llmProv;
@@ -1788,7 +1801,7 @@ function getHeaders(json = false, forceAuth = false) {
 }
 
 let currentAgentId = localStorage.getItem('daderezo_agent_id') || '';
-let sessionId = localStorage.getItem('daderezo_session_id') || ('sup-' + Math.random().toString(36).slice(2, 10));
+let sessionId = localStorage.getItem('daderezo_session_id') || generateSecureSessionId();
 localStorage.setItem('daderezo_session_id', sessionId);
 
 let cachedDevices = [];
@@ -1868,7 +1881,7 @@ function updateProbeDeployCommand() {
   const stepOrg = document.getElementById('workStepOrgDesc');
   const stepAiTitle = document.getElementById('workStepAiTitle');
   const stepAiDesc = document.getElementById('workStepAiDesc');
-  const hasLocalLlm = Boolean((localStorage.getItem('daderezo_llm_key') || '').trim());
+  const hasLocalLlm = Boolean(runtimeLlmKeyOverride.trim());
   const hasAnyLlm = hasLocalLlm || serverLlmStatus.configured;
 
   if (stepAiTitle && stepAiDesc) {
@@ -1954,18 +1967,16 @@ async function setWorkspaceViewMode(nextMode) {
 }
 
 document.getElementById('cfgApiUrl').value = localStorage.getItem('daderezo_api_url') || '';
-document.getElementById('cfgApiKey').value = localStorage.getItem('daderezo_api_key') || '';
-document.getElementById('cfgLlmKey').value = localStorage.getItem('daderezo_llm_key') || '';
 document.getElementById('cfgLlmProvider').value = localStorage.getItem('daderezo_llm_provider') || 'auto';
 updateProbeDeployCommand();
 
 document.getElementById('saveCfgBtn').addEventListener('click', () => {
   localStorage.setItem('daderezo_api_url', document.getElementById('cfgApiUrl').value.trim());
-  localStorage.setItem('daderezo_api_key', document.getElementById('cfgApiKey').value.trim());
-  localStorage.setItem('daderezo_llm_key', document.getElementById('cfgLlmKey').value.trim());
+  runtimeApiKeyOverride = document.getElementById('cfgApiKey').value.trim();
+  runtimeLlmKeyOverride = document.getElementById('cfgLlmKey').value.trim();
   localStorage.setItem('daderezo_llm_provider', document.getElementById('cfgLlmProvider').value);
   const st = document.getElementById('llmCheckStatus');
-  if (st) st.textContent = '✅ Configuration sauvegardée localement.';
+  if (st) st.textContent = '✅ Configuration appliquée en mémoire sécurisée (aucune clé en clair sur disque).';
   refreshAll();
 });
 
@@ -2028,7 +2039,7 @@ const testLlmBtn = document.getElementById('testLlmBtn');
 if (testLlmBtn) {
   testLlmBtn.addEventListener('click', async () => {
     const st = document.getElementById('llmCheckStatus');
-    localStorage.setItem('daderezo_llm_key', document.getElementById('cfgLlmKey').value.trim());
+    runtimeLlmKeyOverride = document.getElementById('cfgLlmKey').value.trim();
     localStorage.setItem('daderezo_llm_provider', document.getElementById('cfgLlmProvider').value);
     testLlmBtn.disabled = true;
     if (st) st.textContent = '⏳ Vérification en direct auprès du fournisseur IA…';
@@ -2049,7 +2060,7 @@ if (testLlmBtn) {
 }
 
 document.getElementById('resetSessionBtn').addEventListener('click', () => {
-  sessionId = 'sup-' + Math.random().toString(36).slice(2, 10);
+  sessionId = generateSecureSessionId();
   localStorage.setItem('daderezo_session_id', sessionId);
   document.getElementById('supervisorStatus').textContent = `Nouvelle session ouverte (${sessionId}) · Mémoire conversationnelle réinitialisée.`;
 });
@@ -4287,7 +4298,7 @@ fetch(`${getApiBase()}/health`, { headers: { 'Accept': 'application/json' } })
     if (h && h.llm_configured) {
       serverLlmStatus = { configured: true, provider: h.llm_provider, model: h.llm_model };
       const st = document.getElementById('llmCheckStatus');
-      if (st && !(localStorage.getItem('daderezo_llm_key') || '').trim()) {
+      if (st && !runtimeLlmKeyOverride.trim()) {
         st.textContent = `✅ Clé serveur active sur Vercel : ${(h.llm_provider || 'deepseek').toUpperCase()} (${h.llm_model || 'deepseek-chat'}).`;
       }
       updateProbeDeployCommand();

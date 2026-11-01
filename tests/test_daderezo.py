@@ -1018,6 +1018,159 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertIn("realWorkOnboardingCard", ui_html)
         self.assertIn("downloadSingleProbeBtn", ui_html)
 
+    def test_24_intelligent_diagnostic_no_false_cut_and_thoughtful_voice(self):
+        """v4.5: observational/why questions never misfire NET-CONTROL, detect logical-vs-physical gap, and speak thoughtful LLM voice synthesis."""
+        from unittest.mock import patch
+        import agent_engine
+
+        signup = self.client.post(
+            "/auth/signup",
+            json={
+                "email": "maurice.v45@daderezo.ci",
+                "password": "PasswordV45_2026!",
+                "full_name": "Maurice Bogui",
+                "org_name": "Sainte Marie Diagnostic Réel",
+            },
+        ).json()
+        token = signup["token"]
+        probe_key = signup["user"]["probe_api_key"]
+        org_slug = signup["user"]["org_slug"]
+        aid = f"{org_slug}-principal"
+        auth_h = {"Authorization": f"Bearer {token}"}
+
+        # 1. Real probe transmits live LAN/WAN telemetry (Box 192.168.8.1 + PC Hotspot 192.168.137.1)
+        self.client.post(
+            "/data",
+            headers={"X-API-Key": probe_key},
+            json={
+                "agent_id": aid,
+                "nom": "Sonde Terrain Bouaké",
+                "site_name": "Communauté Sainte Marie",
+                "ip_local": "192.168.8.156",
+                "gw": "192.168.8.1",
+                "gw_status": "up",
+                "internet_status": "up",
+                "wan_latency_ms": 38.0,
+                "probes": [
+                    {"ip": "192.168.8.1", "mac": "48:2c:a0:aa:bb:01", "name": "Box Huawei 4G", "zone": "Cœur réseau", "status": "up", "type": "gateway", "latency_ms": 2.1},
+                    {"ip": "192.168.8.156", "mac": "00:e0:4c:aa:bb:02", "name": "DESKTOP-AB0S9FH", "zone": "Supervision", "status": "up", "type": "probe", "latency_ms": 0.3},
+                    {"ip": "192.168.137.1", "mac": "00:e0:4c:aa:bb:03", "name": "Hotspot Windows", "zone": "Partage", "status": "up", "type": "host", "latency_ms": 0.5},
+                    {"ip": "192.168.8.120", "mac": "28:6c:07:aa:bb:04", "name": "TECNO-SPARK", "zone": "Réseau local", "status": "up", "type": "host", "latency_ms": 14.0},
+                ],
+            },
+        )
+
+        # 2. Admin cuts global Internet in the app -> logical_vs_physical_gap becomes True while WAN is still physically 'up'
+        pol_res = self.client.post(
+            f"/network/policies/{aid}",
+            headers=auth_h,
+            json={"scope_type": "global", "target_value": "main_box", "internet_enabled": False},
+        )
+        self.assertEqual(pol_res.status_code, 200)
+
+        dash = self.client.get(f"/dashboard/{aid}", headers=auth_h).json()
+        self.assertFalse(dash["summary"]["main_box_internet_enabled"])
+        self.assertEqual(dash["summary"]["physical_wan_status"], "up")
+        self.assertTrue(dash["summary"]["logical_vs_physical_gap"])
+
+        # 3. User asks the exact real-world observation question -> MUST NOT misfire _parse_internet_command!
+        exact_q = "je constate que l'internet continue de fonctionner sur place quand bien même j'ai l'ai couper sur l'app et que tout est en rouge"
+        res_offline = self.client.post(
+            "/supervisor/ask",
+            headers=auth_h,
+            json={"question": exact_q, "agent_id": aid, "session_id": "v45-diag-offline"},
+        ).json()
+        self.assertIsNone(res_offline.get("net_control_result"))
+        self.assertIsNone(res_offline.get("task_queued"))
+        self.assertEqual(res_offline["intent"], "diagnostic_ecart_logique_physique")
+        self.assertIn("192.168.8.1", res_offline["answer"])
+        self.assertIn("192.168.8.1", res_offline["spoken_text"])
+        self.assertNotIn("appareils sur 4 sont connectés", res_offline["spoken_text"])
+
+        # 4. With DeepSeek LLM active: verifies tool call + dedicated thoughtful [VOIX]...[/VOIX] extraction into spoken_text
+        ds_hex = "sk-" + ("b2" * 16)
+        old_ds = os.environ.get("DEEPSEEK_API_KEY")
+        os.environ["DEEPSEEK_API_KEY"] = ds_hex
+        try:
+            mock_llm_steps = [
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_topo_v45",
+                                        "type": "function",
+                                        "function": {
+                                            "name": "inspect_control_execution_and_topology",
+                                            "arguments": "{}",
+                                        },
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                },
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": (
+                                    "Votre observation est exacte : dans l'application, la règle est bien enregistrée en **rouge** (couche logique), "
+                                    "mais vos smartphones comme `TECNO-SPARK` passent directement par le Wi-Fi de votre Box `192.168.8.1` sans traverser "
+                                    "le PC sonde `192.168.8.156`.\n\n"
+                                    "Pour bloquer physiquement la sortie Internet, connectez les accès d'administration de la Box `192.168.8.1` ou faites passer les postes par le Hotspot `192.168.137.1` en mode Administrateur.\n\n"
+                                    "[VOIX]\n"
+                                    "C'est tout à fait logique techniquement. Le bouton rouge de l'application enregistre bien votre consigne de coupure, mais sur place vos téléphones communiquent directement en Wi-Fi avec la Box 192.168.8.1 sans passer par l'ordinateur où tourne la sonde. Pour rendre la coupure physique sur tout le site, il faut soit relier les accès administrateur de la Box, soit faire passer les appareils par le partage du PC lancé en administrateur.\n"
+                                    "[/VOIX]"
+                                ),
+                            }
+                        }
+                    ]
+                },
+            ]
+            idx_holder = {"i": 0}
+
+            class _Resp:
+                def __init__(self, d):
+                    self._b = json.dumps(d).encode("utf-8")
+
+                def read(self):
+                    return self._b
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *a):
+                    return False
+
+            def _mock_open(req, timeout=28):
+                i = min(idx_holder["i"], len(mock_llm_steps) - 1)
+                idx_holder["i"] += 1
+                return _Resp(mock_llm_steps[i])
+
+            with patch.object(agent_engine.urllib.request, "urlopen", side_effect=_mock_open):
+                res_llm = self.client.post(
+                    "/supervisor/ask",
+                    headers=auth_h,
+                    json={"question": exact_q, "agent_id": aid, "session_id": "v45-diag-llm"},
+                ).json()
+
+            self.assertIn("multi_agent_llm", res_llm["engine_mode"])
+            self.assertNotIn("[VOIX]", res_llm["answer"])
+            self.assertNotIn("[/VOIX]", res_llm["answer"])
+            self.assertIn("C'est tout à fait logique techniquement", res_llm["spoken_text"])
+            self.assertNotIn("**", res_llm["spoken_text"])
+            self.assertNotIn("appareils sur 4 sont connectés", res_llm["spoken_text"])
+        finally:
+            if old_ds is None:
+                os.environ.pop("DEEPSEEK_API_KEY", None)
+            else:
+                os.environ["DEEPSEEK_API_KEY"] = old_ds
+
 
 if __name__ == "__main__":
     unittest.main()

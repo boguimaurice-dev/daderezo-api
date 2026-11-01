@@ -5,6 +5,7 @@
       "src": "api.py",
       "use": "@vercel/python",
       "config": {
+        "maxDuration": 60,
         "includeFiles": [
           "storage.py",
           "net_controller.py",

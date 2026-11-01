@@ -176,6 +176,72 @@ def test_llm_connection(
         }
 
 
+def _clean_markdown_for_speech(text: str) -> str:
+    """Nettoie un texte Markdown/technique pour produire une synthèse vocale française fluide et naturelle."""
+    if not text:
+        return ""
+    lines_out: List[str] = []
+    for raw_line in text.splitlines():
+        ln = raw_line.strip()
+        if not ln:
+            continue
+        # Exclure les lignes de tableaux Markdown ou séparateurs
+        if ln.startswith("|") or re.match(r"^[-=:*_]{3,}$", ln):
+            continue
+        # Retirer les titres Markdown, puces et numérotations lourdes
+        ln = re.sub(r"^#{1,6}\s*", "", ln)
+        ln = re.sub(r"^[•*\-–—►▸]+\s*", "", ln)
+        lines_out.append(ln)
+    cleaned = " ".join(lines_out)
+    # Supprimer gras/italique/code/liens Markdown
+    cleaned = re.sub(r"```.*?```", " ", cleaned, flags=re.DOTALL)
+    cleaned = re.sub(r"`([^`]+)`", r"\1", cleaned)
+    cleaned = re.sub(r"\*\*([^*]+)\*\*", r"\1", cleaned)
+    cleaned = re.sub(r"\*([^*]+)\*", r"\1", cleaned)
+    cleaned = re.sub(r"__([^_]+)__", r"\1", cleaned)
+    cleaned = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", cleaned)
+    # Supprimer les émojis et pictogrammes décoratifs gênants en lecture vocale
+    cleaned = re.sub(
+        r"[\U0001F300-\U0001FAFF\u2600-\u27BF\uFE0F]",
+        " ",
+        cleaned,
+    )
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+def _extract_written_and_spoken_llm(raw_text: str) -> Tuple[str, str]:
+    """Sépare la réponse écrite approfondie et la réflexion vocale dédiée `[VOIX]...[/VOIX]` générée par le LLM."""
+    txt = (raw_text or "").strip()
+    if not txt:
+        return "", ""
+
+    spoken_raw = ""
+    m = re.search(r"\[VOIX\s*:?\s*\](.*?)\[/VOIX\]", txt, flags=re.IGNORECASE | re.DOTALL)
+    if m:
+        spoken_raw = m.group(1).strip()
+        written = (txt[: m.start()] + "\n" + txt[m.end() :]).strip()
+    else:
+        m_tail = re.search(r"\[VOIX\s*:?\s*\](.+)$", txt, flags=re.IGNORECASE | re.DOTALL)
+        if m_tail:
+            spoken_raw = m_tail.group(1).strip()
+            written = txt[: m_tail.start()].strip()
+        else:
+            written = txt
+
+    written = re.sub(r"\n{3,}", "\n\n", written).strip()
+    spoken_clean = _clean_markdown_for_speech(spoken_raw)
+    if not spoken_clean:
+        # Repli intelligent : extraire la substance conversationnelle de la réponse LLM (jamais le gabarit figé)
+        spoken_clean = _clean_markdown_for_speech(written)
+        if len(spoken_clean) > 700:
+            cut = spoken_clean[:700]
+            last_dot = max(cut.rfind(". "), cut.rfind(" ! "), cut.rfind(" ? "))
+            spoken_clean = (cut[: last_dot + 1] if last_dot > 220 else cut.rstrip() + ".")
+
+    return written or spoken_clean, spoken_clean
+
+
 def _call_llm_with_tools(
     llm_cfg: dict,
     question: str,
@@ -183,7 +249,7 @@ def _call_llm_with_tools(
     tool_evidence: dict,
     trace_cb: Optional[Callable[[str, str, str, str, float, str], None]] = None,
 ) -> Optional[str]:
-    """Boucle ReAct / Function-Calling native (jusqu'à 3 tours d'outils réels) compatible DeepSeek V3, OpenAI, Groq & Ollama."""
+    """Boucle ReAct / Function-Calling native (v4.5) compatible DeepSeek V3, OpenAI, Groq & Ollama avec réflexion écrite + vocale dédiée."""
     if not llm_cfg.get("supports_tools"):
         return None
 
@@ -191,8 +257,20 @@ def _call_llm_with_tools(
         {
             "type": "function",
             "function": {
+                "name": "inspect_control_execution_and_topology",
+                "description": (
+                    "Analyse la réalité physique vs logique du réseau : politiques de coupure Internet enregistrées dans l'app, "
+                    "état physique réel de la sortie WAN sur la Box/routeur, sous-réseaux détectés (ex: Box 192.168.8.x vs Hotspot PC 192.168.137.x), "
+                    "position topologique de la sonde locale et résultats réels des dernières tâches exécutées par la sonde."
+                ),
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "inspect_lan_wan_devices",
-                "description": "Retourne l'inventaire vérifié des équipements connectés au LAN, avec ou sans accès Internet (WAN), filtrable par zone ou statut.",
+                "description": "Retourne l'inventaire détaillé et vérifié des équipements connectés au LAN, avec ou sans accès Internet (WAN), filtrable par zone ou statut.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -237,6 +315,13 @@ def _call_llm_with_tools(
     ]
 
     def _exec_tool(fname: str, args: dict) -> dict:
+        if fname == "inspect_control_execution_and_topology":
+            return {
+                "control_reality_audit": tool_evidence.get("control_reality_audit"),
+                "active_internet_policies": tool_evidence.get("active_internet_policies"),
+                "net_control_result": tool_evidence.get("net_control_result"),
+                "diagnostics": tool_evidence.get("diagnostics"),
+            }
         if fname == "inspect_lan_wan_devices":
             z = normalize_fr(str(args.get("zone") or ""))
             only_no = bool(args.get("only_without_internet"))
@@ -248,8 +333,8 @@ def _call_llm_with_tools(
             return {
                 "scope": tool_evidence.get("scope_label"),
                 "metrics": tool_evidence.get("metrics"),
-                "devices_with_internet": [] if only_no else yes_l,
-                "devices_without_internet": no_l,
+                "devices_with_internet": [] if only_no else yes_l[:35],
+                "devices_without_internet": no_l[:35],
             }
         if fname == "get_cybersecurity_posture":
             return {
@@ -260,25 +345,38 @@ def _call_llm_with_tools(
             return {
                 "diagnostics": tool_evidence.get("diagnostics"),
                 "metrics": tool_evidence.get("metrics"),
-                "devices_without_internet": tool_evidence.get("devices_without_internet"),
+                "control_reality_audit": tool_evidence.get("control_reality_audit"),
+                "devices_without_internet": (tool_evidence.get("devices_without_internet") or [])[:25],
             }
         if fname == "get_active_internet_policies":
             return {
                 "active_internet_policies": tool_evidence.get("active_internet_policies"),
                 "net_control_result": tool_evidence.get("net_control_result"),
+                "control_reality_audit": tool_evidence.get("control_reality_audit"),
             }
         if fname == "list_multimedia_shares":
             return {"shared_media_count": tool_evidence.get("shared_media_count", 0)}
         return {"error": f"Outil inconnu: {fname}"}
 
     system_prompt = (
-        "Tu es l'Orchestrateur Multi-Agents DADEREZO v4.3 propulsé par appel d'outils natifs (Function Calling).\n"
-        "RÈGLES STRICTES :\n"
-        "1. Appelle un ou plusieurs outils (`inspect_lan_wan_devices`, `get_cybersecurity_posture`, `diagnose_isp_vs_lan`, `get_active_internet_policies`, `list_multimedia_shares`) dès que tu as besoin de données réseau réelles.\n"
-        "2. Si une action de contrôle réseau vient déjà d'être exécutée ou mise en attente HITL, tiens compte de `RESULTAT_CONTROLE_DEJA_EXECUTE`.\n"
-        "3. N'invente JAMAIS une adresse IP, MAC ou statistique absente des résultats d'outils.\n"
-        "4. Distingue toujours clairement la connexion au réseau local (LAN) et l'accès effectif à Internet (WAN).\n"
-        "5. Si la demande est hors périmètre réseau (sport, météo, cuisine, culture générale), décline poliment sans appeler d'outil."
+        "Tu es l'Ingénieur Réseau Senior & Orchestrateur IA de DADEREZO v4.5.\n"
+        "MISSION CRITIQUE — INTELLIGENCE RÉELLE & PROFONDEUR DE RÉFLEXION :\n"
+        "1. INTERDICTION ABSOLUE de réciter un gabarit prédéfini de simulation ou de plaquer mécaniquement un tableau d'inventaire si l'utilisateur pose une question de compréhension, un constat terrain, un « pourquoi », une anomalie ou une demande de conseil !\n"
+        "2. Réfléchis et réponds à la hauteur exacte de la profondeur de la question posée :\n"
+        "   - Si l'utilisateur exprime un constat réel (ex: « Internet continue de fonctionner sur place alors que j'ai coupé sur l'app et que tout est en rouge »), explique-lui avec clarté, honnêteté technique et pédagogie la différence fondamentale entre :\n"
+        "     a) La COUCHE LOGIQUE dans l'application Cloud (qui enregistre la règle d'administration et affiche les badges en rouge),\n"
+        "     b) La COUCHE PHYSIQUE sur le terrain : une sonde tournant sur un PC client standard du LAN observe le réseau mais ne se trouve pas en coupure physique entre les smartphones/postes et la Box principale (ex: 192.168.8.1). Tant que les équipements passent directement par le Wi-Fi de la Box sans pilotage API/admin de cette Box (ou sans passer par le partage Hotspot du PC sonde lancé en Administrateur), le trafic Internet continue physiquement de sortir par la Box.\n"
+        "   - Appuie ton explication sur les vraies adresses IP, sous-réseaux (ex: Box 192.168.8.x vs Hotspot Windows 192.168.137.x), politiques et dernières tâches de sonde présentes dans `CONTEXTE_TERRAIN_VERIFIE` ou via l'outil `inspect_control_execution_and_topology`.\n"
+        "   - Propose toujours les solutions concrètes et actionnables adaptées à SON architecture réelle.\n"
+        "3. ZÉRO HALLUCINATION : n'invente jamais une IP, une adresse MAC ou un chiffre absent des preuves.\n"
+        "4. Appelle `inspect_lan_wan_devices` ou `get_cybersecurity_posture` uniquement lorsque tu as besoin du détail nominatif des appareils ou du score de sécurité.\n"
+        "5. Si la question est hors périmètre réseau (sport, météo, cuisine, culture générale), décline courtoisement sans appeler d'outil.\n"
+        "6. RENDU VOCAL RÉFLÉCHI OBLIGATOIRE (`[VOIX]...[/VOIX]`) :\n"
+        "   À la toute fin de ta réponse, ajoute OBLIGATOIREMENT une balise :\n"
+        "   [VOIX]\n"
+        "   (3 à 6 phrases en français parlé naturel, fluide, chaleureux et réfléchi — SANS markdown, SANS astérisques, SANS émojis, SANS tableaux ni lecture d'adresses MAC).\n"
+        "   [/VOIX]\n"
+        "   Ce texte vocal est prononcé à voix haute au Superviseur : il NE DOIT JAMAIS être un comptage robotique du style « X appareils sur Y sont connectés », mais une véritable réponse orale réfléchie qui répond directement au fond et au « pourquoi » de sa question !"
     )
 
     messages: List[dict] = [{"role": "system", "content": system_prompt}]
@@ -286,21 +384,34 @@ def _call_llm_with_tools(
         r = "assistant" if turn.get("role") == "assistant" else "user"
         messages.append({"role": r, "content": str(turn.get("content", ""))[:900]})
 
-    ctrl_note = ""
-    if tool_evidence.get("net_control_result"):
-        ctrl_note = f"\n[RESULTAT_CONTROLE_DEJA_EXECUTE]: {json.dumps(tool_evidence['net_control_result'], ensure_ascii=False)}"
-    messages.append({"role": "user", "content": f"Périmètre actif: {tool_evidence.get('scope_label')}.{ctrl_note}\nQuestion: {question}"})
+    live_brief = {
+        "scope_label": tool_evidence.get("scope_label"),
+        "metrics": tool_evidence.get("metrics"),
+        "diagnostics": tool_evidence.get("diagnostics"),
+        "control_reality_audit": tool_evidence.get("control_reality_audit"),
+        "active_internet_policies": tool_evidence.get("active_internet_policies"),
+        "net_control_result": tool_evidence.get("net_control_result"),
+    }
+    messages.append(
+        {
+            "role": "user",
+            "content": (
+                f"CONTEXTE_TERRAIN_VERIFIE (temps réel) :\n{json.dumps(live_brief, ensure_ascii=False)}\n\n"
+                f"QUESTION DU SUPERVISEUR :\n{question}"
+            ),
+        }
+    )
 
     try:
-        for _step in range(3):
+        for _step in range(2):
             body = json.dumps(
                 {
                     "model": llm_cfg["model"],
                     "messages": messages,
                     "tools": tools_spec,
                     "tool_choice": "auto",
-                    "temperature": 0.15,
-                    "max_tokens": 800,
+                    "temperature": 0.25,
+                    "max_tokens": 1600,
                 }
             ).encode("utf-8")
             req = urllib.request.Request(
@@ -309,11 +420,11 @@ def _call_llm_with_tools(
                 headers={
                     "Authorization": f"Bearer {llm_cfg['api_key']}",
                     "Content-Type": "application/json",
-                    "User-Agent": "DADEREZO-Orchestrator/4.3",
+                    "User-Agent": "DADEREZO-Orchestrator/4.5",
                 },
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=28) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             msg = data["choices"][0]["message"]
             tool_calls = msg.get("tool_calls") or []
@@ -328,7 +439,7 @@ def _call_llm_with_tools(
                     "tool_calls": tool_calls,
                 }
             )
-            for tc in tool_calls[:5]:
+            for tc in tool_calls[:4]:
                 t_start = time.perf_counter()
                 fn_obj = tc.get("function") or {}
                 fn_name = fn_obj.get("name") or ""
@@ -359,8 +470,8 @@ def _call_llm_with_tools(
             {
                 "model": llm_cfg["model"],
                 "messages": messages,
-                "temperature": 0.15,
-                "max_tokens": 800,
+                "temperature": 0.25,
+                "max_tokens": 1600,
             }
         ).encode("utf-8")
         req_final = urllib.request.Request(
@@ -369,11 +480,11 @@ def _call_llm_with_tools(
             headers={
                 "Authorization": f"Bearer {llm_cfg['api_key']}",
                 "Content-Type": "application/json",
-                "User-Agent": "DADEREZO-Orchestrator/4.3",
+                "User-Agent": "DADEREZO-Orchestrator/4.5",
             },
             method="POST",
         )
-        with urllib.request.urlopen(req_final, timeout=15) as resp_f:
+        with urllib.request.urlopen(req_final, timeout=28) as resp_f:
             data_f = json.loads(resp_f.read().decode("utf-8"))
         txt_f = (data_f["choices"][0]["message"].get("content") or "").strip()
         return txt_f if txt_f else None
@@ -388,14 +499,13 @@ def _call_llm_grounded(
     tool_evidence: dict,
 ) -> Optional[str]:
     system_prompt = (
-        "Tu es l'Orchestrateur Principal DADEREZO v4.3 (Supervision & Pilotage Actif Réseau, Box et Multimédia). "
-        "Tu t'adresses au Superviseur Général en français clair, précis et structuré.\n"
-        "RÈGLES STRICTES ANTI-HALLUCINATION & PÉRIMÈTRE :\n"
-        "1. Utilise EXCLUSIVEMENT les chiffres, adresses IP, adresses MAC, box, médias et états présents dans `PREUVES_OUTILS`.\n"
-        "2. S'il manque une donnée, dis-le explicitement — n'invente JAMAIS un chiffre ou une IP.\n"
-        "3. Distingue toujours clairement la connexion au réseau local (LAN) et l'accès effectif à Internet (WAN).\n"
-        "4. Si la question est une simple salutation, réponds courtoisement et brièvement. Si la question est hors périmètre réseau (culture générale, météo, sport), décline poliment et rappelle ton rôle DADEREZO.\n"
-        "5. Appuie-toi sur l'historique multi-tours fourni pour résoudre les pronoms (« eux », « lui », « cette zone », « ma question précédente »)."
+        "Tu es l'Ingénieur Réseau Senior & Orchestrateur Principal DADEREZO v4.5. "
+        "Tu t'adresses au Superviseur Général en français naturel, lucide, réfléchi et adapté à la profondeur réelle de sa question.\n"
+        "RÈGLES STRICTES :\n"
+        "1. Ne récite JAMAIS un gabarit figé d'inventaire si l'utilisateur pose une question d'analyse, un constat terrain ou un « pourquoi ». Explique le mécanisme technique réel (notamment l'écart entre une règle logique rouge dans l'application et le routage physique réel vers la Box FAI vs la sonde PC).\n"
+        "2. Utilise EXCLUSIVEMENT les chiffres, adresses IP, sous-réseaux, politiques et tâches présents dans `PREUVES_OUTILS` — zéro hallucination.\n"
+        "3. Distingue clairement connexion au réseau local (LAN), sortie Internet (WAN) et application physique vs logique des coupures.\n"
+        "4. Termine OBLIGATOIREMENT ta réponse par `[VOIX]...[/VOIX]` contenant 3 à 6 phrases en français parlé fluide et réfléchi (sans markdown ni émojis) répondant directement sur le fond à la question posée."
     )
     messages = [{"role": "system", "content": system_prompt}]
     for turn in history[-8:]:
@@ -412,9 +522,9 @@ def _call_llm_grounded(
         }
     )
 
-    payload: dict = {"model": llm_cfg["model"], "messages": messages, "max_tokens": 800}
+    payload: dict = {"model": llm_cfg["model"], "messages": messages, "max_tokens": 1600}
     if "reasoner" not in llm_cfg["model"].lower():
-        payload["temperature"] = 0.15
+        payload["temperature"] = 0.25
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         f"{llm_cfg['base_url']}/chat/completions",
@@ -422,12 +532,12 @@ def _call_llm_grounded(
         headers={
             "Authorization": f"Bearer {llm_cfg['api_key']}",
             "Content-Type": "application/json",
-            "User-Agent": "DADEREZO-Orchestrator/4.3",
+            "User-Agent": "DADEREZO-Orchestrator/4.5",
         },
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=28) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             content = data["choices"][0]["message"]["content"].strip()
             return content if content else None
@@ -564,6 +674,25 @@ NETWORK_DOMAIN_KEYWORDS = (
     "retabl",
     "bloqu",
     "isol",
+    "rouge",
+    "vert",
+    "application",
+    "app",
+    "sonde",
+    "daderezo",
+    "fonctionn",
+    "marche",
+    "telephone",
+    "pc",
+    "ordinateur",
+    "hotspot",
+    "partage",
+    "pare-feu",
+    "firewall",
+    "physique",
+    "logique",
+    "politique",
+    "regle",
 )
 
 EXPLICIT_OFF_TOPIC_PATTERNS = (
@@ -588,7 +717,20 @@ def _has_network_domain_signal(q: str) -> bool:
     return any(kw in q for kw in NETWORK_DOMAIN_KEYWORDS)
 
 
-def _classify_conversational_intent(q: str, prev_ctx: dict) -> Optional[str]:
+def _is_observational_or_diagnostic_question(q: str) -> bool:
+    """Distingue un constat terrain, un « pourquoi » ou une action déjà faite dans le passé d'un ordre impératif."""
+    obs_patterns = (
+        r"\b(je\s+constate|on\s+constate|j'observe|je\s+remarque|je\s+vois\s+que|il\s+semble\s+que)\b",
+        r"\b(quand\s+bien\s+meme|meme\s+si|alors\s+que|pourtant|malgre|bien\s+que)\b",
+        r"\b(pourquoi|comment\s+se\s+fait|comment\s+ca\s+se\s+fait|explique|comprends\s+pas|est-ce\s+normal)\b",
+        r"\b(j'ai\s+(?:l'ai\s+)?(?:deja\s+)?(?:coupe\w*|desactiv\w*|bloqu\w*|etein\w*)|je\s+l'ai\s+(?:coupe\w*|desactiv\w*|bloqu\w*)|deja\s+(?:coupe\w*|desactiv\w*)|avait\s+coupe\w*|a\s+ete\s+coupe\w*)\b",
+        r"\b(continue\s+de\s+fonctionn\w*|fonctionn\w*\s+toujours|fonctionn\w*\s+encore|marche\s+encore|marche\s+toujours|passe\s+toujours|passe\s+encore|tout\s+est\s+en\s+rouge|est\s+en\s+rouge)\b",
+        r"^(est-ce\s+que|comment\s+fonctionne|quelle\s+est\s+la\s+difference)\b",
+    )
+    return any(re.search(pat, q) for pat in obs_patterns)
+
+
+def _classify_conversational_intent(q: str, prev_ctx: dict, llm_active: bool = False) -> Optional[str]:
     """Détecte les intentions conversationnelles pures : mémoire méta, salutations/capacités, ou hors-périmètre."""
     # 1. Mémoire explicite de conversation
     if re.search(
@@ -656,8 +798,8 @@ def _classify_conversational_intent(q: str, prev_ctx: dict) -> Optional[str]:
     if not has_net:
         if any(re.search(pat, q) for pat in EXPLICIT_OFF_TOPIC_PATTERNS):
             return "hors_perimetre"
-        # Question générale sans aucun terme réseau ni lien au tour précédent
-        if len(q.split()) >= 3 and (
+        # Si le cerveau LLM est actif, ne jamais bloquer une question nuancée qui n'est pas explicitement hors-sujet
+        if not llm_active and len(q.split()) >= 3 and (
             "?" in q
             or re.match(
                 r"^(quel|quelle|quels|quelles|qui|ou|quand|combien|comment|pourquoi|donne|raconte|explique|ecris|calcule)\b",
@@ -669,8 +811,83 @@ def _classify_conversational_intent(q: str, prev_ctx: dict) -> Optional[str]:
     return None
 
 
+def _build_control_reality_audit(
+    dashboards: List[dict],
+    all_devices: List[dict],
+    active_policies: List[dict],
+    primary_aid: str,
+) -> dict:
+    """Construit l'audit factuel entre l'état logique (politiques app en rouge) et la réalité physique terrain (Box/WAN/Sonde)."""
+    if not dashboards:
+        return {"has_probe": False}
+
+    d0 = dashboards[0]
+    ag0 = d0.get("agent") or {}
+    st0 = d0.get("state") or {}
+    sum0 = d0.get("summary") or {}
+    is_sim = bool(ag0.get("is_simulation") or str(ag0.get("id") or "").startswith("simulation-"))
+
+    probe_ip = st0.get("ip_local") or ag0.get("ip") or "inconnue"
+    gw_ip = st0.get("gw") or "inconnue"
+    physical_wan = st0.get("internet_status") or "unknown"
+    wan_lat = st0.get("wan_latency_ms")
+    logical_main_on = bool(sum0.get("main_box_internet_enabled", True))
+    cut_policies = [p for p in active_policies if not p.get("internet_enabled", True)]
+
+    subnets_set = set()
+    for dev in all_devices:
+        ip_s = str(dev.get("ip") or "")
+        parts = ip_s.split(".")
+        if len(parts) == 4 and all(p.isdigit() for p in parts):
+            subnets_set.add(f"{parts[0]}.{parts[1]}.{parts[2]}.0/24")
+    detected_subnets = sorted(subnets_set)
+    has_hotspot_137 = any(s.startswith("192.168.137.") for s in detected_subnets)
+
+    recent_tasks_raw = storage.list_tasks_raw(primary_aid, limit=6) if primary_aid else []
+    recent_tasks = [
+        {
+            "id": t.get("id"),
+            "action": t.get("action"),
+            "status": t.get("status"),
+            "created_at": t.get("created_at"),
+            "result": t.get("result"),
+        }
+        for t in recent_tasks_raw
+    ]
+
+    discrepancy = bool((not is_sim) and cut_policies and physical_wan == "up")
+
+    return {
+        "is_simulation": is_sim,
+        "probe_agent_id": primary_aid,
+        "probe_host_ip": probe_ip,
+        "gateway_box_ip": gw_ip,
+        "detected_lan_subnets": detected_subnets,
+        "windows_ics_hotspot_detected": has_hotspot_137,
+        "logical_main_box_internet_enabled": logical_main_on,
+        "active_cut_policies_count": len(cut_policies),
+        "physical_wan_status_measured_by_probe": physical_wan,
+        "physical_wan_latency_ms": wan_lat,
+        "logical_cut_vs_physical_wan_discrepancy": discrepancy,
+        "recent_probe_tasks": recent_tasks,
+        "architectural_explanation": (
+            "En mode réel, couper Internet dans l'application met immédiatement à jour la politique logique Cloud (affichage en rouge) "
+            "et envoie la tâche `apply_internet_policy` à la sonde locale. Cependant, lorsque la sonde (`daderezo_sonde.py`) tourne sur un "
+            f"PC client standard ({probe_ip}) et non en passerelle physique devant la Box principale ({gw_ip}), les smartphones et autres "
+            f"postes connectés directement au Wi-Fi de la Box ({gw_ip}) sortent vers Internet sans passer par le PC sonde. "
+            "Pour bloquer physiquement le trafic sur place : (1) pour les appareils connectés au Point d'accès mobile du PC (192.168.137.x), "
+            "lancer `daderezo_sonde.py --active-control` dans PowerShell en Administrateur ; (2) pour tout le Wi-Fi de la Box principale "
+            f"({gw_ip}), connecter le driver API/admin de la Box (Huawei HiLink / MikroTik / OpenWrt) ou placer un routeur programmable en coupure."
+            if not is_sim
+            else "Mode simulation : les politiques de coupure simulent immédiatement l'état WAN."
+        ),
+    }
+
+
 def _parse_internet_command(q: str, all_devices: List[dict], prev_ctx: Optional[dict] = None) -> Optional[dict]:
-    """Détecte une demande naturelle d'activation ou de coupure d'Internet (Box / Zone & CIDR / Appareil + pronoms)."""
+    """Détecte une demande naturelle IMPÉRATIVE d'activation ou de coupure d'Internet (sans confondre avec un constat ou un « pourquoi »)."""
+    if _is_observational_or_diagnostic_question(q):
+        return None
     off_match = re.search(
         r"\b(coupe\w*|desactiv\w*|bloqu\w*|etein\w*|suspend\w*|isol\w*|ferme\w*)\b.*\binternet\b"
         r"|\binternet\b.*\b(off|coupe\w*|desactiv\w*|bloqu\w*)\b"
@@ -1025,10 +1242,12 @@ def run_multi_agent_mission(
         f"Requête validée (isolation tenant={org_slug}, droits_actifs={can_write}, historique={len(history)} tours).",
     )
 
+    llm_cfg = _detect_llm_config(llm_api_key, llm_model, llm_provider)
+
     # =========================================================================
     # COMPRÉHENSION CONVERSATIONNELLE RAPIDE (Salutations, Hors-Périmètre, Méta-Mémoire)
     # =========================================================================
-    conv_intent = _classify_conversational_intent(q, prev_ctx)
+    conv_intent = _classify_conversational_intent(q, prev_ctx, llm_active=bool(llm_cfg))
 
     if conv_intent == "hors_perimetre":
         t_conv = time.perf_counter()
@@ -1253,22 +1472,30 @@ def run_multi_agent_mission(
     task_queued: Optional[dict] = None
     pending_approval: Optional[dict] = None
 
+    is_diagnostic_obs = _is_observational_or_diagnostic_question(q)
     inet_cmd = _parse_internet_command(q, all_devices, prev_ctx=prev_ctx)
-    wants_box_optimize = any(
-        kw in q
-        for kw in (
-            "optimis",
-            "configur",
-            "canaux wifi",
-            "canal wifi",
-            "qos",
-            "regle les box",
-            "regler les box",
-            "ameliorer la connexion",
+    wants_box_optimize = (
+        not is_diagnostic_obs
+        and any(
+            kw in q
+            for kw in (
+                "optimis",
+                "configur",
+                "canaux wifi",
+                "canal wifi",
+                "qos",
+                "regle les box",
+                "regler les box",
+                "ameliorer la connexion",
+            )
         )
-    ) and any(kw in q for kw in ("box", "routeur", "wifi", "relais", "reseau", "internet", "dns", "qos"))
+        and any(kw in q for kw in ("box", "routeur", "wifi", "relais", "reseau", "internet", "dns", "qos"))
+    )
 
-    wants_box_reboot = bool(re.search(r"\b(redemarr\w*|reboot\w*)\b.*\b(box|routeur|modem|passerelle)\b", q))
+    wants_box_reboot = (
+        not is_diagnostic_obs
+        and bool(re.search(r"\b(redemarr\w*|reboot\w*)\b.*\b(box|routeur|modem|passerelle)\b", q))
+    )
 
     if inet_cmd and primary_aid:
         t_nc = time.perf_counter()
@@ -1774,7 +2001,13 @@ def run_multi_agent_mission(
         lines.append(operator_ticket_text)
         spoken_parts.append("J'ai rédigé le ticket technique complet pour votre opérateur.")
 
-    if security_audit_text and not net_control_result:
+    control_reality_audit = _build_control_reality_audit(dashboards, all_devices, active_policies, primary_aid)
+    asks_logical_vs_physical = bool(
+        is_diagnostic_obs
+        and any(w in q for w in ("rouge", "continue", "fonctionn", "marche", "coupe", "desactiv", "bloqu", "physique", "box"))
+    )
+
+    if security_audit_text and not net_control_result and not asks_logical_vs_physical:
         intent = "analyse_securite"
         focus_ips = [u["ip"] for u in unknown_devs if u.get("ip")]
         focus_label = "Équipements non reconnus (audit sécurité)" if focus_ips else f"Posture sécurité {scope_label}"
@@ -1788,7 +2021,30 @@ def run_multi_agent_mission(
         and not net_control_result
         and not pending_approval
     ):
-        if zone_filter:
+        if asks_logical_vs_physical:
+            intent = "diagnostic_ecart_logique_physique"
+            gw_lbl = control_reality_audit.get("gateway_box_ip") or "192.168.8.1"
+            prb_lbl = control_reality_audit.get("probe_host_ip") or "poste client"
+            has_hs = control_reality_audit.get("windows_ics_hotspot_detected")
+            hs_note = (
+                " Votre sonde détecte d'ailleurs déjà un partage Hotspot Windows (`192.168.137.x`) : en lançant `daderezo_sonde.py --active-control` dans PowerShell Administrateur, les appareils connectés à ce partage seront bloqués physiquement."
+                if has_hs
+                else ""
+            )
+            lines.append(
+                f"🔍 **Diagnostic d'Ingénierie Réseau — Pourquoi Internet continue sur place malgré l'affichage rouge ({scope_label})** :\n\n"
+                f"1. **Ce que fait le bouton rouge dans l'application (Couche Logique)** : lorsque vous coupez Internet sur DADEREZO, la règle administrative est enregistrée dans Supabase (les indicateurs passent immédiatement au rouge) et la consigne `apply_internet_policy` est envoyée à votre sonde locale (`{prb_lbl}`).\n"
+                f"2. **Pourquoi la connexion continue physiquement sur vos appareils (Couche Physique)** : sur votre réseau local, les téléphones et ordinateurs en Wi-Fi communiquent **directement avec votre Box principale (`{gw_lbl}`)** sans traverser le PC où tourne la sonde (`{prb_lbl}`). Une sonde installée sur un poste client standard observe le réseau mais ne peut pas intercepter ni couper les paquets qui vont directement des smartphones vers la Box `{gw_lbl}`.\n"
+                f"3. **Comment rendre la coupure 100 % physique sur place** :\n"
+                f"   • **Option A (Pilotage direct de la Box `{gw_lbl}`)** : connecter les identifiants administrateur / API de votre Box (Huawei HiLink, MikroTik RouterOS ou OpenWrt) afin que la sonde désactive physiquement le WAN ou filtre les adresses MAC dans la Box.\n"
+                f"   • **Option B (Mode Passerelle / Hotspot PC)** : faire passer les utilisateurs par le point d'accès partagé du PC sonde et lancer `daderezo_sonde.py --active-control` en tant qu'Administrateur.{hs_note}"
+            )
+            spoken_parts.append(
+                f"Votre constat est tout à fait normal d'un point de vue physique. Lorsque vous coupez Internet dans l'application, tout passe en rouge car la règle administrative est bien enregistrée. "
+                f"Cependant, sur place, vos téléphones et ordinateurs sont connectés directement au Wi-Fi de votre Box principale {gw_lbl}, sans passer par le PC {prb_lbl} où tourne la sonde. "
+                f"La sonde sur un poste client ne peut donc pas bloquer physiquement le trafic de la Box tant qu'elle n'a pas les accès d'administration du routeur, ou que les appareils ne passent pas par le point d'accès partagé du PC lancé en mode administrateur."
+            )
+        elif zone_filter:
             intent = "filtre_zone"
             focus_ips = [x["ip"] for x in scoped_devices if x.get("ip")]
             focus_label = f"Zone {zone_filter.capitalize()}"
@@ -1843,7 +2099,10 @@ def run_multi_agent_mission(
                 )
 
     asks_intrus = any(w in q for w in ("intrus", "inconnu", "suspect")) and not security_audit_text
-    asks_outage = any(w in q for w in ("panne", "coupure", "fai", "passerelle", "latence", "lent", "pourquoi"))
+    asks_outage = (
+        any(w in q for w in ("panne", "coupure", "fai", "passerelle", "latence", "lent", "pourquoi"))
+        and not asks_logical_vs_physical
+    )
 
     if asks_outage and not operator_ticket_text:
         lines.append("\n🩺 Corrélation DIAG-NET :\n" + "\n".join(f"• {d}" for d in diagnostics_per_site))
@@ -1863,13 +2122,13 @@ def run_multi_agent_mission(
     refused_write = bool(net_control_result and net_control_result.get("status") == "auth_required")
 
     engine_mode = "multi_agent_autonomous"
-    llm_cfg = _detect_llm_config(llm_api_key, llm_model, llm_provider)
     if llm_cfg and not refused_write and pending_approval is None:
         t_llm = time.perf_counter()
         evidence = {
             "scope_label": scope_label,
             "intent_detected": intent,
             "metrics": metrics,
+            "control_reality_audit": control_reality_audit,
             "security_audit": security_audit_meta,
             "net_control_result": net_control_result,
             "active_internet_policies": active_policies,
@@ -1897,7 +2156,11 @@ def run_multi_agent_mission(
             llm_reply = _call_llm_grounded(llm_cfg, q_clean, history, evidence)
             mode_tag = "grounded"
         if llm_reply:
-            deterministic_answer = llm_reply
+            written_ans, spoken_ans = _extract_written_and_spoken_llm(llm_reply)
+            if written_ans:
+                deterministic_answer = written_ans
+            if spoken_ans:
+                spoken_summary = spoken_ans
             engine_mode = f"multi_agent_llm ({llm_cfg['provider']}:{llm_cfg['model']}:{mode_tag})"
             _trace(
                 "ORCHESTRATOR-Z",
@@ -1905,7 +2168,7 @@ def run_multi_agent_mission(
                 f"{llm_cfg['provider']}/{llm_cfg['model']}",
                 "OK",
                 t_llm,
-                f"Synthèse agentique {llm_cfg['provider']} ({mode_tag}).",
+                f"Synthèse intelligente écrite + vocale réfléchie {llm_cfg['provider']} ({mode_tag}).",
             )
 
     storage.append_session_turn(

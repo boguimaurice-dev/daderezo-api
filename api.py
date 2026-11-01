@@ -448,8 +448,8 @@ def _status_payload() -> dict:
         "service": "DADEREZO API",
         "status": "ok",
         "mode": "active_governed",
-        "version": "4.4.0",
-        "architecture": "multi_agent_z_v4_4_lucid_workmode",
+        "version": "4.5.0",
+        "architecture": "multi_agent_z_v4_5_intelligent_voice_and_reality",
         "agents_pipeline": ["SENTINEL-SEC", "TOPO-SCAN", "DIAG-NET", "NET-CONTROL", "MEDIA-HUB"],
         "capabilities": [
             "internet_switch_global_subnet_device",
@@ -463,6 +463,8 @@ def _status_payload() -> dict:
             "contabo_gitops_autodeploy",
             "strict_work_vs_simulation_separation",
             "single_file_preconfigured_probe",
+            "thoughtful_llm_voice_synthesis",
+            "physical_vs_logical_control_audit",
         ],
         "db": storage.get_backend_mode(),
         "llm_configured": bool(llm_cfg),
@@ -645,13 +647,15 @@ def _build_single_file_probe_script(api_url: str, org_slug: str, org_name: str, 
     return f'''#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-DADEREZO v4.4 — Sonde Terrain Réelle Autonome (1 seul fichier · Zéro dépendance externe).
+DADEREZO v4.5 — Sonde Terrain Réelle Autonome (1 seul fichier · Zéro dépendance externe).
 Pré-configurée pour l'espace privé isolé : {org_name} ({org_slug})
 
 Usage sur Windows, Linux ou macOS :
     python daderezo_sonde.py
+    python daderezo_sonde.py --active-control   # (en Administrateur : active le filtrage pare-feu local / Hotspot)
 """
 import concurrent.futures
+import ctypes
 import ipaddress
 import json
 import os
@@ -670,6 +674,7 @@ SITE_NAME = os.environ.get("DADEREZO_SITE_NAME", {safe_org_name})
 PROBE_API_KEY = os.environ.get("DADEREZO_PROBE_KEY", {safe_probe_key})
 SCAN_INTERVAL = int(os.environ.get("DADEREZO_INTERVAL", "15"))
 TASK_POLL_SECONDS = int(os.environ.get("DADEREZO_TASK_POLL", "5"))
+ACTIVE_CONTROL = ("--active-control" in sys.argv) or (os.environ.get("DADEREZO_ACTIVE_CONTROL", "0").strip() == "1")
 
 OUI_VENDORS = {{
     "00:e0:4c": "Realtek", "fc:ec:da": "Ubiquiti", "74:ac:b9": "Ubiquiti", "24:5a:4c": "Ubiquiti",
@@ -923,13 +928,58 @@ def _api_call(method, path, body=None):
         return json.loads(resp.read().decode("utf-8"))
 
 
+def _is_os_admin():
+    try:
+        if platform.system().lower() == "windows":
+            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        return hasattr(os, "geteuid") and os.geteuid() == 0
+    except Exception:
+        return False
+
+
+def _apply_local_policy_task(task, snap):
+    raw_p = task.get("payload_json")
+    payload = {{}}
+    if isinstance(raw_p, dict):
+        payload = raw_p
+    elif isinstance(raw_p, str) and raw_p.strip():
+        try:
+            payload = json.loads(raw_p)
+        except Exception:
+            payload = {{}}
+    enabled = bool(payload.get("internet_enabled", True))
+    scope_t = str(payload.get("scope_type") or "global")
+    target_v = str(payload.get("target_value") or "main_box")
+    gw_ip = snap.get("gw") or "la Box"
+    admin_ok = _is_os_admin()
+
+    if ACTIVE_CONTROL and admin_ok and platform.system().lower() == "windows":
+        rule_name = f"DADEREZO_POLICY_{{re.sub(r'[^A-Za-z0-9_.-]', '_', target_v)}}"
+        subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule", f"name={{rule_name}}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if not enabled and scope_t in ("device", "subnet") and re.match(r"^[0-9./]+$", target_v):
+            subprocess.run(
+                ["netsh", "advfirewall", "firewall", "add", "rule", f"name={{rule_name}}", "dir=in", "action=block", f"remoteip={{target_v}}"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return f"Pare-feu Windows actif appliqué pour {{target_v}} (trafic direct Box {{gw_ip}} hors Hotspot nécessite driver routeur)."
+
+    state_txt = "autorisée" if enabled else "coupée logiquement"
+    return (
+        f"Règle {{scope_t}}:{{target_v}} ({{state_txt}}) reçue par sonde cliente ({{snap.get('ip_local')}}). "
+        f"Note physique : les appareils connectés directement au Wi-Fi de la Box {{gw_ip}} continuent de sortir par {{gw_ip}} tant que le pilotage API de la Box ou le mode passerelle Hotspot Administrateur n'est pas activé."
+    )
+
+
 def main():
-    print("=" * 68)
-    print(f"  DADEREZO v4.4 · SONDE TERRAIN RÉELLE ACTIVE")
+    admin_flag = _is_os_admin()
+    print("=" * 72)
+    print(f"  DADEREZO v4.5 · SONDE TERRAIN RÉELLE ACTIVE")
     print(f"  Organisation : {{SITE_NAME}}")
     print(f"  Identifiant  : {{AGENT_ID}}")
+    print(f"  Privilèges   : {{'Administrateur OS' if admin_flag else 'Utilisateur standard (observation LAN/WAN)'}}")
     print(f"  Serveur SaaS : {{API_URL}}")
-    print("=" * 68)
+    print("=" * 72)
     known_macs = set()
     first_cycle = True
 
@@ -971,7 +1021,11 @@ def main():
                 print(f"[ORDRE REÇU] Exécution immédiate de « {{act}} » (#{{tid}})...")
                 snap = collect_real_snapshot(do_sweep=(act == "sweep"), known_macs=known_macs)
                 _api_call("POST", "/data", snap)
-                q = urllib.parse.urlencode({{"result": f"Action réelle {{act}} exécutée ({{len(snap['probes'])}} équipements relevés)"}})
+                if act == "apply_internet_policy":
+                    res_msg = _apply_local_policy_task(t, snap)
+                else:
+                    res_msg = f"Action réelle {{act}} exécutée ({{len(snap['probes'])}} équipements relevés)"
+                q = urllib.parse.urlencode({{"result": res_msg}})
                 _api_call("POST", f"/tasks/{{urllib.parse.quote(AGENT_ID)}}/{{tid}}/ack?{{q}}")
         except KeyboardInterrupt:
             raise
@@ -1329,7 +1383,10 @@ def _build_dashboard(agent_id: str, ctx: dict) -> dict:
     without_inet = len(devices) - with_inet
     lan_only_no_inet = sum(1 for d in devices if d["status"] == "up" and d.get("internet_access") == "non")
 
-    eff_inet_status = "cut_by_admin" if not main_box_inet_on else state.get("internet_status", "unknown")
+    raw_inet_status = state.get("internet_status", "unknown")
+    is_sim_agent = bool((agent or {}).get("is_simulation") or str(agent_id).startswith("simulation-"))
+    eff_inet_status = "cut_by_admin" if not main_box_inet_on else raw_inet_status
+    logical_vs_physical_gap = bool((not is_sim_agent) and (not main_box_inet_on) and raw_inet_status == "up")
 
     return {
         "agent": agent,
@@ -1350,6 +1407,8 @@ def _build_dashboard(agent_id: str, ctx: dict) -> dict:
             "devices_without_internet": without_inet,
             "devices_lan_only_no_internet": lan_only_no_inet,
             "internet_status": eff_inet_status,
+            "physical_wan_status": raw_inet_status,
+            "logical_vs_physical_gap": logical_vs_physical_gap,
             "main_box_internet_enabled": main_box_inet_on,
             "active_policies_count": len(policies),
             "boxes_count": len(boxes),

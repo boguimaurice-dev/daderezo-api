@@ -875,6 +875,7 @@ body[data-workspace="work"] .site-card-eyebrow{color:var(--emerald-ink)}
       <div class="sup-chips" aria-label="Missions rapides Superviseur Général">
         <button class="sup-chip" type="button" data-ask="Combien d'appareils sont connectés au réseau et lesquels ont ou n'ont pas accès à Internet ?">📊 Appareils connectés &amp; Internet</button>
         <button class="sup-chip" type="button" data-work-only data-ask="Analyse l'état réel de ma connexion FAI, de ma passerelle et des latences mesurées par ma sonde">🔍 Diagnostic réel FAI vs LAN</button>
+        <button class="sup-chip" type="button" data-work-only data-ask="Explique-moi la réalité physique vs logique de mes coupures Internet sur mon réseau actuel et comment bloquer physiquement la Box">💡 Réalité physique vs logique Box</button>
         <button class="sup-chip" type="button" data-work-only data-ask="Vérifie la posture de sécurité de mon réseau et signale tout appareil ou adresse MAC inhabituelle">🛡️ Audit Sécurité &amp; MAC</button>
         <button class="sup-chip" type="button" data-ask="Optimise toutes les box et les canaux Wi-Fi pour un fonctionnement optimal">🚀 Optimiser mes Box</button>
         <button class="sup-chip" type="button" data-sim-only data-ask="Coupe Internet dans la zone Communauté">⛔ Couper Internet Communauté</button>
@@ -905,6 +906,14 @@ body[data-workspace="work"] .site-card-eyebrow{color:var(--emerald-ink)}
         </div>
 
         <div class="sup-answer" id="supervisorAnswerText"></div>
+
+        <div class="sup-voice-box hidden" id="supervisorVoiceBox" style="margin-top:10px;padding:10px 14px;border-radius:10px;border:1px solid rgba(56,189,248,.32);background:rgba(14,165,233,.08);font-size:13.5px;line-height:1.55;color:var(--ink)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+            <strong style="font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--cyan-ink)">🔊 Rendu vocal réfléchi (synthèse orale IA)</strong>
+            <span id="ttsSpeakingBadge" style="font-size:11px;font-family:var(--mono);color:var(--emerald-ink)">Prêt</span>
+          </div>
+          <div id="supervisorVoiceText"></div>
+        </div>
 
         <div class="sup-reply-actions">
           <button class="btn secondary" id="replayTtsBtn" type="button">🔊 Écouter la réponse</button>
@@ -2250,8 +2259,13 @@ function updateUI(data) {
   const kpiInet = document.getElementById('kpiInternet');
   const kpiInetNote = document.getElementById('kpiInternetNote');
   if (!mainBoxInternetOn) {
-    kpiInet.textContent = 'Coupé (Admin)'; kpiInet.className = 'kpi-value warn';
-    kpiInetNote.textContent = 'Box Principale WAN coupée · LAN local actif';
+    if (!isSim && inetStatus === 'up') {
+      kpiInet.textContent = 'Règle OFF · WAN actif'; kpiInet.className = 'kpi-value warn';
+      kpiInetNote.textContent = 'Coupure logique active sur l’app · La Box laisse encore sortir Internet';
+    } else {
+      kpiInet.textContent = 'Coupé (Confirmé)'; kpiInet.className = 'kpi-value warn';
+      kpiInetNote.textContent = 'Box Principale WAN coupée · LAN local actif';
+    }
   } else if (inetStatus === 'up') {
     kpiInet.textContent = 'Connecté'; kpiInet.className = 'kpi-value ok';
     kpiInetNote.textContent = state.wan_latency_ms ? `Latence WAN : ${Number(state.wan_latency_ms).toFixed(0)} ms` : 'Sortie Internet vérifiée';
@@ -2427,22 +2441,110 @@ document.getElementById('ttsToggleBtn').addEventListener('click', () => {
   updateTtsToggleButton();
 });
 
+let ttsChunkSession = 0;
+if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.getVoices) {
+  try { window.speechSynthesis.getVoices(); } catch (_) {}
+  if ('onvoiceschanged' in window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => { try { window.speechSynthesis.getVoices(); } catch (_) {} };
+  }
+}
+
+function pickBestFrenchVoice() {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window) || !window.speechSynthesis.getVoices) return null;
+  const voices = window.speechSynthesis.getVoices() || [];
+  const frVoices = voices.filter(v => (v.lang || '').toLowerCase().startsWith('fr'));
+  if (!frVoices.length) return null;
+  const preferred = frVoices.find(v => /natural|neural|online|google|denise|henri|vivienne|eloise|amelie|thomas/i.test(v.name || ''));
+  return preferred || frVoices[0];
+}
+
+function sanitizeTextForSpeech(raw) {
+  return String(raw || '')
+    .replace(/\[VOIX\s*:?\s*\]|\[\/VOIX\]/gi, ' ')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/^[•*\-–—►▸]+\s*/gm, '')
+    .replace(/\|[^\n]+\|/g, ' ')
+    .replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\uFE0F]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function splitSpeechChunks(text, maxLen = 190) {
+  const clean = sanitizeTextForSpeech(text);
+  if (!clean) return [];
+  const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean];
+  const chunks = [];
+  let buf = '';
+  for (const s of sentences) {
+    const trimmed = s.trim();
+    if (!trimmed) continue;
+    if ((buf ? buf.length + 1 + trimmed.length : trimmed.length) <= maxLen) {
+      buf = buf ? `${buf} ${trimmed}` : trimmed;
+    } else {
+      if (buf) chunks.push(buf);
+      if (trimmed.length <= maxLen) {
+        buf = trimmed;
+      } else {
+        const parts = trimmed.split(/[,;:]\s+/);
+        let sub = '';
+        for (const p of parts) {
+          if ((sub ? sub.length + 2 + p.length : p.length) <= maxLen) {
+            sub = sub ? `${sub}, ${p}` : p;
+          } else {
+            if (sub) chunks.push(sub);
+            sub = p.slice(0, maxLen);
+          }
+        }
+        buf = sub;
+      }
+    }
+  }
+  if (buf) chunks.push(buf);
+  return chunks;
+}
+
 function speakFrench(text) {
   if (!text || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   try {
+    ttsChunkSession += 1;
+    const mySession = ttsChunkSession;
     window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'fr-FR';
-    utter.rate = 1.02;
-    const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
-    const frVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('fr'));
-    if (frVoice) utter.voice = frVoice;
-    window.speechSynthesis.speak(utter);
+    const chunks = splitSpeechChunks(text, 190);
+    if (!chunks.length) return;
+    const frVoice = pickBestFrenchVoice();
+    const badge = document.getElementById('ttsSpeakingBadge');
+    let idx = 0;
+
+    const speakNext = () => {
+      if (mySession !== ttsChunkSession || idx >= chunks.length) {
+        if (badge && mySession === ttsChunkSession) badge.textContent = '✓ Lecture terminée';
+        return;
+      }
+      const utter = new SpeechSynthesisUtterance(chunks[idx]);
+      utter.lang = 'fr-FR';
+      utter.rate = 1.0;
+      utter.pitch = 1.0;
+      if (frVoice) utter.voice = frVoice;
+      if (badge) badge.textContent = `🔊 Lecture en cours (${idx + 1}/${chunks.length})…`;
+      utter.onend = () => { idx += 1; speakNext(); };
+      utter.onerror = () => { idx += 1; speakNext(); };
+      window.speechSynthesis.speak(utter);
+    };
+    speakNext();
   } catch (_) {}
 }
 
 document.getElementById('replayTtsBtn').addEventListener('click', () => { if (lastSpokenReply) speakFrench(lastSpokenReply); });
-document.getElementById('stopTtsBtn').addEventListener('click', () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); });
+document.getElementById('stopTtsBtn').addEventListener('click', () => {
+  ttsChunkSession += 1;
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  const badge = document.getElementById('ttsSpeakingBadge');
+  if (badge) badge.textContent = '⏹ Lecture arrêtée';
+});
 
 document.getElementById('toggleBreakdownBtn').addEventListener('click', () => {
   const wrap = document.getElementById('supervisorBreakdownWrap');
@@ -2534,6 +2636,36 @@ function standaloneSupervisorAsk(questionRaw) {
   };
 }
 
+function renderSafeFormattedText(container, raw) {
+  if (!container) return;
+  container.textContent = '';
+  const clean = String(raw || '').replace(/\[VOIX\s*:?\s*\][\s\S]*?(\[\/VOIX\]|$)/gi, '').trim();
+  const tokenRe = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  let lastIdx = 0;
+  let match;
+  while ((match = tokenRe.exec(clean)) !== null) {
+    if (match.index > lastIdx) {
+      container.appendChild(document.createTextNode(clean.slice(lastIdx, match.index)));
+    }
+    const tok = match[0];
+    if (tok.startsWith('**') && tok.endsWith('**')) {
+      const b = document.createElement('strong');
+      b.textContent = tok.slice(2, -2);
+      container.appendChild(b);
+    } else if (tok.startsWith('`') && tok.endsWith('`')) {
+      const c = document.createElement('code');
+      c.style.color = 'var(--cyan-ink)';
+      c.style.fontFamily = 'var(--mono)';
+      c.textContent = tok.slice(1, -1);
+      container.appendChild(c);
+    }
+    lastIdx = tokenRe.lastIndex;
+  }
+  if (lastIdx < clean.length) {
+    container.appendChild(document.createTextNode(clean.slice(lastIdx)));
+  }
+}
+
 function renderSupervisorReply(res, silent = false, forceVoice = false) {
   document.getElementById('supervisorReplyBox').classList.remove('hidden');
 
@@ -2542,7 +2674,21 @@ function renderSupervisorReply(res, silent = false, forceVoice = false) {
   document.getElementById('supMetInetYes').textContent = `${m.internet_yes ?? 0} appareil(s)`;
   document.getElementById('supMetInetNo').textContent = `${m.internet_no ?? 0} appareil(s)`;
   document.getElementById('supMetOffline').textContent = `${m.offline ?? 0} appareil(s)`;
-  document.getElementById('supervisorAnswerText').textContent = res.answer || '';
+  renderSafeFormattedText(document.getElementById('supervisorAnswerText'), res.answer || '');
+
+  const voiceBox = document.getElementById('supervisorVoiceBox');
+  const voiceTextEl = document.getElementById('supervisorVoiceText');
+  const badge = document.getElementById('ttsSpeakingBadge');
+  const spokenClean = sanitizeTextForSpeech(res.spoken_text || res.answer || '');
+  if (voiceBox && voiceTextEl) {
+    if (spokenClean) {
+      voiceTextEl.textContent = spokenClean;
+      voiceBox.classList.remove('hidden');
+      if (badge) badge.textContent = (!silent && (forceVoice || ttsAutoEnabled)) ? '🔊 Lecture auto…' : 'Prêt à écouter';
+    } else {
+      voiceBox.classList.add('hidden');
+    }
+  }
 
   const trace = res.agent_trace || [];
   updatePipelineVisual(trace);
@@ -2635,23 +2781,33 @@ async function askSupervisor(questionOverride, fromVoice = false, silentRefresh 
   if (!silentRefresh) statusEl.textContent = 'Orchestration en cours : SENTINEL-SEC → TOPO-SCAN → DIAG-NET → OPS-DISPATCH…';
 
   try {
-    if (isStandaloneMode) {
+    const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+    if (isStandaloneMode && !isWork) {
       const localRes = standaloneSupervisorAsk(q);
       renderSupervisorReply(localRes, silentRefresh, fromVoice);
       statusEl.textContent = 'Mission exécutée (aperçu autonome).';
       return;
     }
 
-    const res = await fetch(`${getApiBase()}/supervisor/ask`, {
+    const reqBody = JSON.stringify({
+      question: q,
+      agent_id: currentAgentId || null,
+      scope: scopeSel ? scopeSel.value : 'site',
+      session_id: sessionId
+    });
+    let res = await fetch(`${getApiBase()}/supervisor/ask`, {
       method: 'POST',
       headers: getHeaders(true),
-      body: JSON.stringify({
-        question: q,
-        agent_id: currentAgentId || null,
-        scope: scopeSel ? scopeSel.value : 'site',
-        session_id: sessionId
-      })
+      body: reqBody
     });
+    if (!res.ok && isWork) {
+      // Nouvelle tentative immédiate en cas de micro-coupure réseau en Mode Travail Réel
+      res = await fetch(`${getApiBase()}/supervisor/ask`, {
+        method: 'POST',
+        headers: getHeaders(true),
+        body: reqBody
+      });
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
     renderSupervisorReply(payload, silentRefresh, fromVoice);
@@ -2659,7 +2815,12 @@ async function askSupervisor(questionOverride, fromVoice = false, silentRefresh 
     if ((payload.task_queued && payload.task_queued.status === 'queued') || payload.net_control_result) {
       refreshAll();
     }
-  } catch (_) {
+  } catch (err) {
+    const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+    if (isWork) {
+      statusEl.textContent = '⚠️ Délai réseau ou liaison serveur momentanément interrompue — réessayez (aucune fausse donnée de simulation injectée).';
+      return;
+    }
     const localRes = standaloneSupervisorAsk(q);
     renderSupervisorReply(localRes, silentRefresh, fromVoice);
     statusEl.textContent = 'Réponse générée sur cache local.';

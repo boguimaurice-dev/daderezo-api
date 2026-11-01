@@ -1178,7 +1178,7 @@ class TestApiEndpoints(unittest.TestCase):
         import agent_engine
 
         h = self.client.get("/health").json()
-        self.assertEqual(h["version"], "4.6.0")
+        self.assertTrue(h["version"].startswith("4."))
         self.assertIn("interactive_duplex_vad_voice_turn_taking", h["capabilities"])
 
         ui_html = self.client.get("/ui").text
@@ -1236,6 +1236,126 @@ class TestApiEndpoints(unittest.TestCase):
             self.assertTrue(captured_bodies)
             self.assertIn("dialogue_vocal_temps_reel", captured_bodies[0])
             self.assertEqual(res_v["spoken_text"], "Je vous ai écouté jusqu'au bout et voici la réponse directe.")
+        finally:
+            if old_ds is None:
+                os.environ.pop("DEEPSEEK_API_KEY", None)
+            else:
+                os.environ["DEEPSEEK_API_KEY"] = old_ds
+
+    def test_26_v47_deep_dive_perspectives_and_zero_clutter_work_mode(self):
+        """v4.7: zero superfluous comparison buttons in Mode Actif, universal clickable deep-dive drawer & contextual AI perspectives."""
+        from unittest.mock import patch
+        import agent_engine
+
+        h = self.client.get("/health").json()
+        self.assertEqual(h["version"], "4.7.0")
+        self.assertEqual(h["architecture"], "multi_agent_z_v4_7_interactive_deep_dive")
+        self.assertIn("contextual_deep_dive_perspectives", h["capabilities"])
+        self.assertIn("interactive_element_inspection", h["capabilities"])
+
+        ui_html = self.client.get("/ui").text
+        # Aucune pollution / bouton inutile de comparaison démo dans le Mode Travail Actif
+        self.assertNotIn("bannerPeekDemoLiveBtn", ui_html)
+        self.assertNotIn("bannerPeekDemoBtn", ui_html)
+        self.assertNotIn("Comparer avec la Démo", ui_html)
+
+        # Présence du tiroir universel d'investigation approfondie et des hooks data-inspect
+        for marker in (
+            'id="deepInspectorDrawer"',
+            "function openDeepInspector(",
+            "function decodeMacIdentity(",
+            "function appendTextWithEntityChips(",
+            'id="supervisorPerspectivesBar"',
+            'data-inspect="site-radiography"',
+            'data-inspect="security-mac-audit"',
+            'data-inspect="logical-vs-physical"',
+            'data-inspect="gateway-box"',
+            'data-inspect="kpi-health"',
+            'data-inspect="kpi-wan"',
+            'data-inspect="kpi-matrix"',
+            'data-inspect="agent-node"',
+            'data-inspect="box-param"',
+            'data-inspect="config-param"',
+        ):
+            self.assertIn(marker, ui_html)
+
+        # Test ReAct inspect_single_device + extraction propre de [PISTES]...[/PISTES] sans fuite dans answer ni spoken_text
+        self.client.post("/demo/scenario/nominal")
+        ds_hex = "sk-" + ("d4" * 16)
+        old_ds = os.environ.get("DEEPSEEK_API_KEY")
+        os.environ["DEEPSEEK_API_KEY"] = ds_hex
+        step_counter = {"n": 0}
+        try:
+            class _FakeStepResp:
+                def __init__(self, payload):
+                    self._raw = json.dumps(payload).encode("utf-8")
+
+                def read(self):
+                    return self._raw
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *a):
+                    return False
+
+            def _mock_react(req, timeout=28):
+                step_counter["n"] += 1
+                if step_counter["n"] == 1:
+                    return _FakeStepResp(
+                        {
+                            "choices": [
+                                {
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": "",
+                                        "tool_calls": [
+                                            {
+                                                "id": "call_dev_1",
+                                                "type": "function",
+                                                "function": {
+                                                    "name": "inspect_single_device",
+                                                    "arguments": json.dumps({"query": "192.168.8.14"}),
+                                                },
+                                            }
+                                        ],
+                                    }
+                                }
+                            ]
+                        }
+                    )
+                return _FakeStepResp(
+                    {
+                        "choices": [
+                            {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": (
+                                        "Le Poste Secrétariat (`192.168.8.14`) présente une excellente latence de 2.8 ms.\n"
+                                        "[VOIX]Le poste secrétariat répond parfaitement en moins de trois millisecondes sur le réseau local.[/VOIX]\n"
+                                        "[PISTES]\n"
+                                        "🔒 Sécurité du poste | Vérifie la sécurité et les ports exposés sur 192.168.8.14\n"
+                                        "⚙️ Priorité QoS Admin | Comment réserver la bande passante prioritaire pour 192.168.8.14 ?\n"
+                                        "[/PISTES]"
+                                    ),
+                                }
+                            }
+                        ]
+                    }
+                )
+
+            with patch.object(agent_engine.urllib.request, "urlopen", side_effect=_mock_react):
+                resp = self.client.post(
+                    "/supervisor/ask",
+                    json={"question": "Analyse le cas de l'appareil 192.168.8.14", "session_id": "v47-deep-dive"},
+                ).json()
+
+            self.assertNotIn("[PISTES]", resp["answer"])
+            self.assertNotIn("[PISTES]", resp["spoken_text"])
+            self.assertTrue(isinstance(resp.get("perspectives"), list))
+            self.assertGreaterEqual(len(resp["perspectives"]), 3)
+            self.assertTrue(any("192.168.8.14" in p.get("question", "") for p in resp["perspectives"]))
+            self.assertTrue(any(t.get("tool") == "inspect_single_device" for t in resp.get("agent_trace", [])))
         finally:
             if old_ds is None:
                 os.environ.pop("DEEPSEEK_API_KEY", None)

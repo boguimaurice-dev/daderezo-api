@@ -58,9 +58,9 @@ ALLOWED_DOWNLOADS = {
 }
 
 app = FastAPI(
-    title="DADEREZO v4.3 Multi-Agent ReAct (DeepSeek / Contabo), PWA & Active Network Control API",
-    description="Supervision réseau PWA installable, ReAct Function-Calling natif DeepSeek, liaison auto GitOps Contabo, contrôle Internet granulaire, Multi-Box et partage Multimédia",
-    version="4.3.0",
+    title="DADEREZO v4.7 Multi-Agent ReAct (DeepSeek / Contabo), Interactive Deep-Dive & Active Network Control API",
+    description="Supervision réseau PWA installable, ReAct Function-Calling natif DeepSeek, inspection approfondie universelle, contrôle Internet granulaire, Multi-Box et partage Multimédia",
+    version="4.7.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -449,8 +449,8 @@ def _status_payload() -> dict:
         "service": "DADEREZO API",
         "status": "ok",
         "mode": "active_governed",
-        "version": "4.6.0",
-        "architecture": "multi_agent_z_v4_6_interactive_duplex_voice",
+        "version": "4.7.0",
+        "architecture": "multi_agent_z_v4_7_interactive_deep_dive",
         "agents_pipeline": ["SENTINEL-SEC", "TOPO-SCAN", "DIAG-NET", "NET-CONTROL", "MEDIA-HUB"],
         "capabilities": [
             "internet_switch_global_subnet_device",
@@ -467,6 +467,8 @@ def _status_payload() -> dict:
             "thoughtful_llm_voice_synthesis",
             "physical_vs_logical_control_audit",
             "interactive_duplex_vad_voice_turn_taking",
+            "contextual_deep_dive_perspectives",
+            "interactive_element_inspection",
         ],
         "db": storage.get_backend_mode(),
         "llm_configured": bool(llm_cfg),

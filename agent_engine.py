@@ -210,6 +210,126 @@ def _clean_markdown_for_speech(text: str) -> str:
     return cleaned
 
 
+def _extract_llm_perspectives(raw_text: str) -> Tuple[str, List[dict]]:
+    """Extrait les pistes d'approfondissement `[PISTES]...[/PISTES]` proposées par le LLM et nettoie le texte."""
+    txt = (raw_text or "").strip()
+    if not txt:
+        return "", []
+
+    perspectives: List[dict] = []
+    m = re.search(r"\[PISTES\s*:?\s*\](.*?)\[/PISTES\]", txt, flags=re.IGNORECASE | re.DOTALL)
+    block = ""
+    if m:
+        block = m.group(1).strip()
+        txt = (txt[: m.start()] + "\n" + txt[m.end() :]).strip()
+    else:
+        m_tail = re.search(r"\[PISTES\s*:?\s*\](.+)$", txt, flags=re.IGNORECASE | re.DOTALL)
+        if m_tail:
+            block = m_tail.group(1).strip()
+            txt = txt[: m_tail.start()].strip()
+
+    if block:
+        for line in block.splitlines():
+            clean_line = re.sub(r"^\s*[-*•\d.)]+\s*", "", line).strip()
+            if not clean_line or len(clean_line) < 6:
+                continue
+            if "|" in clean_line:
+                lbl, q_full = clean_line.split("|", 1)
+                lbl_s = lbl.strip()[:58]
+                q_s = q_full.strip()[:220]
+            else:
+                lbl_s = clean_line[:52] + ("…" if len(clean_line) > 52 else "")
+                q_s = clean_line[:220]
+            if lbl_s and q_s:
+                perspectives.append({"label": lbl_s, "question": q_s})
+            if len(perspectives) >= 4:
+                break
+
+    return txt, perspectives
+
+
+def _build_contextual_perspectives(
+    question: str,
+    intent: str,
+    all_devices: List[dict],
+    unknown_devs: List[dict],
+    control_reality_audit: dict,
+    focus_ips: List[str],
+    llm_perspectives: Optional[List[dict]] = None,
+) -> List[dict]:
+    """Construit 4 options cliquables d'approfondissement contextuel calées sur les vrais équipements et l'état du site."""
+    items: List[dict] = []
+    seen_q = set()
+
+    def _add(label: str, q_text: str, target_ip: str = "") -> None:
+        key = normalize_fr(q_text)[:90]
+        if not key or key in seen_q or normalize_fr(q_text) == normalize_fr(question):
+            return
+        seen_q.add(key)
+        entry = {"label": label, "question": q_text}
+        if target_ip:
+            entry["target_ip"] = target_ip
+        items.append(entry)
+
+    for p in llm_perspectives or []:
+        if len(items) < 2 and p.get("label") and p.get("question"):
+            _add(str(p["label"]), str(p["question"]))
+
+    # 1. Focus sur un équipement précis mentionné dans la question ou la réponse
+    ip_in_q = re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", question or "")
+    candidate_ips = list(dict.fromkeys(ip_in_q + list(focus_ips or [])))
+    dev_by_ip = {str(d.get("ip")): d for d in all_devices if d.get("ip")}
+    if candidate_ips:
+        f_ip = candidate_ips[0]
+        f_dev = dev_by_ip.get(f_ip)
+        f_name = (f_dev or {}).get("name") or f_ip
+        _add(
+            f"🔍 Approfondir le cas {f_name} ({f_ip})",
+            f"Analyse en profondeur l'équipement {f_name} ({f_ip}) : son rôle probable, sa latence, son sous-réseau, son adresse MAC et comment piloter finement son accès.",
+            target_ip=f_ip,
+        )
+
+    # 2. Réalité physique vs logique / Hotspot ICS / Box principale
+    if control_reality_audit.get("logical_cut_vs_physical_wan_discrepancy"):
+        gw_ip = control_reality_audit.get("probe_gateway_ip") or "la Box principale"
+        _add(
+            f"🧭 Coupure physique sur Box ({gw_ip})",
+            f"Explique-moi étape par étape comment relier ou configurer physiquement ma passerelle {gw_ip} (ou le mode --active-control) pour que mes règles bloquent réellement le trafic.",
+        )
+    elif control_reality_audit.get("windows_ics_hotspot_detected"):
+        _add(
+            "📡 Exploiter le Hotspot 192.168.137.x",
+            "Comment utiliser le point d'accès mobile Windows (192.168.137.x) de mon PC sonde avec --active-control pour filtrer physiquement Internet appareil par appareil ?",
+        )
+
+    # 3. Postes inconnus ou audit des constructeurs MAC
+    if unknown_devs:
+        u0 = unknown_devs[0]
+        u_ip = str(u0.get("ip") or "")
+        _add(
+            f"🛡️ Auditer le poste non reconnu ({u_ip})",
+            f"Examine les équipements non identifiés comme {u0.get('name') or u_ip} (MAC {u0.get('mac') or 'inconnue'}) : quel est le niveau de risque et quelle mesure recommandes-tu ?",
+            target_ip=u_ip,
+        )
+    else:
+        _add(
+            "🛡️ Auditer les adresses MAC & la sécurité",
+            "Analyse la posture de sécurité de mon réseau actuel : répartition des sous-réseaux, appareils sensibles, adresses MAC et recommandations concrètes.",
+        )
+
+    # 4. Diagnostic latence FAI vs Wi-Fi local & Optimisation Box/DNS
+    _add(
+        "⚡ Diagnostiquer latence FAI vs Wi-Fi local",
+        "Compare la latence de mes appareils locaux avec la passerelle et la sortie WAN pour déterminer si d'éventuelles lenteurs viennent du Wi-Fi interne ou de l'opérateur FAI.",
+    )
+    _add(
+        "⚙️ Optimiser DNS, Canal Wi-Fi & QoS Box",
+        "Quels réglages optimaux (serveurs DNS rapides, canal Wi-Fi sans interférence, MTU et profil QoS) recommandes-tu pour la Box principale de mon réseau ?",
+    )
+
+    return items[:4]
+
+
 def _extract_written_and_spoken_llm(raw_text: str) -> Tuple[str, str]:
     """Sépare la réponse écrite approfondie et la réflexion vocale dédiée `[VOIX]...[/VOIX]` générée par le LLM."""
     txt = (raw_text or "").strip()
@@ -307,6 +427,20 @@ def _call_llm_with_tools(
         {
             "type": "function",
             "function": {
+                "name": "inspect_single_device",
+                "description": "Extrait la fiche complète d'un équipement précis (par IP, MAC ou nom) : sous-réseau, latence comparée au site, statut LAN/WAN, raison d'accès et voisins du même sous-réseau.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Adresse IP (ex: 192.168.8.156), adresse MAC ou nom d'hôte de l'appareil ciblé"},
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "list_multimedia_shares",
                 "description": "Retourne le nombre et l'état des fichiers multimédias partagés sur le Hub LAN/Cloud.",
                 "parameters": {"type": "object", "properties": {}},
@@ -354,29 +488,61 @@ def _call_llm_with_tools(
                 "net_control_result": tool_evidence.get("net_control_result"),
                 "control_reality_audit": tool_evidence.get("control_reality_audit"),
             }
+        if fname == "inspect_single_device":
+            q_target = normalize_fr(str(args.get("query") or "")).strip()
+            all_pool = (tool_evidence.get("devices_with_internet") or []) + (tool_evidence.get("devices_without_internet") or [])
+            matches = [
+                d
+                for d in all_pool
+                if q_target
+                and (
+                    q_target == normalize_fr(str(d.get("ip") or ""))
+                    or q_target in normalize_fr(str(d.get("mac") or ""))
+                    or q_target in normalize_fr(str(d.get("name") or ""))
+                )
+            ]
+            target_dev = matches[0] if matches else None
+            subnet_prefix = ""
+            peers: List[dict] = []
+            if target_dev and target_dev.get("ip") and "." in str(target_dev.get("ip")):
+                parts = str(target_dev["ip"]).split(".")
+                if len(parts) == 4:
+                    subnet_prefix = f"{parts[0]}.{parts[1]}.{parts[2]}."
+                    peers = [d for d in all_pool if str(d.get("ip") or "").startswith(subnet_prefix) and d.get("ip") != target_dev.get("ip")][:15]
+            return {
+                "matched_device": target_dev,
+                "other_matches": matches[1:5],
+                "subnet_24": f"{subnet_prefix}0/24" if subnet_prefix else None,
+                "same_subnet_peers_sample": peers,
+                "control_reality_audit": tool_evidence.get("control_reality_audit"),
+                "diagnostics": tool_evidence.get("diagnostics"),
+            }
         if fname == "list_multimedia_shares":
             return {"shared_media_count": tool_evidence.get("shared_media_count", 0)}
         return {"error": f"Outil inconnu: {fname}"}
 
     system_prompt = (
-        "Tu es l'Ingénieur Réseau Senior & Orchestrateur IA de DADEREZO v4.5.\n"
+        "Tu es l'Ingénieur Réseau Senior & Orchestrateur IA de DADEREZO v4.7.\n"
         "MISSION CRITIQUE — INTELLIGENCE RÉELLE & PROFONDEUR DE RÉFLEXION :\n"
-        "1. INTERDICTION ABSOLUE de réciter un gabarit prédéfini de simulation ou de plaquer mécaniquement un tableau d'inventaire si l'utilisateur pose une question de compréhension, un constat terrain, un « pourquoi », une anomalie ou une demande de conseil !\n"
+        "1. INTERDICTION ABSOLUE de réciter un gabarit prédéfini de simulation ou de plaquer mécaniquement un tableau d'inventaire si l'utilisateur pose une question de compréhension, un constat terrain, un « pourquoi », une anomalie ou une demande d'approfondissement sur un appareil ou une option !\n"
         "2. Réfléchis et réponds à la hauteur exacte de la profondeur de la question posée :\n"
+        "   - Si l'utilisateur approfondit un cas précis d'appareil, d'IP, d'adresse MAC ou de configuration, utilise `inspect_single_device` pour croiser sa latence, son sous-réseau, sa MAC et son chemin réel vers la Box.\n"
         "   - Si l'utilisateur exprime un constat réel (ex: « Internet continue de fonctionner sur place alors que j'ai coupé sur l'app et que tout est en rouge »), explique-lui avec clarté, honnêteté technique et pédagogie la différence fondamentale entre :\n"
         "     a) La COUCHE LOGIQUE dans l'application Cloud (qui enregistre la règle d'administration et affiche les badges en rouge),\n"
         "     b) La COUCHE PHYSIQUE sur le terrain : une sonde tournant sur un PC client standard du LAN observe le réseau mais ne se trouve pas en coupure physique entre les smartphones/postes et la Box principale (ex: 192.168.8.1). Tant que les équipements passent directement par le Wi-Fi de la Box sans pilotage API/admin de cette Box (ou sans passer par le partage Hotspot du PC sonde lancé en Administrateur), le trafic Internet continue physiquement de sortir par la Box.\n"
         "   - Appuie ton explication sur les vraies adresses IP, sous-réseaux (ex: Box 192.168.8.x vs Hotspot Windows 192.168.137.x), politiques et dernières tâches de sonde présentes dans `CONTEXTE_TERRAIN_VERIFIE` ou via l'outil `inspect_control_execution_and_topology`.\n"
         "   - Propose toujours les solutions concrètes et actionnables adaptées à SON architecture réelle.\n"
         "3. ZÉRO HALLUCINATION : n'invente jamais une IP, une adresse MAC ou un chiffre absent des preuves.\n"
-        "4. Appelle `inspect_lan_wan_devices` ou `get_cybersecurity_posture` uniquement lorsque tu as besoin du détail nominatif des appareils ou du score de sécurité.\n"
+        "4. Appelle `inspect_lan_wan_devices`, `inspect_single_device` ou `get_cybersecurity_posture` lorsque tu as besoin du détail d'un ou plusieurs appareils ou du score de sécurité.\n"
         "5. Si la question est hors périmètre réseau (sport, météo, cuisine, culture générale), décline courtoisement sans appeler d'outil.\n"
-        "6. RENDU VOCAL RÉFLÉCHI OBLIGATOIRE (`[VOIX]...[/VOIX]`) :\n"
-        "   À la toute fin de ta réponse, ajoute OBLIGATOIREMENT une balise :\n"
+        "6. RENDU VOCAL RÉFLÉCHI OBLIGATOIRE (`[VOIX]...[/VOIX]`) & PISTES D'APPROFONDISSEMENT (`[PISTES]...[/PISTES]`) :\n"
+        "   À la toute fin de ta réponse, ajoute OBLIGATOIREMENT :\n"
         "   [VOIX]\n"
-        "   (3 à 6 phrases en français parlé naturel, fluide, chaleureux et réfléchi — SANS markdown, SANS astérisques, SANS émojis, SANS tableaux ni lecture d'adresses MAC).\n"
+        "   (3 à 6 phrases en français parlé naturel, fluide, chaleureux et réfléchi — SANS markdown, SANS astérisques, SANS émojis, SANS tableaux ni lecture d'adresses MAC — répondant directement au fond de la question !)\n"
         "   [/VOIX]\n"
-        "   Ce texte vocal est prononcé à voix haute au Superviseur : il NE DOIT JAMAIS être un comptage robotique du style « X appareils sur Y sont connectés », mais une véritable réponse orale réfléchie qui répond directement au fond et au « pourquoi » de sa question !"
+        "   [PISTES]\n"
+        "   (2 ou 3 lignes au format `Titre court | Question complète d'approfondissement` adaptées au sujet traité)\n"
+        "   [/PISTES]"
     )
 
     messages: List[dict] = [{"role": "system", "content": system_prompt}]
@@ -2165,8 +2331,10 @@ def run_multi_agent_mission(
         if not llm_reply:
             llm_reply = _call_llm_grounded(llm_cfg, q_clean, history, evidence)
             mode_tag = "grounded"
+        llm_perspectives: List[dict] = []
         if llm_reply:
-            written_ans, spoken_ans = _extract_written_and_spoken_llm(llm_reply)
+            cleaned_reply, llm_perspectives = _extract_llm_perspectives(llm_reply)
+            written_ans, spoken_ans = _extract_written_and_spoken_llm(cleaned_reply)
             if written_ans:
                 deterministic_answer = written_ans
             if spoken_ans:
@@ -2178,8 +2346,20 @@ def run_multi_agent_mission(
                 f"{llm_cfg['provider']}/{llm_cfg['model']}",
                 "OK",
                 t_llm,
-                f"Synthèse intelligente écrite + vocale réfléchie {llm_cfg['provider']} ({mode_tag}).",
+                f"Synthèse intelligente écrite + vocale réfléchie + pistes {llm_cfg['provider']} ({mode_tag}).",
             )
+    else:
+        llm_perspectives = []
+
+    perspectives = _build_contextual_perspectives(
+        q_clean,
+        intent,
+        all_devices,
+        unknown_devs,
+        control_reality_audit,
+        focus_ips,
+        llm_perspectives=llm_perspectives,
+    )
 
     storage.append_session_turn(
         sid,
@@ -2205,6 +2385,7 @@ def run_multi_agent_mission(
         "site_label": scope_label,
         "answer": deterministic_answer,
         "spoken_text": spoken_summary,
+        "perspectives": perspectives,
         "metrics": metrics,
         "latency_stats": latency_stats,
         "devices": all_devices,

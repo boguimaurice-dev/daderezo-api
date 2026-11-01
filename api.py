@@ -341,6 +341,7 @@ class SupervisorAskRequest(BaseModel):
     agent_id: Optional[str] = Field(default=None)
     scope: str = Field(default="site")
     session_id: Optional[str] = Field(default="default-supervisor")
+    voice_mode: bool = Field(default=False)
 
 
 class HumanApprovalDecision(BaseModel):
@@ -448,8 +449,8 @@ def _status_payload() -> dict:
         "service": "DADEREZO API",
         "status": "ok",
         "mode": "active_governed",
-        "version": "4.5.0",
-        "architecture": "multi_agent_z_v4_5_intelligent_voice_and_reality",
+        "version": "4.6.0",
+        "architecture": "multi_agent_z_v4_6_interactive_duplex_voice",
         "agents_pipeline": ["SENTINEL-SEC", "TOPO-SCAN", "DIAG-NET", "NET-CONTROL", "MEDIA-HUB"],
         "capabilities": [
             "internet_switch_global_subnet_device",
@@ -465,6 +466,7 @@ def _status_payload() -> dict:
             "single_file_preconfigured_probe",
             "thoughtful_llm_voice_synthesis",
             "physical_vs_logical_control_audit",
+            "interactive_duplex_vad_voice_turn_taking",
         ],
         "db": storage.get_backend_mode(),
         "llm_configured": bool(llm_cfg),
@@ -2044,6 +2046,7 @@ def supervisor_ask(
         llm_api_key=x_llm_api_key,
         llm_model=x_llm_model,
         llm_provider=x_llm_provider,
+        voice_mode=req.voice_mode,
     )
 
 

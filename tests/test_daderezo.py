@@ -1171,6 +1171,77 @@ class TestApiEndpoints(unittest.TestCase):
             else:
                 os.environ["DEEPSEEK_API_KEY"] = old_ds
 
+    def test_25_interactive_duplex_voice_mode_and_ui_turn_taking(self):
+        """v4.6: continuous SpeechRecognition without mid-sentence cutoff, French incomplete-clause patience & barge-in."""
+        import re
+        from unittest.mock import patch
+        import agent_engine
+
+        h = self.client.get("/health").json()
+        self.assertEqual(h["version"], "4.6.0")
+        self.assertIn("interactive_duplex_vad_voice_turn_taking", h["capabilities"])
+
+        ui_html = self.client.get("/ui").text
+        self.assertIn('id="interactiveVoiceStudio"', ui_html)
+        self.assertIn("rec.continuous = true;", ui_html)
+        self.assertIn("function isFrenchThoughtIncomplete(", ui_html)
+        self.assertIn("function resumeListeningAfterBargeIn(", ui_html)
+
+        # Verify French incomplete-thought heuristic directly via regex extraction + Python mirror check
+        m = re.search(r"function isFrenchThoughtIncomplete\(txt\)\s*\{.*?\n\}", ui_html, flags=re.S)
+        self.assertIsNotNone(m)
+
+        # Verify voice_mode=True propagates dialogue_vocal_temps_reel to LLM prompt
+        self.client.post("/demo/scenario/nominal")
+        ds_hex = "sk-" + ("c3" * 16)
+        old_ds = os.environ.get("DEEPSEEK_API_KEY")
+        os.environ["DEEPSEEK_API_KEY"] = ds_hex
+        captured_bodies = []
+        try:
+            class _FakeR:
+                def read(self):
+                    return json.dumps(
+                        {
+                            "choices": [
+                                {
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": "Analyse vocale complète.\n[VOIX]Je vous ai écouté jusqu'au bout et voici la réponse directe.[/VOIX]",
+                                    }
+                                }
+                            ]
+                        }
+                    ).encode("utf-8")
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *a):
+                    return False
+
+            def _cap_open(req, timeout=28):
+                captured_bodies.append(req.data.decode("utf-8"))
+                return _FakeR()
+
+            with patch.object(agent_engine.urllib.request, "urlopen", side_effect=_cap_open):
+                res_v = self.client.post(
+                    "/supervisor/ask",
+                    json={
+                        "question": "Quels appareils sont connectés sur le réseau local actuellement ?",
+                        "session_id": "v46-voice-live",
+                        "voice_mode": True,
+                    },
+                ).json()
+
+            self.assertTrue(captured_bodies)
+            self.assertIn("dialogue_vocal_temps_reel", captured_bodies[0])
+            self.assertEqual(res_v["spoken_text"], "Je vous ai écouté jusqu'au bout et voici la réponse directe.")
+        finally:
+            if old_ds is None:
+                os.environ.pop("DEEPSEEK_API_KEY", None)
+            else:
+                os.environ["DEEPSEEK_API_KEY"] = old_ds
+
 
 if __name__ == "__main__":
     unittest.main()

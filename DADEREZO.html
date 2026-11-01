@@ -410,11 +410,59 @@ main{min-width:0;padding:24px clamp(18px,3.5vw,44px) 56px;max-width:1520px;width
 }
 .btn.mic:hover{border-color:var(--cyan);background:var(--bg-hover)}
 .btn.mic.listening{
-  background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border-color:#fca5a5;
-  animation:pulseMic 1.15s infinite;
+  background:linear-gradient(135deg,#059669,#047857);color:#fff;border-color:#6ee7b7;
+  animation:pulseMicGreen 1.35s infinite;
 }
+.btn.mic.ai-speaking{
+  background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff;border-color:#7dd3fc;
+}
+@keyframes pulseMicGreen{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.55)}50%{box-shadow:0 0 0 10px rgba(16,185,129,0)}}
 @keyframes pulseMic{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
 .btn.ask-submit{min-height:46px;padding:0 20px;border-radius:10px;font-size:13px}
+
+/* STUDIO VOCAL INTERACTIF FULL-DUPLEX (v4.6) */
+.voice-studio{
+  margin-top:10px;padding:11px 14px;border-radius:12px;
+  border:1px solid rgba(16,185,129,.38);
+  background:linear-gradient(135deg,rgba(16,185,129,.10),rgba(14,165,233,.08));
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;
+}
+.voice-studio.phase-speaking{
+  border-color:rgba(56,189,248,.45);
+  background:linear-gradient(135deg,rgba(14,165,233,.13),rgba(37,99,235,.09));
+}
+.voice-studio.phase-thinking{
+  border-color:rgba(245,158,11,.42);
+  background:linear-gradient(135deg,rgba(245,158,11,.11),rgba(14,165,233,.07));
+}
+.voice-studio-left{display:flex;align-items:center;gap:10px;flex:1;min-width:240px}
+.voice-eq{display:inline-flex;align-items:flex-end;gap:3px;height:18px;width:26px;flex-shrink:0}
+.voice-eq span{
+  display:block;width:4px;height:5px;border-radius:99px;
+  background:var(--emerald-ink);transition:height .09s ease;
+}
+.voice-studio.phase-speaking .voice-eq span{background:var(--cyan-ink)}
+.voice-studio-meta{display:flex;flex-direction:column;gap:3px;flex:1;min-width:180px}
+.voice-studio-title{font:700 12px/1.3 var(--sans);color:var(--ink-strong)}
+.voice-patience-track{
+  width:100%;max-width:340px;height:5px;border-radius:99px;
+  background:rgba(148,163,184,.24);overflow:hidden;
+}
+.voice-patience-fill{
+  height:100%;width:0%;border-radius:99px;
+  background:linear-gradient(90deg,#10b981,#38bdf8);
+  transition:width .1s linear;
+}
+.voice-studio-controls{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.voice-patience-sel{
+  height:32px;padding:0 8px;border-radius:8px;font-size:11.5px;
+  border:1px solid var(--line-bright);background:var(--bg-well);color:var(--ink);
+}
+.voice-loop-lbl{
+  display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;
+  color:var(--ink-dim);cursor:pointer;padding:4px 8px;border-radius:8px;
+  border:1px solid var(--line);background:var(--bg-well);
+}
 
 .sup-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
 .sup-chip{
@@ -866,10 +914,41 @@ body[data-workspace="work"] .site-card-eyebrow{color:var(--emerald-ink)}
           placeholder="Parlez ou écrivez : « Coupe Internet dans la zone Communauté », « Optimise toutes les box », « Combien d’appareils ont Internet ? »"
           aria-label="Consigne écrite ou vocale du Superviseur Général"
         >
-        <button class="btn mic" id="micBtn" type="button" title="Parler à l'orchestrateur au microphone (Français)">
-          <span id="micIcon">🎙</span><span id="micLabel">Parler</span>
+        <button class="btn mic" id="micBtn" type="button" title="Conversation vocale interactive : écoute jusqu'au bout sans vous couper">
+          <span id="micIcon">🎙</span><span id="micLabel">Dialogue Vocal</span>
         </button>
         <button class="btn ask-submit" id="askSupervisorBtn" type="button">Exécuter la mission</button>
+      </div>
+
+      <!-- STUDIO VOCAL INTERACTIF FULL-DUPLEX (v4.6 : écoute complète sans coupure + barge-in auto) -->
+      <div class="voice-studio hidden" id="interactiveVoiceStudio">
+        <div class="voice-studio-left">
+          <div class="voice-eq" id="voiceEqBars" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="voice-studio-meta">
+            <div class="voice-studio-title" id="voiceStudioStatusText">🟢 Je vous écoute — parlez librement jusqu’au bout, je ne vous interromps pas…</div>
+            <div class="voice-patience-track" title="Progression du silence de fin de phrase (se remet à zéro dès que vous parlez)">
+              <div class="voice-patience-fill" id="voicePatienceFill"></div>
+            </div>
+          </div>
+        </div>
+        <div class="voice-studio-controls">
+          <select class="voice-patience-sel" id="voicePatienceSelect" aria-label="Patience avant envoi automatique">
+            <option value="3200">Patience : Confortable (3,2s)</option>
+            <option value="4800">Patience : Longue réflexion (4,8s)</option>
+            <option value="2200">Patience : Vive (2,2s)</option>
+            <option value="0">Manuel : j’envoie moi-même</option>
+          </select>
+          <label class="voice-loop-lbl" title="Ré-ouvre automatiquement l'écoute dès que l'IA a fini de parler">
+            <input type="checkbox" id="voiceLoopCheckbox" checked>
+            <span>🔄 Dialogue continu</span>
+          </label>
+          <button class="btn" id="voiceSendNowBtn" type="button" style="height:32px;padding:0 11px;font-size:11.5px">✓ J’ai fini (Envoyer)</button>
+          <button class="btn secondary hidden" id="voiceBargeInBtn" type="button" style="height:32px;padding:0 11px;font-size:11.5px;border-color:var(--cyan)">✋ Prendre la parole</button>
+          <button class="btn secondary" id="voiceClearBtn" type="button" style="height:32px;padding:0 9px;font-size:11.5px" title="Effacer la phrase en cours">🗑</button>
+          <button class="btn danger" id="voiceExitBtn" type="button" style="height:32px;padding:0 10px;font-size:11.5px">⏹ Quitter</button>
+        </div>
       </div>
 
       <div class="sup-chips" aria-label="Missions rapides Superviseur Général">
@@ -2507,21 +2586,48 @@ function splitSpeechChunks(text, maxLen = 190) {
   return chunks;
 }
 
-function speakFrench(text) {
-  if (!text || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+let isAiSpeaking = false;
+let aiSpeechStartedAt = 0;
+
+function stopAiSpeech() {
+  ttsChunkSession += 1;
+  isAiSpeaking = false;
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try { window.speechSynthesis.cancel(); } catch (_) {}
+  }
+}
+
+function speakFrench(text, onFinished = null) {
+  if (!text || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (typeof onInteractiveAiSpeechEnd === 'function') onInteractiveAiSpeechEnd();
+    if (typeof onFinished === 'function') onFinished();
+    return;
+  }
   try {
     ttsChunkSession += 1;
     const mySession = ttsChunkSession;
     window.speechSynthesis.cancel();
     const chunks = splitSpeechChunks(text, 190);
-    if (!chunks.length) return;
+    if (!chunks.length) {
+      if (typeof onInteractiveAiSpeechEnd === 'function') onInteractiveAiSpeechEnd();
+      if (typeof onFinished === 'function') onFinished();
+      return;
+    }
+    isAiSpeaking = true;
+    aiSpeechStartedAt = Date.now();
+    if (typeof onInteractiveAiSpeechStart === 'function') onInteractiveAiSpeechStart();
+
     const frVoice = pickBestFrenchVoice();
     const badge = document.getElementById('ttsSpeakingBadge');
     let idx = 0;
 
     const speakNext = () => {
-      if (mySession !== ttsChunkSession || idx >= chunks.length) {
-        if (badge && mySession === ttsChunkSession) badge.textContent = '✓ Lecture terminée';
+      if (mySession !== ttsChunkSession) return;
+      if (idx >= chunks.length) {
+        isAiSpeaking = false;
+        if (badge) badge.textContent = '✓ Lecture terminée';
+        if (typeof onInteractiveAiSpeechEnd === 'function') onInteractiveAiSpeechEnd();
+        if (typeof onFinished === 'function') onFinished();
         return;
       }
       const utter = new SpeechSynthesisUtterance(chunks[idx]);
@@ -2535,15 +2641,20 @@ function speakFrench(text) {
       window.speechSynthesis.speak(utter);
     };
     speakNext();
-  } catch (_) {}
+  } catch (_) {
+    isAiSpeaking = false;
+    if (typeof onFinished === 'function') onFinished();
+  }
 }
 
 document.getElementById('replayTtsBtn').addEventListener('click', () => { if (lastSpokenReply) speakFrench(lastSpokenReply); });
 document.getElementById('stopTtsBtn').addEventListener('click', () => {
-  ttsChunkSession += 1;
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  stopAiSpeech();
   const badge = document.getElementById('ttsSpeakingBadge');
   if (badge) badge.textContent = '⏹ Lecture arrêtée';
+  if (typeof resumeListeningAfterBargeIn === 'function' && interactiveVoiceActive) {
+    resumeListeningAfterBargeIn('⏹ Lecture interrompue — je vous écoute à nouveau…');
+  }
 });
 
 document.getElementById('toggleBreakdownBtn').addEventListener('click', () => {
@@ -2760,6 +2871,9 @@ async function decideHitl(decision) {
 document.getElementById('approveHitlBtn').addEventListener('click', () => decideHitl('approve'));
 document.getElementById('rejectHitlBtn').addEventListener('click', () => decideHitl('reject'));
 
+let currentAskAbortController = null;
+let lastAutoSentVoiceQuestion = '';
+
 async function askSupervisor(questionOverride, fromVoice = false, silentRefresh = false) {
   const inp = document.getElementById('supervisorInput');
   const statusEl = document.getElementById('supervisorStatus');
@@ -2769,22 +2883,30 @@ async function askSupervisor(questionOverride, fromVoice = false, silentRefresh 
 
   const q = (questionOverride != null ? questionOverride : inp.value).trim();
   if (!q) {
-    statusEl.textContent = 'Saisissez une mission ou cliquez sur « 🎙 Parler ».';
+    statusEl.textContent = 'Saisissez une mission ou cliquez sur « 🎙 Dialogue Vocal ».';
     inp.focus();
     return;
   }
   inp.value = q;
   lastSupervisorQuestion = q;
+  if (fromVoice) lastAutoSentVoiceQuestion = q;
+
+  if (currentAskAbortController) {
+    try { currentAskAbortController.abort(); } catch (_) {}
+  }
+  const abortCtrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  currentAskAbortController = abortCtrl;
 
   btn.disabled = true;
   orb.classList.add('thinking');
+  if (interactiveVoiceActive) setInteractiveVoicePhase('thinking', '🧠 Message complet bien reçu — réflexion DeepSeek en cours…');
   if (!silentRefresh) statusEl.textContent = 'Orchestration en cours : SENTINEL-SEC → TOPO-SCAN → DIAG-NET → OPS-DISPATCH…';
 
   try {
     const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
     if (isStandaloneMode && !isWork) {
       const localRes = standaloneSupervisorAsk(q);
-      renderSupervisorReply(localRes, silentRefresh, fromVoice);
+      renderSupervisorReply(localRes, silentRefresh, fromVoice || interactiveVoiceActive);
       statusEl.textContent = 'Mission exécutée (aperçu autonome).';
       return;
     }
@@ -2793,46 +2915,61 @@ async function askSupervisor(questionOverride, fromVoice = false, silentRefresh 
       question: q,
       agent_id: currentAgentId || null,
       scope: scopeSel ? scopeSel.value : 'site',
-      session_id: sessionId
+      session_id: sessionId,
+      voice_mode: Boolean(fromVoice || interactiveVoiceActive)
     });
-    let res = await fetch(`${getApiBase()}/supervisor/ask`, {
+    const fetchOpts = {
       method: 'POST',
       headers: getHeaders(true),
-      body: reqBody
-    });
-    if (!res.ok && isWork) {
-      // Nouvelle tentative immédiate en cas de micro-coupure réseau en Mode Travail Réel
-      res = await fetch(`${getApiBase()}/supervisor/ask`, {
-        method: 'POST',
-        headers: getHeaders(true),
-        body: reqBody
-      });
+      body: reqBody,
+      ...(abortCtrl ? { signal: abortCtrl.signal } : {})
+    };
+    let res = await fetch(`${getApiBase()}/supervisor/ask`, fetchOpts);
+    if (!res.ok && isWork && !(abortCtrl && abortCtrl.signal.aborted)) {
+      res = await fetch(`${getApiBase()}/supervisor/ask`, fetchOpts);
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
-    renderSupervisorReply(payload, silentRefresh, fromVoice);
+    if (abortCtrl && abortCtrl.signal.aborted) return;
+    lastAutoSentVoiceQuestion = '';
+    renderSupervisorReply(payload, silentRefresh, fromVoice || interactiveVoiceActive);
     statusEl.textContent = `Mission terminée · Moteur : ${payload.engine_mode || 'multi_agent'} · Périmètre : ${payload.site_label || 'Site actif'}`;
     if ((payload.task_queued && payload.task_queued.status === 'queued') || payload.net_control_result) {
       refreshAll();
     }
   } catch (err) {
+    if (err && err.name === 'AbortError') {
+      return;
+    }
     const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
     if (isWork) {
       statusEl.textContent = '⚠️ Délai réseau ou liaison serveur momentanément interrompue — réessayez (aucune fausse donnée de simulation injectée).';
+      if (interactiveVoiceActive) resumeListeningAfterBargeIn('🎙 Liaison rétablie — répétez ou complétez votre question…');
       return;
     }
     const localRes = standaloneSupervisorAsk(q);
-    renderSupervisorReply(localRes, silentRefresh, fromVoice);
+    renderSupervisorReply(localRes, silentRefresh, fromVoice || interactiveVoiceActive);
     statusEl.textContent = 'Réponse générée sur cache local.';
   } finally {
+    if (currentAskAbortController === abortCtrl) currentAskAbortController = null;
     btn.disabled = false;
     orb.classList.remove('thinking');
   }
 }
 
-document.getElementById('askSupervisorBtn').addEventListener('click', () => askSupervisor(null, false));
+document.getElementById('askSupervisorBtn').addEventListener('click', () => {
+  if (interactiveVoiceActive && voicePhase === 'listening') {
+    commitInteractiveVoiceTurn(true);
+    return;
+  }
+  askSupervisor(null, false);
+});
 document.getElementById('supervisorInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); askSupervisor(null, false); }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (interactiveVoiceActive && voicePhase === 'listening') commitInteractiveVoiceTurn(true);
+    else askSupervisor(null, false);
+  }
 });
 
 document.querySelectorAll('[data-ask]').forEach(chip => {
@@ -2842,79 +2979,541 @@ document.querySelectorAll('[data-ask]').forEach(chip => {
   });
 });
 
-// Reconnaissance vocale navigateur (Français)
+// =========================================================================
+// v4.6 · MOTEUR VOCAL INTERACTIF FULL-DUPLEX (ÉCOUTE COMPLÈTE + VAD + BARGE-IN)
+// =========================================================================
 const SpeechRecognitionCtor = typeof window !== 'undefined'
   ? (window.SpeechRecognition || window.webkitSpeechRecognition || null)
   : null;
-let activeRecognition = null;
-let isListeningMic = false;
 
 const micBtn = document.getElementById('micBtn');
 const micLabel = document.getElementById('micLabel');
 const micIcon = document.getElementById('micIcon');
 const aiOrb = document.getElementById('aiOrb');
+const voiceStudioEl = document.getElementById('interactiveVoiceStudio');
+const voiceStudioStatusEl = document.getElementById('voiceStudioStatusText');
+const voicePatienceFillEl = document.getElementById('voicePatienceFill');
+const voicePatienceSelectEl = document.getElementById('voicePatienceSelect');
+const voiceLoopCheckboxEl = document.getElementById('voiceLoopCheckbox');
+const voiceSendNowBtn = document.getElementById('voiceSendNowBtn');
+const voiceBargeInBtn = document.getElementById('voiceBargeInBtn');
+const voiceClearBtn = document.getElementById('voiceClearBtn');
+const voiceExitBtn = document.getElementById('voiceExitBtn');
+const voiceEqSpans = document.querySelectorAll('#voiceEqBars span');
 
-function stopMicUI() {
-  isListeningMic = false;
-  micBtn.classList.remove('listening');
-  aiOrb.classList.remove('listening');
-  micIcon.textContent = '🎙';
-  micLabel.textContent = 'Parler';
+let interactiveVoiceActive = false;
+let voicePhase = 'idle'; // 'idle' | 'listening' | 'thinking' | 'speaking'
+let activeRecognition = null;
+let isListeningMic = false;
+let recognitionShouldStayOpen = false;
+let turnCommitted = false;
+
+let priorSegmentsTranscript = '';
+let currentSessionFinal = '';
+let currentSessionInterim = '';
+let currentTurnText = '';
+let lastVocalActivityTs = 0;
+let listeningStartedAt = 0;
+let browserSpeechFlag = false;
+
+// Détection acoustique WebAudio (VAD avec annulation d'écho WebRTC)
+let vadAudioCtx = null;
+let vadMediaStream = null;
+let vadAnalyser = null;
+let vadDataArray = null;
+let vadDisabledForCompatibility = false;
+let ambientNoiseFloor = 0.012;
+let currentMicRms = 0;
+let bargeInFrames = 0;
+let voiceMonitorInterval = null;
+
+const savedPatience = localStorage.getItem('daderezo_voice_patience_ms');
+if (savedPatience !== null && voicePatienceSelectEl) {
+  voicePatienceSelectEl.value = savedPatience;
+}
+if (voicePatienceSelectEl) {
+  voicePatienceSelectEl.addEventListener('change', () => {
+    localStorage.setItem('daderezo_voice_patience_ms', voicePatienceSelectEl.value);
+    lastVocalActivityTs = Date.now();
+  });
 }
 
-micBtn.addEventListener('click', () => {
-  const statusEl = document.getElementById('supervisorStatus');
-  if (!SpeechRecognitionCtor) {
-    statusEl.textContent = 'La dictée vocale nécessite Chrome, Edge ou Safari sur le lien direct HTTPS.';
-    document.getElementById('supervisorInput').focus();
+function isFrenchThoughtIncomplete(txt) {
+  const clean = String(txt || '').trim().replace(/[.,;!?…]+$/, '').trim();
+  if (!clean) return true;
+  const words = clean.split(/\s+/);
+  if (words.length <= 3) return true;
+  const lastWord = (words[words.length - 1] || '').toLowerCase().replace(/^.*['’]/, '');
+  const incompleteEndings = new Set([
+    'et', 'ou', 'mais', 'donc', 'or', 'ni', 'car', 'que', 'qu', 'quand', 'comme', 'si',
+    'parce', 'puisque', 'alors', 'bien', 'meme', 'même', 'malgre', 'malgré', 'pourtant',
+    'cependant', 'de', 'du', 'des', 'd', 'a', 'à', 'au', 'aux', 'sur', 'sous', 'dans',
+    'pour', 'par', 'avec', 'sans', 'vers', 'chez', 'entre', 'contre', 'en', 'le', 'la',
+    'les', 'l', 'un', 'une', 'ce', 'cet', 'cette', 'ces', 'mon', 'ma', 'mes', 'ton', 'ta',
+    'tes', 'son', 'sa', 'ses', 'notre', 'nos', 'votre', 'vos', 'je', 'j', 'tu', 'il', 'elle',
+    'on', 'nous', 'vous', 'ils', 'elles', 'qui', 'dont', 'où', 'est', 'sont', 'etait', 'était',
+    'ai', 'as', 'avons', 'avez', 'ont', 'va', 'vais', 'vont', 'peut', 'peux', 'faut', 'euh', 'heu', 'hum'
+  ]);
+  return incompleteEndings.has(lastWord);
+}
+
+function getEffectiveSilenceThresholdMs(transcript) {
+  const rawSel = voicePatienceSelectEl ? Number(voicePatienceSelectEl.value) : 3200;
+  if (rawSel === 0) return 0; // Mode manuel : ne coupe jamais automatiquement
+  const base = rawSel > 0 ? rawSel : 3200;
+  return isFrenchThoughtIncomplete(transcript) ? (base + 1800) : base;
+}
+
+function updateEqualizerBars(level) {
+  if (!voiceEqSpans || !voiceEqSpans.length) return;
+  const norm = Math.min(1, Math.max(0, level));
+  const factors = [0.55, 0.9, 1.0, 0.8, 0.5];
+  voiceEqSpans.forEach((sp, i) => {
+    const h = Math.round(4 + norm * 14 * factors[i % factors.length]);
+    sp.style.height = `${h}px`;
+  });
+}
+
+function setInteractiveVoicePhase(phase, statusMsg) {
+  voicePhase = phase;
+  if (!voiceStudioEl) return;
+  if (!interactiveVoiceActive || phase === 'idle') {
+    voiceStudioEl.classList.add('hidden');
+    voiceStudioEl.className = 'voice-studio hidden';
+    isListeningMic = false;
+    micBtn.className = 'btn mic';
+    aiOrb.classList.remove('listening');
+    micIcon.textContent = '🎙';
+    micLabel.textContent = 'Dialogue Vocal';
     return;
   }
-  if (isListeningMic && activeRecognition) {
-    activeRecognition.stop();
-    stopMicUI();
-    return;
+
+  voiceStudioEl.classList.remove('hidden');
+  voiceStudioEl.className = `voice-studio ${phase === 'speaking' ? 'phase-speaking' : (phase === 'thinking' ? 'phase-thinking' : '')}`.trim();
+  if (statusMsg && voiceStudioStatusEl) voiceStudioStatusEl.textContent = statusMsg;
+
+  if (phase === 'listening') {
+    isListeningMic = true;
+    micBtn.className = 'btn mic listening';
+    aiOrb.classList.add('listening');
+    micIcon.textContent = currentTurnText.trim() ? '✓' : '🎙';
+    micLabel.textContent = currentTurnText.trim() ? 'Envoyer ma phrase' : 'À l’écoute…';
+    if (voiceSendNowBtn) voiceSendNowBtn.classList.toggle('hidden', !currentTurnText.trim());
+    if (voiceBargeInBtn) voiceBargeInBtn.classList.add('hidden');
+    if (voiceClearBtn) voiceClearBtn.classList.toggle('hidden', !currentTurnText.trim());
+  } else if (phase === 'thinking') {
+    isListeningMic = false;
+    micBtn.className = 'btn mic ai-speaking';
+    aiOrb.classList.remove('listening');
+    micIcon.textContent = '✋';
+    micLabel.textContent = 'Continuer ma phrase';
+    if (voiceSendNowBtn) voiceSendNowBtn.classList.add('hidden');
+    if (voiceBargeInBtn) {
+      voiceBargeInBtn.textContent = '✋ Je n’avais pas fini !';
+      voiceBargeInBtn.classList.remove('hidden');
+    }
+    if (voiceClearBtn) voiceClearBtn.classList.add('hidden');
+    if (voicePatienceFillEl) voicePatienceFillEl.style.width = '100%';
+  } else if (phase === 'speaking') {
+    isListeningMic = false;
+    micBtn.className = 'btn mic ai-speaking';
+    aiOrb.classList.remove('listening');
+    micIcon.textContent = '✋';
+    micLabel.textContent = 'Prendre la parole';
+    if (voiceSendNowBtn) voiceSendNowBtn.classList.add('hidden');
+    if (voiceBargeInBtn) {
+      voiceBargeInBtn.textContent = '✋ Interrompre & parler';
+      voiceBargeInBtn.classList.remove('hidden');
+    }
+    if (voiceClearBtn) voiceClearBtn.classList.add('hidden');
+    if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
   }
+}
+
+async function ensureAcousticVadStarted() {
+  if (vadDisabledForCompatibility || vadAnalyser) return;
+  const isMobileUA = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  if (isMobileUA) return; // Sur mobile, laisser le verrou micro exclusif à SpeechRecognition
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
   try {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    vadMediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    vadAudioCtx = new AudioCtx();
+    const src = vadAudioCtx.createMediaStreamSource(vadMediaStream);
+    vadAnalyser = vadAudioCtx.createAnalyser();
+    vadAnalyser.fftSize = 512;
+    src.connect(vadAnalyser);
+    vadDataArray = new Uint8Array(vadAnalyser.fftSize);
+  } catch (_) {
+    vadAnalyser = null;
+  }
+}
+
+function stopAcousticVad() {
+  if (vadMediaStream) {
+    try { vadMediaStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    vadMediaStream = null;
+  }
+  if (vadAudioCtx) {
+    try { vadAudioCtx.close(); } catch (_) {}
+    vadAudioCtx = null;
+  }
+  vadAnalyser = null;
+  vadDataArray = null;
+}
+
+function sampleMicRms() {
+  if (!vadAnalyser || !vadDataArray) return 0;
+  try {
+    vadAnalyser.getByteTimeDomainData(vadDataArray);
+    let sumSq = 0;
+    for (let i = 0; i < vadDataArray.length; i++) {
+      const v = (vadDataArray[i] - 128) / 128;
+      sumSq += v * v;
+    }
+    return Math.sqrt(sumSq / vadDataArray.length);
+  } catch (_) {
+    return 0;
+  }
+}
+
+function pauseRecognitionInstance() {
+  recognitionShouldStayOpen = false;
+  browserSpeechFlag = false;
+  if (activeRecognition) {
+    const r = activeRecognition;
+    activeRecognition = null;
+    try { r.onend = null; r.onerror = null; r.onresult = null; r.abort(); } catch (_) {}
+  }
+}
+
+function launchRecognitionInstance() {
+  if (!SpeechRecognitionCtor || !interactiveVoiceActive || voicePhase !== 'listening') return;
+  if (activeRecognition) return;
+  try {
     const rec = new SpeechRecognitionCtor();
     activeRecognition = rec;
     rec.lang = 'fr-FR';
+    rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
-    let finalTranscript = '';
+    currentSessionFinal = '';
+    currentSessionInterim = '';
 
-    rec.onstart = () => {
-      isListeningMic = true;
-      micBtn.classList.add('listening');
-      aiOrb.classList.add('listening');
-      micIcon.textContent = '⏺';
-      micLabel.textContent = 'Écoute…';
-      statusEl.textContent = '🎙 Micro actif : dictez votre mission au Superviseur IA…';
+    rec.onspeechstart = () => {
+      browserSpeechFlag = true;
+      lastVocalActivityTs = Date.now();
+    };
+    rec.onspeechend = () => {
+      browserSpeechFlag = false;
+      lastVocalActivityTs = Date.now();
     };
     rec.onresult = (event) => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const txt = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalTranscript += txt + ' ';
-        else interim += txt;
+      let sFinal = '';
+      let sInterim = '';
+      for (let i = 0; i < event.results.length; i++) {
+        const seg = (event.results[i][0]?.transcript || '').trim();
+        if (!seg) continue;
+        if (event.results[i].isFinal) sFinal += (sFinal ? ' ' : '') + seg;
+        else sInterim += (sInterim ? ' ' : '') + seg;
       }
-      document.getElementById('supervisorInput').value = (finalTranscript + interim).trim();
+      currentSessionFinal = sFinal;
+      currentSessionInterim = sInterim;
+      currentTurnText = [priorSegmentsTranscript, currentSessionFinal, currentSessionInterim]
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const inp = document.getElementById('supervisorInput');
+      if (inp) inp.value = currentTurnText;
+      lastVocalActivityTs = Date.now();
+      setInteractiveVoicePhase(
+        'listening',
+        isFrenchThoughtIncomplete(currentTurnText)
+          ? '🗣️ Vous parlez (phrase en cours) — prenez votre temps, j’écoute la suite…'
+          : '🗣️ Parole détectée — continuez librement, j’attends que vous ayez terminé…'
+      );
     };
     rec.onerror = (ev) => {
-      stopMicUI();
-      statusEl.textContent = ev.error === 'not-allowed'
-        ? 'Micro bloqué par le navigateur : ouvrez le lien direct Vercel et autorisez le microphone.'
-        : `Dictée interrompue (${ev.error || 'erreur'}).`;
+      const code = ev && ev.error ? ev.error : '';
+      if (code === 'not-allowed' || code === 'service-not-allowed') {
+        exitInteractiveVoiceMode('Micro bloqué par le navigateur : autorisez l’accès au microphone sur le lien HTTPS.');
+        return;
+      }
+      if (code === 'audio-capture' && vadMediaStream) {
+        vadDisabledForCompatibility = true;
+        stopAcousticVad();
+      }
     };
     rec.onend = () => {
-      stopMicUI();
-      const spokenQ = (finalTranscript || document.getElementById('supervisorInput').value || '').trim();
-      if (spokenQ) askSupervisor(spokenQ, true);
+      if (activeRecognition === rec) activeRecognition = null;
+      const merged = [priorSegmentsTranscript, currentSessionFinal, currentSessionInterim]
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      priorSegmentsTranscript = merged;
+      currentSessionFinal = '';
+      currentSessionInterim = '';
+      currentTurnText = merged;
+
+      // Ne JAMAIS envoyer sur rec.onend ! Tant que l'utilisateur n'a pas terminé sa réflexion, on relance l'écoute en continu.
+      if (interactiveVoiceActive && recognitionShouldStayOpen && voicePhase === 'listening' && !turnCommitted) {
+        setTimeout(() => {
+          if (interactiveVoiceActive && recognitionShouldStayOpen && voicePhase === 'listening' && !turnCommitted) {
+            launchRecognitionInstance();
+          }
+        }, 60);
+      }
     };
     rec.start();
-  } catch (_) {
-    stopMicUI();
-    statusEl.textContent = 'Ouvrez le lien direct HTTPS pour activer le microphone.';
+  } catch (_) {}
+}
+
+function beginListeningTurn(customGreeting = '', preservePrefix = '') {
+  if (!interactiveVoiceActive) return;
+  stopAiSpeech();
+  turnCommitted = false;
+  priorSegmentsTranscript = preservePrefix ? preservePrefix.trim() : '';
+  currentSessionFinal = '';
+  currentSessionInterim = '';
+  currentTurnText = priorSegmentsTranscript;
+  lastVocalActivityTs = Date.now();
+  listeningStartedAt = Date.now();
+  bargeInFrames = 0;
+
+  const inp = document.getElementById('supervisorInput');
+  if (inp) inp.value = currentTurnText;
+  if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
+
+  recognitionShouldStayOpen = true;
+  setInteractiveVoicePhase(
+    'listening',
+    customGreeting || '🟢 Je vous écoute — parlez à votre rythme, je ne vous couperai pas…'
+  );
+  launchRecognitionInstance();
+}
+
+function commitInteractiveVoiceTurn(manualCommit = false) {
+  if (turnCommitted) return;
+  const finalSpoken = (currentTurnText || document.getElementById('supervisorInput').value || '').trim();
+  if (!finalSpoken) {
+    if (manualCommit) exitInteractiveVoiceMode('Session vocale terminée.');
+    return;
+  }
+  turnCommitted = true;
+  recognitionShouldStayOpen = false;
+  pauseRecognitionInstance();
+  priorSegmentsTranscript = '';
+  currentSessionFinal = '';
+  currentSessionInterim = '';
+  currentTurnText = '';
+  askSupervisor(finalSpoken, true);
+}
+
+function resumeListeningAfterBargeIn(reasonMsg, restorePreviousQuestion = false) {
+  if (!interactiveVoiceActive) interactiveVoiceActive = true;
+  if (currentAskAbortController) {
+    try { currentAskAbortController.abort(); } catch (_) {}
+    currentAskAbortController = null;
+  }
+  stopAiSpeech();
+  const prefix = (restorePreviousQuestion && lastAutoSentVoiceQuestion) ? lastAutoSentVoiceQuestion : '';
+  lastAutoSentVoiceQuestion = '';
+  setTimeout(() => {
+    beginListeningTurn(reasonMsg || '🎙 Je me tais et je vous écoute — poursuivez votre pensée…', prefix);
+  }, 150);
+}
+
+function onInteractiveAiSpeechStart() {
+  if (!interactiveVoiceActive) return;
+  pauseRecognitionInstance();
+  bargeInFrames = 0;
+  setInteractiveVoicePhase('speaking', '🔊 L’IA vous répond — parlez simplement au micro (ou cliquez ✋) pour l’interrompre');
+}
+
+function onInteractiveAiSpeechEnd() {
+  if (!interactiveVoiceActive) return;
+  const keepLoop = !voiceLoopCheckboxEl || voiceLoopCheckboxEl.checked;
+  if (keepLoop) {
+    setTimeout(() => {
+      if (interactiveVoiceActive && !isAiSpeaking && voicePhase !== 'thinking') {
+        beginListeningTurn('🎙 À vous — répondez librement quand vous le souhaitez…');
+      }
+    }, 350);
+  } else {
+    exitInteractiveVoiceMode('✓ Réponse vocale terminée.');
+  }
+}
+
+function startVoiceMonitorLoop() {
+  if (voiceMonitorInterval) clearInterval(voiceMonitorInterval);
+  voiceMonitorInterval = setInterval(() => {
+    if (!interactiveVoiceActive) return;
+    const now = Date.now();
+    currentMicRms = sampleMicRms();
+
+    // Calibration douce du bruit de fond ambiant
+    if (!browserSpeechFlag && currentMicRms > 0 && currentMicRms < ambientNoiseFloor * 1.6) {
+      ambientNoiseFloor = ambientNoiseFloor * 0.94 + currentMicRms * 0.06;
+      ambientNoiseFloor = Math.max(0.006, Math.min(0.035, ambientNoiseFloor));
+    }
+
+    if (voicePhase === 'listening') {
+      const vocalDetected = browserSpeechFlag || (currentMicRms > Math.max(0.024, ambientNoiseFloor * 2.35));
+      updateEqualizerBars(vocalDetected ? Math.min(1, currentMicRms * 12 + 0.35) : 0.12);
+      if (vocalDetected) {
+        lastVocalActivityTs = now;
+        if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
+        return;
+      }
+
+      const textSoFar = currentTurnText.trim();
+      if (!textSoFar) {
+        if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
+        // Mise en veille douce après 60s d'inactivité totale sans aucune parole
+        if (now - listeningStartedAt > 60000) {
+          exitInteractiveVoiceMode('⏸ Mode vocal mis en veille après 60s de silence. Cliquez sur 🎙 pour reprendre.');
+        }
+        return;
+      }
+
+      const thresholdMs = getEffectiveSilenceThresholdMs(textSoFar);
+      if (thresholdMs === 0) {
+        if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
+        if (voiceStudioStatusEl) {
+          voiceStudioStatusEl.textContent = '⏸ Mode manuel actif — continuez de parler puis cliquez sur « ✓ J’ai fini (Envoyer) »';
+        }
+        return;
+      }
+
+      const silenceElapsed = now - lastVocalActivityTs;
+      const pct = Math.min(100, Math.round((silenceElapsed / thresholdMs) * 100));
+      if (voicePatienceFillEl) voicePatienceFillEl.style.width = `${pct}%`;
+
+      if (silenceElapsed >= 500 && silenceElapsed < thresholdMs) {
+        const remSec = Math.max(0.1, (thresholdMs - silenceElapsed) / 1000).toFixed(1);
+        if (voiceStudioStatusEl) {
+          voiceStudioStatusEl.textContent = `⏳ Pause détectée — continuez de parler librement ou envoi auto dans ${remSec}s…`;
+        }
+      } else if (silenceElapsed >= thresholdMs) {
+        commitInteractiveVoiceTurn(false);
+      }
+    } else if (voicePhase === 'thinking') {
+      // Si l'utilisateur continue de parler juste après l'envoi auto, on annule l'envoi prématuré et on recolle sa suite !
+      const clearVoice = currentMicRms > Math.max(0.052, ambientNoiseFloor * 3.6);
+      updateEqualizerBars(clearVoice ? 0.85 : 0.2);
+      if (clearVoice && lastAutoSentVoiceQuestion) {
+        bargeInFrames += 1;
+        if (bargeInFrames >= 4) {
+          bargeInFrames = 0;
+          resumeListeningAfterBargeIn('🗣️ Suite de votre phrase détectée — j’écoute la fin de votre idée…', true);
+        }
+      } else {
+        bargeInFrames = Math.max(0, bargeInFrames - 1);
+      }
+    } else if (voicePhase === 'speaking') {
+      // Détection automatique de prise de parole (Barge-In) pendant que l'IA parle
+      const sinceTtsStart = now - aiSpeechStartedAt;
+      const strongHumanVoice = sinceTtsStart > 650 && currentMicRms > Math.max(0.065, ambientNoiseFloor * 4.2);
+      updateEqualizerBars(isAiSpeaking ? 0.55 : 0.15);
+      if (strongHumanVoice) {
+        bargeInFrames += 1;
+        if (bargeInFrames >= 5) {
+          bargeInFrames = 0;
+          resumeListeningAfterBargeIn('🎙 Vous prenez la parole — je m’arrête immédiatement et je vous écoute !', false);
+        }
+      } else {
+        bargeInFrames = Math.max(0, bargeInFrames - 1);
+      }
+    }
+  }, 85);
+}
+
+function exitInteractiveVoiceMode(msg = '') {
+  interactiveVoiceActive = false;
+  recognitionShouldStayOpen = false;
+  turnCommitted = false;
+  pauseRecognitionInstance();
+  stopAcousticVad();
+  stopAiSpeech();
+  if (voiceMonitorInterval) {
+    clearInterval(voiceMonitorInterval);
+    voiceMonitorInterval = null;
+  }
+  setInteractiveVoicePhase('idle', '');
+  if (msg) {
+    const statusEl = document.getElementById('supervisorStatus');
+    if (statusEl) statusEl.textContent = msg;
+  }
+}
+
+async function startInteractiveVoiceMode() {
+  const statusEl = document.getElementById('supervisorStatus');
+  if (!SpeechRecognitionCtor) {
+    statusEl.textContent = 'La conversation vocale nécessite Chrome, Edge ou Safari sur le lien direct HTTPS.';
+    document.getElementById('supervisorInput').focus();
+    return;
+  }
+  interactiveVoiceActive = true;
+  await ensureAcousticVadStarted();
+  startVoiceMonitorLoop();
+  beginListeningTurn('🟢 Dialogue vocal interactif actif — parlez à votre rythme, j’attends que vous ayez complètement terminé…');
+  statusEl.textContent = '🎙 Dialogue vocal interactif actif : parlez librement avec vos pauses naturelles.';
+}
+
+micBtn.addEventListener('click', () => {
+  if (!interactiveVoiceActive) {
+    startInteractiveVoiceMode();
+    return;
+  }
+  if (voicePhase === 'speaking') {
+    resumeListeningAfterBargeIn('🎙 Je vous écoute immédiatement…', false);
+  } else if (voicePhase === 'thinking') {
+    resumeListeningAfterBargeIn('🗣️ Poursuivez votre phrase, je vous écoute…', true);
+  } else if (voicePhase === 'listening') {
+    if (currentTurnText.trim()) commitInteractiveVoiceTurn(true);
+    else exitInteractiveVoiceMode('Dialogue vocal arrêté.');
+  }
+});
+
+if (voiceSendNowBtn) voiceSendNowBtn.addEventListener('click', () => commitInteractiveVoiceTurn(true));
+if (voiceBargeInBtn) {
+  voiceBargeInBtn.addEventListener('click', () => {
+    const restorePrev = voicePhase === 'thinking';
+    resumeListeningAfterBargeIn(
+      restorePrev ? '🗣️ Poursuivez votre phrase, je vous écoute…' : '🎙 Je m’arrête et je vous écoute…',
+      restorePrev
+    );
+  });
+}
+if (voiceClearBtn) {
+  voiceClearBtn.addEventListener('click', () => {
+    priorSegmentsTranscript = '';
+    currentSessionFinal = '';
+    currentSessionInterim = '';
+    currentTurnText = '';
+    const inp = document.getElementById('supervisorInput');
+    if (inp) inp.value = '';
+    lastVocalActivityTs = Date.now();
+    if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
+    setInteractiveVoicePhase('listening', '🗑 Brouillon effacé — reformulez librement votre question…');
+  });
+}
+if (voiceExitBtn) voiceExitBtn.addEventListener('click', () => exitInteractiveVoiceMode('Dialogue vocal interactif terminé.'));
+
+// Raccourci clavier Espace pour interrompre l'IA instantanément pendant le mode vocal (hors champ texte)
+document.addEventListener('keydown', (e) => {
+  if (!interactiveVoiceActive) return;
+  const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (e.code === 'Space' && (voicePhase === 'speaking' || voicePhase === 'thinking')) {
+    e.preventDefault();
+    resumeListeningAfterBargeIn('🎙 Interruption clavier — je vous écoute !', voicePhase === 'thinking');
   }
 });
 

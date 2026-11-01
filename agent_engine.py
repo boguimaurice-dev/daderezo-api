@@ -384,8 +384,16 @@ def _call_llm_with_tools(
         r = "assistant" if turn.get("role") == "assistant" else "user"
         messages.append({"role": r, "content": str(turn.get("content", ""))[:900]})
 
+    voice_hint = (
+        "\nMODE CONVERSATION VOCALE INTERACTIVE EN DIRECT : l'utilisateur vient de te parler au microphone. "
+        "Interprète naturellement les éventuelles hésitations de dictée orale, et fais en sorte que le bloc `[VOIX]...[/VOIX]` "
+        "soit vivant, interactif, percutant (3 à 5 phrases fluides) et se termine si pertinent par une ouverture naturelle au dialogue."
+        if tool_evidence.get("voice_mode")
+        else ""
+    )
     live_brief = {
         "scope_label": tool_evidence.get("scope_label"),
+        "interaction_mode": "dialogue_vocal_temps_reel" if tool_evidence.get("voice_mode") else "console_ecrite_et_vocale",
         "metrics": tool_evidence.get("metrics"),
         "diagnostics": tool_evidence.get("diagnostics"),
         "control_reality_audit": tool_evidence.get("control_reality_audit"),
@@ -396,7 +404,7 @@ def _call_llm_with_tools(
         {
             "role": "user",
             "content": (
-                f"CONTEXTE_TERRAIN_VERIFIE (temps réel) :\n{json.dumps(live_brief, ensure_ascii=False)}\n\n"
+                f"CONTEXTE_TERRAIN_VERIFIE (temps réel) :\n{json.dumps(live_brief, ensure_ascii=False)}{voice_hint}\n\n"
                 f"QUESTION DU SUPERVISEUR :\n{question}"
             ),
         }
@@ -1096,6 +1104,7 @@ def run_multi_agent_mission(
     llm_api_key: Optional[str] = None,
     llm_model: Optional[str] = None,
     llm_provider: Optional[str] = None,
+    voice_mode: bool = False,
 ) -> dict:
     """Exécute la chaîne des 5 agents spécialisés avec sécurité, mémoire multi-tours, contrôle actif et audit complet."""
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -2127,6 +2136,7 @@ def run_multi_agent_mission(
         evidence = {
             "scope_label": scope_label,
             "intent_detected": intent,
+            "voice_mode": bool(voice_mode),
             "metrics": metrics,
             "control_reality_audit": control_reality_audit,
             "security_audit": security_audit_meta,

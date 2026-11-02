@@ -410,11 +410,59 @@ main{min-width:0;padding:24px clamp(18px,3.5vw,44px) 56px;max-width:1520px;width
 }
 .btn.mic:hover{border-color:var(--cyan);background:var(--bg-hover)}
 .btn.mic.listening{
-  background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border-color:#fca5a5;
-  animation:pulseMic 1.15s infinite;
+  background:linear-gradient(135deg,#059669,#047857);color:#fff;border-color:#6ee7b7;
+  animation:pulseMicGreen 1.35s infinite;
 }
+.btn.mic.ai-speaking{
+  background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff;border-color:#7dd3fc;
+}
+@keyframes pulseMicGreen{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.55)}50%{box-shadow:0 0 0 10px rgba(16,185,129,0)}}
 @keyframes pulseMic{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
 .btn.ask-submit{min-height:46px;padding:0 20px;border-radius:10px;font-size:13px}
+
+/* STUDIO VOCAL INTERACTIF FULL-DUPLEX (v4.6) */
+.voice-studio{
+  margin-top:10px;padding:11px 14px;border-radius:12px;
+  border:1px solid rgba(16,185,129,.38);
+  background:linear-gradient(135deg,rgba(16,185,129,.10),rgba(14,165,233,.08));
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;
+}
+.voice-studio.phase-speaking{
+  border-color:rgba(56,189,248,.45);
+  background:linear-gradient(135deg,rgba(14,165,233,.13),rgba(37,99,235,.09));
+}
+.voice-studio.phase-thinking{
+  border-color:rgba(245,158,11,.42);
+  background:linear-gradient(135deg,rgba(245,158,11,.11),rgba(14,165,233,.07));
+}
+.voice-studio-left{display:flex;align-items:center;gap:10px;flex:1;min-width:240px}
+.voice-eq{display:inline-flex;align-items:flex-end;gap:3px;height:18px;width:26px;flex-shrink:0}
+.voice-eq span{
+  display:block;width:4px;height:5px;border-radius:99px;
+  background:var(--emerald-ink);transition:height .09s ease;
+}
+.voice-studio.phase-speaking .voice-eq span{background:var(--cyan-ink)}
+.voice-studio-meta{display:flex;flex-direction:column;gap:3px;flex:1;min-width:180px}
+.voice-studio-title{font:700 12px/1.3 var(--sans);color:var(--ink-strong)}
+.voice-patience-track{
+  width:100%;max-width:340px;height:5px;border-radius:99px;
+  background:rgba(148,163,184,.24);overflow:hidden;
+}
+.voice-patience-fill{
+  height:100%;width:0%;border-radius:99px;
+  background:linear-gradient(90deg,#10b981,#38bdf8);
+  transition:width .1s linear;
+}
+.voice-studio-controls{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.voice-patience-sel{
+  height:32px;padding:0 8px;border-radius:8px;font-size:11.5px;
+  border:1px solid var(--line-bright);background:var(--bg-well);color:var(--ink);
+}
+.voice-loop-lbl{
+  display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;
+  color:var(--ink-dim);cursor:pointer;padding:4px 8px;border-radius:8px;
+  border:1px solid var(--line);background:var(--bg-well);
+}
 
 .sup-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
 .sup-chip{
@@ -582,8 +630,72 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
 .view{display:none}.view.active{display:block}
 .footnote{font:500 11px/1.5 var(--mono);color:var(--muted);margin-top:16px}
 
+/* v4.4 : SÉPARATION STRICTE MODE TRAVAIL ACTIF vs MODE SIMULATION */
+body[data-workspace="work"] [data-sim-only]{display:none !important}
+body:not([data-workspace="work"]) [data-work-only]{display:none !important}
+
+.mode-switch-group{
+  display:inline-flex;align-items:center;gap:3px;padding:3px;border-radius:10px;
+  background:var(--bg-soft);border:1px solid var(--line-bright);
+}
+.mode-switch-btn{
+  border:0;background:transparent;color:var(--muted);height:30px;padding:0 11px;
+  border-radius:7px;font:700 11px/1 var(--mono);cursor:pointer;display:inline-flex;
+  align-items:center;gap:6px;transition:all .15s ease;white-space:nowrap;
+}
+.mode-switch-btn:hover{color:var(--ink-strong);background:var(--bg-hover)}
+.mode-switch-btn.active-sim{
+  background:var(--violet-soft);color:var(--violet-ink);border:1px solid rgba(168,85,247,.42);
+}
+.mode-switch-btn.active-work{
+  background:var(--emerald-soft);color:var(--emerald-ink);border:1px solid rgba(16,185,129,.48);
+  box-shadow:0 0 14px rgba(16,185,129,.18);
+}
+
+.ws-banner{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+  padding:13px 18px;border-radius:13px;margin-bottom:20px;border:1px solid var(--line);
+}
+.ws-banner.sim{
+  background:linear-gradient(90deg,var(--violet-soft),var(--bg-card));
+  border-color:rgba(168,85,247,.40);
+}
+.ws-banner.work-live{
+  background:linear-gradient(90deg,var(--emerald-soft),var(--bg-card));
+  border-color:rgba(16,185,129,.48);
+}
+.ws-banner.work-waiting{
+  background:linear-gradient(90deg,var(--brand-soft),var(--bg-card));
+  border-color:rgba(0,136,255,.46);
+}
+.ws-banner-title{
+  display:flex;align-items:center;flex-wrap:wrap;gap:9px;font-size:13px;font-weight:800;color:var(--ink-strong);
+}
+.ws-banner-sub{font-size:12px;color:var(--muted);margin-top:3px}
+
+.work-onboard-card{
+  background:linear-gradient(155deg,var(--bg-console),var(--bg-card));
+  border:1.5px solid rgba(0,180,255,.48);border-radius:16px;padding:20px 22px;
+  margin-bottom:20px;box-shadow:var(--shadow);
+}
+.work-steps{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:14px 0 16px;
+}
+.work-step{
+  padding:12px 14px;border-radius:11px;background:var(--bg-well);border:1px solid var(--line);
+}
+.work-step b{display:block;font-size:12.5px;color:var(--ink-strong);margin-bottom:4px}
+.work-step span{font-size:11.5px;color:var(--muted);line-height:1.45;display:block}
+.work-step.done{border-color:rgba(16,185,129,.42);background:var(--emerald-soft)}
+.work-step.waiting{border-color:rgba(0,180,255,.48)}
+
+body[data-workspace="work"] .site-card{
+  border-color:rgba(16,185,129,.42);background:linear-gradient(180deg,var(--emerald-soft),var(--bg-soft));
+}
+body[data-workspace="work"] .site-card-eyebrow{color:var(--emerald-ink)}
+
 @media(max-width:1024px){
-  .kpis,.sup-metrics,.agent-pipeline,.net-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpis,.sup-metrics,.agent-pipeline,.net-grid-3,.work-steps{grid-template-columns:repeat(2,minmax(0,1fr))}
   .lower{grid-template-columns:1fr}
 }
 @media(max-width:780px){
@@ -596,6 +708,141 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
   .kpis,.sup-metrics,.agent-pipeline{grid-template-columns:1fr}
   .flow{grid-template-columns:1fr;gap:8px}.link,.downlink{display:none}
   .zones{grid-column:1;grid-template-columns:1fr}
+}
+
+/* =========================================================================
+   v4.7 · INTERACTIVE DEEP-DIVE INSPECTOR & UNIVERSAL CLICKABLE SURFACES
+   ========================================================================= */
+[data-inspect]{
+  cursor:pointer;
+  transition:transform .15s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease;
+}
+[data-inspect]:hover{
+  border-color:rgba(56,189,248,.62)!important;
+  box-shadow:0 6px 20px rgba(2,132,199,.16);
+}
+tr[data-inspect]:hover td{
+  background:rgba(56,189,248,.07);
+}
+.kpi[data-inspect],.node-box[data-inspect],.zone[data-inspect],.agent-node[data-inspect],.sup-metric[data-inspect]{
+  position:relative;
+}
+.kpi[data-inspect]:hover,.node-box[data-inspect]:hover,.zone[data-inspect]:hover,.agent-node[data-inspect]:hover,.sup-metric[data-inspect]:hover{
+  transform:translateY(-2px);
+}
+.inspect-hint{
+  display:inline-flex;align-items:center;gap:4px;
+  font:600 10px var(--mono);color:var(--cyan-ink);
+  opacity:.82;letter-spacing:.03em;margin-top:4px;
+}
+.param-help-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.28);
+  color:var(--cyan-ink);border-radius:999px;padding:1px 7px;
+  font:700 10px var(--mono);cursor:pointer;margin-left:5px;
+}
+.param-help-btn:hover{background:rgba(56,189,248,.22);border-color:var(--cyan)}
+
+.inline-entity-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:1px 7px;margin:0 2px;border-radius:6px;
+  border:1px solid rgba(56,189,248,.4);background:rgba(14,165,233,.11);
+  color:var(--cyan-ink);font:600 12px var(--mono);
+  cursor:pointer;vertical-align:baseline;transition:all .14s ease;
+}
+.inline-entity-chip:hover{
+  background:rgba(14,165,233,.24);border-color:var(--cyan);transform:translateY(-1px);
+}
+
+.perspectives-bar{
+  margin-top:12px;padding:11px 13px;border-radius:11px;
+  border:1px dashed rgba(56,189,248,.36);background:rgba(2,132,199,.06);
+}
+.perspectives-title{
+  font:700 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;
+  color:var(--cyan-ink);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.perspectives-list{display:flex;flex-wrap:wrap;gap:7px}
+.perspective-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 12px;border-radius:9px;
+  border:1px solid rgba(56,189,248,.34);background:var(--bg-card);
+  color:var(--ink-strong);font:600 12px var(--sans);
+  cursor:pointer;text-align:left;transition:all .15s ease;
+}
+.perspective-chip:hover{
+  border-color:var(--cyan);background:rgba(14,165,233,.14);transform:translateY(-1px);
+}
+
+.inspector-backdrop{
+  position:fixed;inset:0;z-index:1200;
+  background:rgba(2,8,23,.62);backdrop-filter:blur(4px);
+  opacity:0;pointer-events:none;transition:opacity .2s ease;
+}
+.inspector-backdrop.open{opacity:1;pointer-events:auto}
+
+.inspector-drawer{
+  position:fixed;top:0;right:0;bottom:0;z-index:1210;
+  width:min(560px,96vw);background:var(--bg-card);
+  border-left:1px solid var(--line-strong);
+  box-shadow:-18px 0 50px rgba(0,0,0,.45);
+  display:flex;flex-direction:column;
+  transform:translateX(104%);transition:transform .24s cubic-bezier(.22,1,.36,1);
+}
+.inspector-drawer.open{transform:translateX(0)}
+.inspector-head{
+  padding:18px 20px;border-bottom:1px solid var(--line);
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  background:linear-gradient(135deg,rgba(14,165,233,.11),transparent);
+}
+.inspector-eyebrow{font:700 10.5px var(--mono);color:var(--cyan-ink);text-transform:uppercase;letter-spacing:.08em}
+.inspector-title{font-size:17px;font-weight:800;color:var(--ink-strong);margin:4px 0 3px;line-height:1.25}
+.inspector-sub{font-size:12.5px;color:var(--muted)}
+.inspector-body{
+  padding:18px 20px;overflow-y:auto;flex:1;
+  display:flex;flex-direction:column;gap:15px;
+}
+.inspector-kv-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+}
+@media(max-width:480px){.inspector-kv-grid{grid-template-columns:1fr}}
+.inspector-kv{
+  padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--bg-well);
+}
+.inspector-kv small{display:block;font:600 10.5px var(--mono);color:var(--muted);text-transform:uppercase;margin-bottom:3px}
+.inspector-kv b{display:block;font-size:13px;color:var(--ink-strong);word-break:break-word}
+.inspector-section{
+  padding:13px 14px;border-radius:11px;border:1px solid var(--line);background:var(--bg-well);
+}
+.inspector-section h4{
+  margin:0 0 7px;font:700 11.5px var(--mono);text-transform:uppercase;
+  letter-spacing:.05em;color:var(--cyan-ink);
+}
+.inspector-section p{margin:0;font-size:13px;line-height:1.58;color:var(--ink)}
+.inspector-actions-wrap{display:flex;flex-wrap:wrap;gap:8px}
+.inspector-research-list{display:flex;flex-direction:column;gap:7px}
+.inspector-research-btn{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;padding:10px 12px;border-radius:9px;
+  border:1px solid rgba(56,189,248,.3);background:var(--bg-card);
+  color:var(--ink-strong);font:600 12.5px var(--sans);text-align:left;cursor:pointer;
+  transition:all .15s ease;
+}
+.inspector-research-btn:hover{
+  border-color:var(--cyan);background:rgba(14,165,233,.13);transform:translateX(2px);
+}
+.inspector-inline-ai{
+  padding:13px 14px;border-radius:11px;
+  border:1px solid rgba(16,185,129,.4);background:rgba(16,185,129,.07);
+  font-size:13px;line-height:1.6;color:var(--ink);white-space:pre-line;
+}
+.inspector-custom-ask{
+  display:flex;gap:8px;margin-top:8px;
+}
+.inspector-custom-ask input{
+  flex:1;height:38px;padding:0 12px;border-radius:9px;
+  border:1px solid var(--line-strong);background:var(--bg-card);color:var(--ink-strong);
+  font:500 12.5px var(--sans);
 }
 </style>
 </head>
@@ -610,14 +857,15 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
     </div>
   </div>
 
-  <div class="site-card">
-    <div class="site-card-eyebrow">PERIMETRE ACTIF</div>
+  <div class="site-card" data-inspect="site-radiography" role="button" tabindex="0" title="Cliquer pour ouvrir la radiographie approfondie du site">
+    <div class="site-card-eyebrow" id="sidebarEyebrow">BANC DE SIMULATION</div>
     <b id="sidebarSite">Sainte Marie de Bouaké</b>
-    <small id="sidebarSub">Côte d’Ivoire · Architecture Multi-Agents</small>
+    <small id="sidebarSub">Données d’exercice · Bac à sable</small>
+    <div class="inspect-hint">🔍 Radiographie &amp; perspectives ↗</div>
   </div>
 
   <nav class="nav" aria-label="Sections">
-    <a class="nav-link" href="/">
+    <a class="nav-link" href="/" data-sim-only>
       <span class="nav-left"><span class="nav-idx">←</span><span class="nav-label">Accueil SaaS & Démo</span></span>
     </a>
     <button class="active" data-view="overview" type="button">
@@ -642,39 +890,54 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
       <span class="nav-left"><span class="nav-idx">05</span><span class="nav-label">Preuves & Audit IA</span></span>
       <span class="nav-badge" id="navAlertCount">0</span>
     </button>
-    <button data-view="testlab" type="button">
-      <span class="nav-left"><span class="nav-idx">06</span><span class="nav-label">Red Team & Lab</span></span>
+    <button data-view="testlab" type="button" data-sim-only>
+      <span class="nav-left"><span class="nav-idx">06</span><span class="nav-label">Red Team & Lab (Démo)</span></span>
     </button>
     <button data-view="config" type="button">
-      <span class="nav-left"><span class="nav-idx">07</span><span class="nav-label">Sonde & Espace Privé</span></span>
+      <span class="nav-left"><span class="nav-idx" id="navConfigIdx">07</span><span class="nav-label">Ma Sonde &amp; IA DeepSeek</span></span>
     </button>
   </nav>
 
   <div class="side-bottom">
     <div class="mode" id="sidebarSecMode">PILOTAGE ACTIF SÉCURISÉ</div>
-    Contrôle Internet 3 niveaux, optimisation Multi-Box, Hub Multimédia LAN/Cloud &amp; isolation SaaS privée.
+    <span id="sidebarBottomDesc">Contrôle Internet 3 niveaux, optimisation Multi-Box, Hub Multimédia LAN/Cloud &amp; isolation SaaS privée.</span>
   </div>
 </aside>
 
 <main>
   <div class="topline">
-    <div class="eyebrow" id="topEyebrow">DADEREZO v4.1 · SUPERVISION, PILOTAGE BOX &amp; MULTIMÉDIA</div>
+    <div class="eyebrow" id="topEyebrow">DADEREZO v4.4 · MODE SIMULATION vs MODE TRAVAIL RÉEL</div>
     <div class="top-right">
+      <div class="mode-switch-group" role="group" aria-label="Basculer entre Simulation et Mode Travail Réel">
+        <button class="mode-switch-btn active-sim" id="switchDemoModeBtn" type="button" title="Explorer le bac à sable fictif">🧪 Simulation</button>
+        <button class="mode-switch-btn" id="switchWorkModeBtn" type="button" title="Travailler uniquement sur votre vrai réseau privé (zéro simulation)">🟢 Mode Travail Réel</button>
+      </div>
       <button class="btn secondary" id="themeToggleBtn" type="button" title="Basculer entre le mode clair et le mode sombre">☀️ Clair</button>
-      <button class="btn secondary" id="authAccountBtn" type="button" title="Se connecter ou créer un espace réseau privé isolé">🔐 Espace Privé</button>
+      <button class="btn secondary" id="authAccountBtn" type="button" title="Se connecter ou gérer votre Espace Privé">🔐 Espace Privé</button>
       <select id="agentSelect" class="site-select" aria-label="Sélectionner le site supervisé">
         <option value="">Chargement des sondes…</option>
       </select>
-      <div class="truth-pill sim" id="sourceTruthPill" title="Indique si vous consultez l'espace démo public ou votre réseau privé isolé">
+      <div class="truth-pill sim" id="sourceTruthPill" data-inspect="source-cert" role="button" tabindex="0" title="Cliquer pour inspecter le certificat de source et l'isolation multi-tenant">
         <span class="dot"></span><span id="sourceTruthText">VÉRIFICATION…</span>
       </div>
-      <div class="truth-pill db" id="dbTruthPill" title="Moteur de base de données actif">
+      <div class="truth-pill db" id="dbTruthPill" data-inspect="db-persistence" role="button" tabindex="0" title="Cliquer pour inspecter la persistance Supabase PG17 et la mémoire de session">
         <span id="dbTruthText">DB : …</span>
       </div>
-      <div class="collector-pill" id="collectorPill"><span class="dot"></span><span id="collectorText">Connexion…</span></div>
+      <div class="collector-pill" id="collectorPill" data-inspect="probe-health" role="button" tabindex="0" title="Cliquer pour inspecter l'état de la sonde locale et ses options d'exécution"><span class="dot"></span><span id="collectorText">Connexion…</span></div>
       <button class="btn secondary" id="pwaInstallBtn" type="button" title="Installer Daderezo en application mobile / bureau">📲 Installer l’App</button>
       <button class="btn secondary" id="refreshBtn" type="button">Actualiser</button>
       <button class="btn" id="scanBtn" type="button" title="Ordonner un scan immédiat à la sonde">⚡ Scanner</button>
+    </div>
+  </div>
+
+  <!-- BANDEAU DE LUCIDITÉ : DISTINCTION IMMÉDIATE SIMULATION vs RÉSEAU RÉEL -->
+  <div class="ws-banner sim" id="workspaceModeBanner">
+    <div>
+      <div class="ws-banner-title" id="wsBannerTitle">🧪 BAC À SABLE DE SIMULATION · DONNÉES D’EXERCICE</div>
+      <div class="ws-banner-sub" id="wsBannerSub">Vous consultez les 7 équipements fictifs de démonstration (<code>simulation-bouake</code>). Passez en <b>Mode Travail Réel</b> pour éliminer le superflu et piloter uniquement votre vraie sonde.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap" id="wsBannerActions">
+      <button class="btn" id="bannerGoWorkBtn" type="button">🟢 Passer en Mode Travail Réel</button>
     </div>
   </div>
 
@@ -684,18 +947,54 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
   <section class="view active" id="overview">
     <div class="heading">
       <div>
-        <div class="eyebrow">01 · OBSERVE · CORRELATE · DEFEND</div>
-        <h1>Poste du Superviseur Général</h1>
+        <div class="eyebrow" id="overviewEyebrow">01 · OBSERVE · CORRELATE · DEFEND</div>
+        <h1 id="overviewMainTitle">Poste du Superviseur Général</h1>
         <p id="overviewSub">Orchestration multi-agents en temps réel : inventaire LAN, accès Internet effectif, sécurité MAC et diagnostic FAI.</p>
       </div>
-      <div class="date" id="lastSeenLabel">En attente de collecte</div>
+      <div class="date" id="lastSeenLabel" data-inspect="probe-health" role="button" tabindex="0" title="Cliquer pour inspecter la fraîcheur de collecte et le cycle de la sonde">En attente de collecte</div>
+    </div>
+
+    <!-- ASSISTANT DE MISE EN SERVICE RÉELLE (AFFICHÉ UNIQUEMENT EN MODE TRAVAIL QUAND 0 SONDE CONNECTÉE) -->
+    <div class="work-onboard-card hidden" id="realWorkOnboardingCard" data-work-only>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="eyebrow" style="color:var(--emerald-ink)">MODE TRAVAIL ACTIF · AUCUNE FAUSSE DONNÉE AFFICHÉE</div>
+          <h2 style="margin:6px 0 4px;font-size:19px;color:var(--ink-strong)">Branchez votre 1re Sonde Réelle en 30 secondes</h2>
+          <p style="margin:0;font-size:13px;color:var(--muted)">Votre espace privé est prêt et débarrassé de toute simulation. Lancez le fichier unique <code>daderezo_sonde.py</code> sur un PC connecté à votre Wi-Fi / LAN pour voir apparaître vos vrais équipements ici.</p>
+        </div>
+        <span class="pill-status warn" id="workRadarBadge">🔄 Radar en écoute (5s)…</span>
+      </div>
+
+      <div class="work-steps">
+        <div class="work-step done">
+          <b>1 · Espace Privé Isolé : ✅ Actif</b>
+          <span id="workStepOrgDesc">Organisation isolée prête. Aucune donnée de démonstration ne pollue cet écran.</span>
+        </div>
+        <div class="work-step done" id="workStepAiBox">
+          <b id="workStepAiTitle">2 · Cerveau DeepSeek : ⚡ Prêt</b>
+          <span id="workStepAiDesc">DeepSeek analysera uniquement les équipements remontés par votre vraie sonde.</span>
+        </div>
+        <div class="work-step waiting">
+          <b>3 · Sonde Locale : ⏳ En attente du 1er signal</b>
+          <span>1 seul fichier Python autonome (zéro installation complexe), déjà pré-rempli avec votre clé secrète.</span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px">
+        <button class="btn" id="downloadSingleProbeBtn" type="button" style="min-height:42px;padding:0 18px;font-size:13px">⬇ Télécharger ma Sonde Prête à Lancer (daderezo_sonde.py)</button>
+        <button class="btn secondary" id="copyWinProbeCmdBtn" type="button" style="min-height:42px">📋 Copier commande 1-clic Windows (PowerShell)</button>
+        <button class="btn secondary" id="copyLinProbeCmdBtn" type="button" style="min-height:42px">📋 Copier commande Linux / Mac</button>
+      </div>
+
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:4px">Ou lancez directement dans <b>PowerShell</b> (Windows) ou <b>Terminal</b> sur un PC de votre réseau :</div>
+      <pre class="cmd-pre" id="workQuickProbeCmd">python daderezo_sonde.py</pre>
     </div>
 
     <div class="notice hidden" id="onboardingNotice">
       <div class="notice-mark">!</div>
       <div>
         <strong id="noticeTitle">Aucune sonde enregistrée</strong>
-        <p id="noticeBody">Ouvrez l’onglet <b>05 · Sonde & Cerveau IA</b> pour copier la commande <code>agent_client.py</code> à lancer sur le PC du réseau local.</p>
+        <p id="noticeBody">Ouvrez l’onglet <b>Ma Sonde &amp; IA DeepSeek</b> pour télécharger et lancer votre sonde locale.</p>
       </div>
     </div>
 
@@ -719,25 +1018,25 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
         </div>
       </div>
 
-      <!-- 5 AGENTS PIPELINE -->
+      <!-- 5 AGENTS PIPELINE (CLIQUABLES POUR EXPLORER LEURS CAPACITÉS & MISSIONS) -->
       <div class="agent-pipeline" aria-label="Pipeline d'agents spécialisés">
-        <div class="agent-node" id="nodeSentinel">
+        <div class="agent-node" id="nodeSentinel" data-inspect="agent-node" data-inspect-target="SENTINEL-SEC" role="button" tabindex="0" title="Cliquer pour approfondir l'agent SENTINEL-SEC et ses audits">
           <div class="agent-node-top"><span class="agent-code">01 · SENTINEL-SEC</span><span class="agent-state" id="stSentinel">VEILLE</span></div>
           <div class="agent-role">Anti-injection &amp; isolation privée</div>
         </div>
-        <div class="agent-node" id="nodeTopo">
+        <div class="agent-node" id="nodeTopo" data-inspect="agent-node" data-inspect-target="TOPO-SCAN" role="button" tabindex="0" title="Cliquer pour approfondir l'agent TOPO-SCAN et l'inventaire ARP/ICMP">
           <div class="agent-node-top"><span class="agent-code">02 · TOPO-SCAN</span><span class="agent-state" id="stTopo">PRÊT</span></div>
           <div class="agent-role">Matrice LAN vs Internet &amp; latence</div>
         </div>
-        <div class="agent-node" id="nodeDiag">
+        <div class="agent-node" id="nodeDiag" data-inspect="agent-node" data-inspect-target="DIAG-NET" role="button" tabindex="0" title="Cliquer pour approfondir l'agent DIAG-NET, les MAC et le FAI">
           <div class="agent-node-top"><span class="agent-code">03 · DIAG-NET</span><span class="agent-state" id="stDiag">PRÊT</span></div>
           <div class="agent-role">Corrélation FAI, intrus MAC &amp; tickets</div>
         </div>
-        <div class="agent-node" id="nodeNetCtrl">
+        <div class="agent-node" id="nodeNetCtrl" data-inspect="agent-node" data-inspect-target="NET-CONTROL" role="button" tabindex="0" title="Cliquer pour approfondir l'agent NET-CONTROL (Logique vs Physique & Box)">
           <div class="agent-node-top"><span class="agent-code">04 · NET-CONTROL</span><span class="agent-state" id="stNetCtrl">ACTIF</span></div>
           <div class="agent-role">Internet ON/OFF &amp; Optimisation Box</div>
         </div>
-        <div class="agent-node" id="nodeOps">
+        <div class="agent-node" id="nodeOps" data-inspect="agent-node" data-inspect-target="MEDIA-HUB" role="button" tabindex="0" title="Cliquer pour approfondir l'agent MEDIA & OPS (Partage LAN & Validation HITL)">
           <div class="agent-node-top"><span class="agent-code">05 · MEDIA &amp; OPS</span><span class="agent-state" id="stOps">PRÊT</span></div>
           <div class="agent-role">Hub Multimédia LAN/Cloud &amp; HITL</div>
         </div>
@@ -751,17 +1050,51 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
           placeholder="Parlez ou écrivez : « Coupe Internet dans la zone Communauté », « Optimise toutes les box », « Combien d’appareils ont Internet ? »"
           aria-label="Consigne écrite ou vocale du Superviseur Général"
         >
-        <button class="btn mic" id="micBtn" type="button" title="Parler à l'orchestrateur au microphone (Français)">
-          <span id="micIcon">🎙</span><span id="micLabel">Parler</span>
+        <button class="btn mic" id="micBtn" type="button" title="Conversation vocale interactive : écoute jusqu'au bout sans vous couper">
+          <span id="micIcon">🎙</span><span id="micLabel">Dialogue Vocal</span>
         </button>
         <button class="btn ask-submit" id="askSupervisorBtn" type="button">Exécuter la mission</button>
       </div>
 
+      <!-- STUDIO VOCAL INTERACTIF FULL-DUPLEX (v4.6 : écoute complète sans coupure + barge-in auto) -->
+      <div class="voice-studio hidden" id="interactiveVoiceStudio">
+        <div class="voice-studio-left">
+          <div class="voice-eq" id="voiceEqBars" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="voice-studio-meta">
+            <div class="voice-studio-title" id="voiceStudioStatusText">🟢 Je vous écoute — parlez librement jusqu’au bout, je ne vous interromps pas…</div>
+            <div class="voice-patience-track" title="Progression du silence de fin de phrase (se remet à zéro dès que vous parlez)">
+              <div class="voice-patience-fill" id="voicePatienceFill"></div>
+            </div>
+          </div>
+        </div>
+        <div class="voice-studio-controls">
+          <select class="voice-patience-sel" id="voicePatienceSelect" aria-label="Patience avant envoi automatique">
+            <option value="3200">Patience : Confortable (3,2s)</option>
+            <option value="4800">Patience : Longue réflexion (4,8s)</option>
+            <option value="2200">Patience : Vive (2,2s)</option>
+            <option value="0">Manuel : j’envoie moi-même</option>
+          </select>
+          <label class="voice-loop-lbl" title="Ré-ouvre automatiquement l'écoute dès que l'IA a fini de parler">
+            <input type="checkbox" id="voiceLoopCheckbox" checked>
+            <span>🔄 Dialogue continu</span>
+          </label>
+          <button class="btn" id="voiceSendNowBtn" type="button" style="height:32px;padding:0 11px;font-size:11.5px">✓ J’ai fini (Envoyer)</button>
+          <button class="btn secondary hidden" id="voiceBargeInBtn" type="button" style="height:32px;padding:0 11px;font-size:11.5px;border-color:var(--cyan)">✋ Prendre la parole</button>
+          <button class="btn secondary" id="voiceClearBtn" type="button" style="height:32px;padding:0 9px;font-size:11.5px" title="Effacer la phrase en cours">🗑</button>
+          <button class="btn danger" id="voiceExitBtn" type="button" style="height:32px;padding:0 10px;font-size:11.5px">⏹ Quitter</button>
+        </div>
+      </div>
+
       <div class="sup-chips" aria-label="Missions rapides Superviseur Général">
         <button class="sup-chip" type="button" data-ask="Combien d'appareils sont connectés au réseau et lesquels ont ou n'ont pas accès à Internet ?">📊 Appareils connectés &amp; Internet</button>
-        <button class="sup-chip" type="button" data-ask="Optimise toutes les box et les canaux Wi-Fi pour un fonctionnement optimal">🚀 Optimiser toutes les Box</button>
-        <button class="sup-chip" type="button" data-ask="Coupe Internet dans la zone Communauté">⛔ Couper Internet Communauté</button>
-        <button class="sup-chip" type="button" data-ask="Active Internet dans la zone Communauté">✅ Activer Internet Communauté</button>
+        <button class="sup-chip" type="button" data-work-only data-ask="Analyse l'état réel de ma connexion FAI, de ma passerelle et des latences mesurées par ma sonde">🔍 Diagnostic réel FAI vs LAN</button>
+        <button class="sup-chip" type="button" data-work-only data-ask="Explique-moi la réalité physique vs logique de mes coupures Internet sur mon réseau actuel et comment bloquer physiquement la Box">💡 Réalité physique vs logique Box</button>
+        <button class="sup-chip" type="button" data-work-only data-ask="Vérifie la posture de sécurité de mon réseau et signale tout appareil ou adresse MAC inhabituelle">🛡️ Audit Sécurité &amp; MAC</button>
+        <button class="sup-chip" type="button" data-ask="Optimise toutes les box et les canaux Wi-Fi pour un fonctionnement optimal">🚀 Optimiser mes Box</button>
+        <button class="sup-chip" type="button" data-sim-only data-ask="Coupe Internet dans la zone Communauté">⛔ Couper Internet Communauté</button>
+        <button class="sup-chip" type="button" data-sim-only data-ask="Active Internet dans la zone Communauté">✅ Activer Internet Communauté</button>
         <button class="sup-chip" type="button" data-ask="Quels fichiers multimédias sont partagés sur le réseau ?">📁 Fichiers &amp; Multimédias</button>
         <button class="sup-chip" type="button" data-ask="Rédige un ticket technique complet pour l'opérateur FAI avec toutes les preuves réseau">📋 Ticket opérateur FAI</button>
       </div>
@@ -781,13 +1114,29 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
         </div>
 
         <div class="sup-metrics">
-          <div class="sup-metric"><small>Connectés au LAN</small><b id="supMetLan">—</b></div>
-          <div class="sup-metric"><small>Accès Internet : OUI</small><b id="supMetInetYes" style="color:var(--emerald-ink)">—</b></div>
-          <div class="sup-metric"><small>Sans accès Internet</small><b id="supMetInetNo" style="color:var(--amber-ink)">—</b></div>
-          <div class="sup-metric"><small>Hors ligne</small><b id="supMetOffline" style="color:var(--red-ink)">—</b></div>
+          <div class="sup-metric" data-inspect="kpi-matrix" data-inspect-target="up" role="button" tabindex="0" title="Cliquer pour explorer tous les équipements connectés au LAN"><small>Connectés au LAN ↗</small><b id="supMetLan">—</b></div>
+          <div class="sup-metric" data-inspect="kpi-matrix" data-inspect-target="inet_yes" role="button" tabindex="0" title="Cliquer pour explorer les équipements avec accès Internet"><small>Accès Internet : OUI ↗</small><b id="supMetInetYes" style="color:var(--emerald-ink)">—</b></div>
+          <div class="sup-metric" data-inspect="kpi-matrix" data-inspect-target="inet_no" role="button" tabindex="0" title="Cliquer pour explorer les équipements privés d'Internet"><small>Sans accès Internet ↗</small><b id="supMetInetNo" style="color:var(--amber-ink)">—</b></div>
+          <div class="sup-metric" data-inspect="kpi-matrix" data-inspect-target="down" role="button" tabindex="0" title="Cliquer pour inspecter les équipements hors ligne"><small>Hors ligne ↗</small><b id="supMetOffline" style="color:var(--red-ink)">—</b></div>
         </div>
 
         <div class="sup-answer" id="supervisorAnswerText"></div>
+
+        <div class="sup-voice-box hidden" id="supervisorVoiceBox" style="margin-top:10px;padding:10px 14px;border-radius:10px;border:1px solid rgba(56,189,248,.32);background:rgba(14,165,233,.08);font-size:13.5px;line-height:1.55;color:var(--ink)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+            <strong style="font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--cyan-ink)">🔊 Rendu vocal réfléchi (synthèse orale IA)</strong>
+            <span id="ttsSpeakingBadge" style="font-size:11px;font-family:var(--mono);color:var(--emerald-ink)">Prêt</span>
+          </div>
+          <div id="supervisorVoiceText"></div>
+        </div>
+
+        <div class="perspectives-bar hidden" id="supervisorPerspectivesBar">
+          <div class="perspectives-title">
+            <span>🧭 Pistes d’approfondissement &amp; options de recherche ciblée</span>
+            <small style="opacity:.78;text-transform:none">Cliquez sur une IP ci-dessus ou une piste ci-dessous</small>
+          </div>
+          <div class="perspectives-list" id="supervisorPerspectivesList"></div>
+        </div>
 
         <div class="sup-reply-actions">
           <button class="btn secondary" id="replayTtsBtn" type="button">🔊 Écouter la réponse</button>
@@ -815,8 +1164,8 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
       </div>
     </div>
 
-    <!-- BARRE DE SIMULATION 1 CLIC -->
-    <div class="sim-strip">
+    <!-- BARRE DE SIMULATION 1 CLIC (STRICTEMENT MASQUÉE EN MODE TRAVAIL RÉEL) -->
+    <div class="sim-strip" id="simStrip" data-sim-only>
       <div style="font-size:12px">
         <strong style="color:var(--emerald-ink);font-family:var(--mono)">SIMULATEUR D’INCIDENTS :</strong>
         <span id="liveActionFeedback" style="color:var(--muted);margin-left:7px">Injectez une situation sur <code>simulation-bouake</code> pour observer la réaction des 4 agents.</span>
@@ -831,42 +1180,46 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
       </div>
     </div>
 
-    <!-- KPI CARDS -->
+    <!-- KPI CARDS (TOUTES CLIQUABLES POUR APPROFONDIR) -->
     <div class="kpis" aria-label="Indicateurs temps réel">
-      <div class="kpi">
+      <div class="kpi" data-inspect="kpi-health" role="button" tabindex="0" title="Cliquer pour approfondir la santé du site, les sous-réseaux et les appareils hors ligne">
         <div class="kpi-label">Santé du site</div>
         <div class="kpi-value" id="kpiHealth">Inconnu</div>
         <div class="kpi-note" id="kpiHealthNote">En attente de télémétrie</div>
+        <div class="inspect-hint">🔍 Approfondir &amp; sous-réseaux ↗</div>
       </div>
-      <div class="kpi">
+      <div class="kpi" data-inspect="kpi-wan" role="button" tabindex="0" title="Cliquer pour analyser la sortie WAN FAI vs latence locale et le contrôle physique vs logique">
         <div class="kpi-label">Sortie Internet (WAN)</div>
         <div class="kpi-value" id="kpiInternet">—</div>
         <div class="kpi-note" id="kpiInternetNote">Sortie WAN non mesurée</div>
+        <div class="inspect-hint">🔍 Diagnostic FAI &amp; Physique/Logique ↗</div>
       </div>
-      <div class="kpi">
+      <div class="kpi" data-inspect="kpi-matrix" data-inspect-target="all" role="button" tabindex="0" title="Cliquer pour ouvrir la matrice détaillée des équipements et constructeurs MAC">
         <div class="kpi-label">Matrice LAN / Internet</div>
         <div class="kpi-value" id="kpiDevices">0</div>
         <div class="kpi-note" id="kpiDevicesNote">Inventaire ARP / ICMP</div>
+        <div class="inspect-hint">🔍 Explorer les équipements &amp; MAC ↗</div>
       </div>
-      <div class="kpi">
+      <div class="kpi" data-inspect="gateway-box" role="button" tabindex="0" title="Cliquer pour inspecter la Box / Passerelle cœur, ses DNS, son Wi-Fi et ses réglages">
         <div class="kpi-label">Passerelle Cœur</div>
         <div class="kpi-value" id="kpiGateway">—</div>
         <div class="kpi-note" id="kpiGatewayNote">Adresse non reçue</div>
+        <div class="inspect-hint">🔍 Réglages Box, DNS &amp; QoS ↗</div>
       </div>
     </div>
 
-    <!-- TOPOLOGIE -->
+    <!-- TOPOLOGIE (TOUS LES BLOCS CLIQUABLES) -->
     <div class="panel">
       <div class="panel-head">
         <div>
-          <h2>Topologie & Corrélation WAN ⇄ LAN</h2>
-          <p>Séparation instantanée entre une coupure de l’opérateur télécom et une défaillance interne.</p>
+          <h2>Topologie &amp; Corrélation WAN ⇄ LAN</h2>
+          <p>Cliquez sur chaque étage de votre architecture pour inspecter les appareils, la latence et les options d’action.</p>
         </div>
-        <span class="tag" id="topoTag">En attente</span>
+        <span class="tag" id="topoTag" data-inspect="logical-vs-physical" role="button" tabindex="0" title="Cliquer pour comprendre la corrélation WAN / LAN">En attente</span>
       </div>
       <div class="topology">
         <div class="flow">
-          <div class="device" id="wanBox">
+          <div class="device" id="wanBox" data-inspect="kpi-wan" role="button" tabindex="0" title="Cliquer pour inspecter la liaison FAI et la latence externe">
             <div class="device-icon">↗</div>
             <div>
               <strong id="wanTitle">Dorsale FAI / Internet</strong>
@@ -874,7 +1227,7 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
             </div>
           </div>
           <div class="link"></div>
-          <div class="device" id="gwBox">
+          <div class="device" id="gwBox" data-inspect="gateway-box" role="button" tabindex="0" title="Cliquer pour inspecter et optimiser la passerelle / Box principale">
             <div class="device-icon">⌘</div>
             <div>
               <strong id="gwTitle">Passerelle principale</strong>
@@ -883,9 +1236,9 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
           </div>
           <div class="downlink"></div><div class="downlink"></div><div class="downlink"></div>
           <div class="zones">
-            <div class="zone"><b id="zoneCoreTitle">01 · Cœur & Accès FAI</b><span id="zoneCoreMeta">Routeurs : —</span></div>
-            <div class="zone"><b id="zoneLanTitle">02 · Postes & Relais LAN</b><span id="zoneLanMeta">Hôtes : —</span></div>
-            <div class="zone"><b id="zoneProbeTitle">03 · Sonde DADEREZO</b><span id="zoneProbeMeta">IP : —</span></div>
+            <div class="zone" data-inspect="topo-tier" data-inspect-target="core" role="button" tabindex="0" title="Cliquer pour explorer la couche Cœur & Accès FAI"><b id="zoneCoreTitle">01 · Cœur &amp; Accès FAI ↗</b><span id="zoneCoreMeta">Routeurs : —</span></div>
+            <div class="zone" data-inspect="topo-tier" data-inspect-target="lan" role="button" tabindex="0" title="Cliquer pour explorer tous les postes et relais du LAN"><b id="zoneLanTitle">02 · Postes &amp; Relais LAN ↗</b><span id="zoneLanMeta">Hôtes : —</span></div>
+            <div class="zone" data-inspect="topo-tier" data-inspect-target="probe" role="button" tabindex="0" title="Cliquer pour inspecter la sonde locale et le mode Administrateur --active-control"><b id="zoneProbeTitle">03 · Sonde DADEREZO ↗</b><span id="zoneProbeMeta">IP : —</span></div>
           </div>
         </div>
       </div>
@@ -905,7 +1258,7 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel" data-sim-only>
         <div class="panel-head">
           <div>
             <h2>Architecture de Gouvernance &amp; Pilotage</h2>
@@ -916,6 +1269,19 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
           <div class="rule"><span class="rule-num">01</span><p><strong>SENTINEL-SEC &amp; Isolation SaaS</strong><br>Bloque toute injection de prompt et isole strictement les réseaux privés par clé organisationnelle (<code>dzk_…</code>).</p></div>
           <div class="rule"><span class="rule-num">02</span><p><strong>Pilotage Internet 3 Niveaux</strong><br>Activez ou coupez Internet depuis la Box Principale, par Sous-réseau/Zone ou sur un Appareil tout en gardant le LAN local actif.</p></div>
           <div class="rule"><span class="rule-num">03</span><p><strong>Optimisation Multi-Box &amp; Hub Média</strong><br>Canaux Wi-Fi sans collision, DNS 1.1.1.1, QoS intelligent et partage de fichiers/multimédias LAN + Cloud.</p></div>
+        </div>
+      </div>
+
+      <div class="panel" data-work-only>
+        <div class="panel-head">
+          <div>
+            <h2>🎯 Lucidité Opérationnelle · Que voir &amp; que faire ?</h2>
+            <p>Priorités directes calculées sur votre vrai réseau (sans bruit de simulation).</p>
+          </div>
+          <span class="tag ok" id="workActionStatusTag">Mode Travail</span>
+        </div>
+        <div class="rule-list" id="workLucidActionList">
+          <div class="rule"><span class="rule-num">01</span><p><strong>1. Connecter votre sonde réelle</strong><br>Téléchargez <code>daderezo_sonde.py</code> ci-dessus et lancez-la sur un PC du réseau pour afficher vos vrais appareils.</p></div>
         </div>
       </div>
     </div>
@@ -959,13 +1325,13 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
         </div>
       </div>
 
-      <div class="ctrl-card">
+      <div class="ctrl-card" data-inspect="policies-audit" role="button" tabindex="0" title="Cliquer pour inspecter les règles actives, commandes pare-feu et l'écart logique vs physique">
         <h3>
-          <span>3 · Politiques Actives &amp; Commandes</span>
+          <span>3 · Politiques Actives &amp; Commandes ↗</span>
           <span class="tag" id="activePolicyCountTag">0 règle</span>
         </h3>
         <p id="lastRouterCmdPreview" class="mono" style="font-size:11px;background:var(--bg-well);padding:8px 10px;border-radius:8px;border:1px solid var(--line)">
-          Utilisez les interrupteurs ou le bouton ON/OFF de chaque appareil ci-dessous.
+          Cliquez ici pour auditer vos règles actives et le mode d’exécution physique.
         </p>
       </div>
     </div>
@@ -1202,14 +1568,20 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
     </div>
 
     <div class="panel config-panel" style="margin-bottom:18px">
-      <h2 style="font-size:14.5px;margin:0 0 6px;color:var(--ink-strong)">Commande de déploiement sonde v4.1 (Collecte + Pilotage Box + Hub Multimédia LAN :8090)</h2>
-      <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px" id="probePrivacyHint">Connectez-vous à votre Espace Privé pour insérer automatiquement votre clé d’isolation <code>--api-key dzk_...</code> dans la commande ci-dessous :</p>
-      <pre class="cmd-pre" id="probeDeployCmd">python agent_client.py --api https://daderezo-api-nine.vercel.app --agent mon-site-principal --nom "Mon Réseau Privé" --task-poll 5 --media-port 8090</pre>
+      <h2 style="font-size:14.5px;margin:0 0 6px;color:var(--ink-strong)">📡 Sonde Terrain Réelle v4.4 — 1 Seul Fichier Prêt à Lancer (Recommandé)</h2>
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px" id="probePrivacyHint">Connectez-vous à votre Espace Privé pour télécharger en 1 clic <code>daderezo_sonde.py</code> déjà pré-rempli avec votre clé secrète <code>dzk_...</code> :</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0">
+        <button class="btn" id="downloadSingleProbeCfgBtn" type="button">⬇ Télécharger daderezo_sonde.py (1 fichier tout-en-un)</button>
+        <button class="btn secondary" id="copyProbeCmdCfgBtn" type="button">📋 Copier la commande 1-clic</button>
+      </div>
+      <pre class="cmd-pre" id="probeDeployCmd">python daderezo_sonde.py</pre>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:11px">
+        <span style="font-size:11.5px;color:var(--muted);align-self:center">Modules avancés (Hub Média LAN :8090) :</span>
         <a class="btn secondary" href="/download/agent_client.py" download>⬇ agent_client.py</a>
         <a class="btn secondary" href="/download/net_controller.py" download>⬇ net_controller.py</a>
         <a class="btn secondary" href="/download/collector.py" download>⬇ collector.py</a>
-        <a class="btn secondary" href="/download/devices.json" download>⬇ devices.json</a>
+        <a class="btn secondary" href="/download/devices.json" download data-sim-only>⬇ devices.json (démo)</a>
+        <button class="btn secondary" type="button" data-inspect="probe-guide">📖 Comprendre le mode --active-control</button>
       </div>
     </div>
 
@@ -1226,15 +1598,15 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
     </div>
 
     <div class="panel config-panel">
-      <div class="config-row"><b>Espace SaaS actif</b><span class="mono" id="cfgWorkspaceMode">Espace Démo Public (Isolé)</span></div>
-      <div class="config-row"><b>Clé Sonde Privée (probe_api_key)</b><span class="mono" id="cfgPrivateProbeKey">Non connecté (mode démo)</span></div>
-      <div class="config-row"><b>Site supervisé actif</b><span id="cfgSite">Sainte Marie de Bouaké</span></div>
-      <div class="config-row"><b>Identifiant sonde (agent_id)</b><span class="mono" id="cfgAgentId">—</span></div>
-      <div class="config-row"><b>Persistance active</b><span class="mono" id="cfgDbMode">—</span></div>
-      <div class="config-row"><b>Adresse IP locale sonde</b><span class="mono" id="cfgIp">—</span></div>
-      <div class="config-row"><b>Masque de sous-réseau</b><span class="mono" id="cfgMask">—</span></div>
-      <div class="config-row"><b>Passerelle par défaut</b><span class="mono" id="cfgGw">—</span></div>
-      <div class="config-row"><b>Serveurs DNS</b><span class="mono" id="cfgDns">—</span></div>
+      <div class="config-row" data-inspect="source-cert" role="button" tabindex="0" title="Cliquer pour approfondir l'isolation multi-tenant"><b>Espace SaaS actif ↗</b><span class="mono" id="cfgWorkspaceMode">Espace Démo Public (Isolé)</span></div>
+      <div class="config-row" data-inspect="source-cert" role="button" tabindex="0" title="Cliquer pour comprendre l'authentification par clé sonde dzk_"><b>Clé Sonde Privée (probe_api_key) ↗</b><span class="mono" id="cfgPrivateProbeKey">Non connecté (mode démo)</span></div>
+      <div class="config-row" data-inspect="site-radiography" role="button" tabindex="0" title="Cliquer pour ouvrir la radiographie du site"><b>Site supervisé actif ↗</b><span id="cfgSite">Sainte Marie de Bouaké</span></div>
+      <div class="config-row" data-inspect="probe-health" role="button" tabindex="0" title="Cliquer pour inspecter la sonde locale"><b>Identifiant sonde (agent_id) ↗</b><span class="mono" id="cfgAgentId">—</span></div>
+      <div class="config-row" data-inspect="db-persistence" role="button" tabindex="0" title="Cliquer pour inspecter la persistance Supabase PG17"><b>Persistance active ↗</b><span class="mono" id="cfgDbMode">—</span></div>
+      <div class="config-row" data-inspect="config-param" data-inspect-target="ip" role="button" tabindex="0" title="Cliquer pour comprendre le rôle de l'adresse IP locale de la sonde"><b>Adresse IP locale sonde ↗</b><span class="mono" id="cfgIp">—</span></div>
+      <div class="config-row" data-inspect="config-param" data-inspect-target="mask" role="button" tabindex="0" title="Cliquer pour comprendre le masque de sous-réseau et la portée de scan"><b>Masque de sous-réseau ↗</b><span class="mono" id="cfgMask">—</span></div>
+      <div class="config-row" data-inspect="gateway-box" role="button" tabindex="0" title="Cliquer pour inspecter la passerelle par défaut / Box"><b>Passerelle par défaut ↗</b><span class="mono" id="cfgGw">—</span></div>
+      <div class="config-row" data-inspect="config-param" data-inspect-target="dns" role="button" tabindex="0" title="Cliquer pour analyser vos serveurs DNS et leurs alternatives rapides"><b>Serveurs DNS ↗</b><span class="mono" id="cfgDns">—</span></div>
       <div class="config-row">
         <div>
           <b>Fournisseur &amp; Modèle IA Agentique (Function-Calling ReAct)</b><br>
@@ -1332,6 +1704,20 @@ th{font:700 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.07em
   </div>
 </div>
 
+<!-- TIROIR D'INVESTIGATION & PERSPECTIVES D'APPROFONDISSEMENT (v4.7) -->
+<div class="inspector-backdrop" id="deepInspectorBackdrop" aria-hidden="true"></div>
+<aside class="inspector-drawer" id="deepInspectorDrawer" role="dialog" aria-modal="true" aria-labelledby="deepInspectorTitle">
+  <div class="inspector-head">
+    <div>
+      <div class="inspector-eyebrow" id="deepInspectorEyebrow">INVESTIGATION APPROFONDIE</div>
+      <h3 class="inspector-title" id="deepInspectorTitle">Analyse de l’élément</h3>
+      <div class="inspector-sub" id="deepInspectorSub">Télémétrie vérifiée &amp; options d’exploration</div>
+    </div>
+    <button class="btn secondary" id="closeDeepInspectorBtn" type="button" style="min-height:34px;padding:0 11px" title="Fermer le panneau (Échap)">✕ Fermer</button>
+  </div>
+  <div class="inspector-body" id="deepInspectorBody"></div>
+</aside>
+
 <script>
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 function applyTheme(theme) {
@@ -1385,14 +1771,29 @@ function getApiBase() {
   return '';
 }
 
-function getHeaders(json = false) {
+let runtimeApiKeyOverride = '';
+let runtimeLlmKeyOverride = '';
+try {
+  localStorage.removeItem('daderezo_api_key');
+  localStorage.removeItem('daderezo_llm_key');
+} catch (_) {}
+
+function generateSecureSessionId() {
+  const arr = new Uint8Array(8);
+  window.crypto.getRandomValues(arr);
+  return 'sup-' + Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function getHeaders(json = false, forceAuth = false) {
   const h = { 'Accept': 'application/json' };
   if (json) h['Content-Type'] = 'application/json';
   const saasTok = (localStorage.getItem('daderezo_saas_token') || '').trim();
-  if (saasTok) h['Authorization'] = `Bearer ${saasTok}`;
-  const k = (localStorage.getItem('daderezo_api_key') || '').trim();
-  if (k) h['X-API-Key'] = k;
-  const llmKey = (localStorage.getItem('daderezo_llm_key') || '').trim();
+  if (saasTok && (forceAuth || workspaceViewMode === 'work')) {
+    h['Authorization'] = `Bearer ${saasTok}`;
+  }
+  const k = runtimeApiKeyOverride.trim();
+  if (k && workspaceViewMode === 'work') h['X-API-Key'] = k;
+  const llmKey = runtimeLlmKeyOverride.trim();
   if (llmKey) h['X-LLM-Api-Key'] = llmKey;
   const llmProv = (localStorage.getItem('daderezo_llm_provider') || '').trim();
   if (llmProv && llmProv !== 'auto') h['X-LLM-Provider'] = llmProv;
@@ -1400,7 +1801,7 @@ function getHeaders(json = false) {
 }
 
 let currentAgentId = localStorage.getItem('daderezo_agent_id') || '';
-let sessionId = localStorage.getItem('daderezo_session_id') || ('sup-' + Math.random().toString(36).slice(2, 10));
+let sessionId = localStorage.getItem('daderezo_session_id') || generateSecureSessionId();
 localStorage.setItem('daderezo_session_id', sessionId);
 
 let cachedDevices = [];
@@ -1410,43 +1811,217 @@ let cachedMedia = [];
 let currentMediaCat = 'all';
 let mainBoxInternetOn = true;
 let currentAuthUser = null;
+let workspaceViewMode = 'demo'; // 'demo' | 'work'
 let statusFilter = 'all';
 let isStandaloneMode = false;
 let currentApprovalId = null;
 
-function updateProbeDeployCommand() {
-  const originUrl = (window.location.origin && window.location.protocol.startsWith('http'))
-    ? window.location.origin
-    : 'https://daderezo-api-nine.vercel.app';
-  const el = document.getElementById('probeDeployCmd');
-  const hint = document.getElementById('probePrivacyHint');
-  if (!el) return;
+function getOriginBaseUrl() {
+  const saved = (localStorage.getItem('daderezo_api_url') || '').trim();
+  if (saved) return saved.replace(/\/+$/, '');
+  if (window.location.origin && window.location.protocol.startsWith('http')) return window.location.origin;
+  return 'https://daderezo-api-nine.vercel.app';
+}
+
+function getWinProbeCommand() {
+  const originUrl = getOriginBaseUrl();
   if (currentAuthUser && currentAuthUser.probe_api_key) {
-    el.textContent =
-      `python agent_client.py --api ${originUrl} --agent ${currentAuthUser.org_slug}-principal --nom "${currentAuthUser.org_name}" --api-key ${currentAuthUser.probe_api_key} --task-poll 5 --media-port 8090`;
-    if (hint) hint.innerHTML = `✅ <b>Clé privée active</b> : cette sonde remontera exclusivement dans votre espace isolé <code>${esc(currentAuthUser.org_name)}</code>.`;
-  } else {
-    el.textContent =
-      `python agent_client.py --api ${originUrl} --agent sainte-marie-bouake --nom "Communauté Sainte Marie de Bouaké" --task-poll 5 --media-port 8090`;
-    if (hint) hint.innerHTML = `Connectez-vous à votre <b>Espace Privé</b> pour insérer automatiquement votre clé d’isolation <code>--api-key dzk_...</code> dans la commande ci-dessous :`;
+    const url = `${originUrl}/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
+    return `curl.exe -fsSL "${url}" -o daderezo_sonde.py; python daderezo_sonde.py`;
+  }
+  return `python daderezo_sonde.py`;
+}
+
+function getLinProbeCommand() {
+  const originUrl = getOriginBaseUrl();
+  if (currentAuthUser && currentAuthUser.probe_api_key) {
+    const url = `${originUrl}/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
+    return `curl -fsSL "${url}" -o daderezo_sonde.py && python3 daderezo_sonde.py`;
+  }
+  return `python3 daderezo_sonde.py`;
+}
+
+async function downloadPreconfiguredProbe() {
+  if (!currentAuthUser || !currentAuthUser.probe_api_key) {
+    setAuthTab('login');
+    openAuthModal();
+    return;
+  }
+  const url = `${getApiBase()}/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
+  try {
+    const res = await fetch(url, { headers: getHeaders(false, true) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const txt = await res.text();
+    const blob = new Blob([txt], { type: 'text/x-python;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = 'daderezo_sonde.py';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+  } catch (_) {
+    const safeRel = `/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
+    const a = document.createElement('a');
+    a.href = safeRel;
+    a.download = 'daderezo_sonde.py';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 }
 
+let serverLlmStatus = { configured: false, provider: null, model: null };
+
+function updateProbeDeployCommand() {
+  const el = document.getElementById('probeDeployCmd');
+  const quickEl = document.getElementById('workQuickProbeCmd');
+  const hint = document.getElementById('probePrivacyHint');
+  const stepOrg = document.getElementById('workStepOrgDesc');
+  const stepAiTitle = document.getElementById('workStepAiTitle');
+  const stepAiDesc = document.getElementById('workStepAiDesc');
+  const hasLocalLlm = Boolean(runtimeLlmKeyOverride.trim());
+  const hasAnyLlm = hasLocalLlm || serverLlmStatus.configured;
+
+  if (stepAiTitle && stepAiDesc) {
+    const provLabel = serverLlmStatus.provider ? serverLlmStatus.provider.toUpperCase() : 'DEEPSEEK';
+    stepAiTitle.textContent = hasAnyLlm ? `2 · Cerveau ${provLabel} : ✅ Actif` : '2 · Cerveau DeepSeek : ⚡ Prêt';
+    stepAiDesc.textContent = hasAnyLlm
+      ? `Moteur ${provLabel} (${serverLlmStatus.model || 'ReAct'}) connecté : vos vrais équipements seront analysés sans aucune donnée fictive.`
+      : 'Renseignez votre clé DeepSeek dans « Ma Sonde & IA DeepSeek » (ou sur Vercel) pour le raisonnement ReAct.';
+  }
+
+  if (currentAuthUser && currentAuthUser.probe_api_key) {
+    const winCmd = getWinProbeCommand();
+    if (el) el.textContent = winCmd;
+    if (quickEl) quickEl.textContent = winCmd;
+    if (stepOrg) stepOrg.textContent = `Espace « ${currentAuthUser.org_name} » actif. Isolation stricte par clé privée.`;
+    if (hint) hint.innerHTML = `✅ <b>Clé privée active</b> : téléchargez <code>daderezo_sonde.py</code> en 1 clic ou collez cette commande PowerShell sur un PC de votre réseau <b>${esc(currentAuthUser.org_name)}</b> :`;
+  } else {
+    if (el) el.textContent = 'Connectez-vous à votre Espace Privé pour générer votre sonde daderezo_sonde.py pré-configurée.';
+    if (quickEl) quickEl.textContent = 'python daderezo_sonde.py';
+    if (hint) hint.innerHTML = `Connectez-vous à votre <b>Espace Privé</b> pour télécharger en 1 clic <code>daderezo_sonde.py</code> déjà pré-rempli avec votre clé secrète <code>dzk_...</code> :`;
+  }
+}
+
+function applyWorkspaceChrome() {
+  const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+  document.body.setAttribute('data-workspace', isWork ? 'work' : 'demo');
+
+  const btnDemo = document.getElementById('switchDemoModeBtn');
+  const btnWork = document.getElementById('switchWorkModeBtn');
+  if (btnDemo) btnDemo.className = `mode-switch-btn ${!isWork ? 'active-sim' : ''}`;
+  if (btnWork) btnWork.className = `mode-switch-btn ${isWork ? 'active-work' : ''}`;
+
+  const cfgIdx = document.getElementById('navConfigIdx');
+  if (cfgIdx) cfgIdx.textContent = isWork ? '06' : '07';
+
+  const topEye = document.getElementById('topEyebrow');
+  const sideEyebrow = document.getElementById('sidebarEyebrow');
+  const sideSec = document.getElementById('sidebarSecMode');
+  const sideDesc = document.getElementById('sidebarBottomDesc');
+  const supIn = document.getElementById('supervisorInput');
+  const ovTitle = document.getElementById('overviewMainTitle');
+  const ovSub = document.getElementById('overviewSub');
+
+  if (isWork) {
+    if (topEye) topEye.textContent = 'DADEREZO v4.7 · SUPERVISION & INVESTIGATION ACTIVE EN DIRECT';
+    if (sideEyebrow) sideEyebrow.textContent = 'ESPACE PRIVÉ · TRAVAIL RÉEL';
+    if (sideSec) sideSec.textContent = 'ZÉRO SIMULATION · RÉSEAU RÉEL';
+    if (sideDesc) sideDesc.textContent = `Organisation « ${currentAuthUser.org_name} » isolée. Cliquez sur tout élément pour approfondir.`;
+    if (ovTitle) ovTitle.textContent = `Poste de Travail · ${currentAuthUser.org_name}`;
+    if (ovSub) ovSub.textContent = 'Cliquez sur n’importe quel équipement, indicateur, sous-réseau ou paramètre pour approfondir l’analyse et ouvrir vos options d’action.';
+    if (supIn) supIn.placeholder = 'Mission sur votre vrai réseau : « Quels appareils sont connectés ? », « Diagnostique ma connexion FAI », « Optimise mes box »…';
+    const activeLab = document.querySelector('.view.active#testlab');
+    if (activeLab) {
+      const ovBtn = document.querySelector('.nav button[data-view="overview"]');
+      if (ovBtn) ovBtn.click();
+    }
+  } else {
+    if (topEye) topEye.textContent = 'DADEREZO v4.7 · BAC À SABLE DE DÉMONSTRATION';
+    if (sideEyebrow) sideEyebrow.textContent = 'BANC DE SIMULATION';
+    if (sideSec) sideSec.textContent = 'BAC À SABLE D’EXERCICE';
+    if (sideDesc) sideDesc.textContent = 'Données fictives d’entraînement (simulation-bouake). Cliquez sur « Mode Travail Réel » pour piloter votre vrai réseau.';
+    if (ovTitle) ovTitle.textContent = 'Poste du Superviseur Général (Simulation)';
+    if (ovSub) ovSub.textContent = 'Bac à sable de démonstration : testez librement les pannes fictives et la réaction des 5 agents avant de passer en Mode Travail Réel.';
+    if (supIn) supIn.placeholder = 'Tester en simulation : « Coupe Internet dans la zone Communauté », « Optimise toutes les box », « Combien d’appareils ont Internet ? »';
+  }
+  updateProbeDeployCommand();
+}
+
+async function setWorkspaceViewMode(nextMode) {
+  if (nextMode === 'work' && !currentAuthUser) {
+    setAuthTab('login');
+    const fb = document.getElementById('authFeedbackMsg');
+    if (fb) fb.textContent = 'Connectez-vous (ou créez votre espace) pour activer le Mode Travail Réel sans simulation.';
+    openAuthModal();
+    return;
+  }
+  workspaceViewMode = nextMode === 'work' ? 'work' : 'demo';
+  currentAgentId = '';
+  document.getElementById('supervisorReplyBox').classList.add('hidden');
+  applyWorkspaceChrome();
+  await refreshAll();
+  loadMedia();
+}
+
 document.getElementById('cfgApiUrl').value = localStorage.getItem('daderezo_api_url') || '';
-document.getElementById('cfgApiKey').value = localStorage.getItem('daderezo_api_key') || '';
-document.getElementById('cfgLlmKey').value = localStorage.getItem('daderezo_llm_key') || '';
 document.getElementById('cfgLlmProvider').value = localStorage.getItem('daderezo_llm_provider') || 'auto';
 updateProbeDeployCommand();
 
 document.getElementById('saveCfgBtn').addEventListener('click', () => {
   localStorage.setItem('daderezo_api_url', document.getElementById('cfgApiUrl').value.trim());
-  localStorage.setItem('daderezo_api_key', document.getElementById('cfgApiKey').value.trim());
-  localStorage.setItem('daderezo_llm_key', document.getElementById('cfgLlmKey').value.trim());
+  runtimeApiKeyOverride = document.getElementById('cfgApiKey').value.trim();
+  runtimeLlmKeyOverride = document.getElementById('cfgLlmKey').value.trim();
   localStorage.setItem('daderezo_llm_provider', document.getElementById('cfgLlmProvider').value);
   const st = document.getElementById('llmCheckStatus');
-  if (st) st.textContent = '✅ Configuration sauvegardée localement.';
+  if (st) st.textContent = '✅ Configuration appliquée en mémoire sécurisée (aucune clé en clair sur disque).';
   refreshAll();
 });
+
+document.getElementById('switchDemoModeBtn').addEventListener('click', () => setWorkspaceViewMode('demo'));
+document.getElementById('switchWorkModeBtn').addEventListener('click', () => setWorkspaceViewMode('work'));
+const bannerGoWorkBtn = document.getElementById('bannerGoWorkBtn');
+if (bannerGoWorkBtn) bannerGoWorkBtn.addEventListener('click', () => setWorkspaceViewMode('work'));
+
+['downloadSingleProbeBtn', 'downloadSingleProbeCfgBtn'].forEach(id => {
+  const b = document.getElementById(id);
+  if (b) b.addEventListener('click', downloadPreconfiguredProbe);
+});
+
+const copyWinProbeBtn = document.getElementById('copyWinProbeCmdBtn');
+if (copyWinProbeBtn) {
+  copyWinProbeBtn.addEventListener('click', async () => {
+    try {
+      if (navigator.clipboard) await navigator.clipboard.writeText(getWinProbeCommand());
+      copyWinProbeBtn.textContent = '✓ Commande Windows copiée !';
+      setTimeout(() => { copyWinProbeBtn.textContent = '📋 Copier commande 1-clic Windows (PowerShell)'; }, 2200);
+    } catch (_) {}
+  });
+}
+
+const copyLinProbeBtn = document.getElementById('copyLinProbeCmdBtn');
+if (copyLinProbeBtn) {
+  copyLinProbeBtn.addEventListener('click', async () => {
+    try {
+      if (navigator.clipboard) await navigator.clipboard.writeText(getLinProbeCommand());
+      copyLinProbeBtn.textContent = '✓ Commande Linux/Mac copiée !';
+      setTimeout(() => { copyLinProbeBtn.textContent = '📋 Copier commande Linux / Mac'; }, 2200);
+    } catch (_) {}
+  });
+}
+
+const copyProbeCfgBtn = document.getElementById('copyProbeCmdCfgBtn');
+if (copyProbeCfgBtn) {
+  copyProbeCfgBtn.addEventListener('click', async () => {
+    try {
+      if (navigator.clipboard) await navigator.clipboard.writeText(getWinProbeCommand());
+      copyProbeCfgBtn.textContent = '✓ Commande copiée !';
+      setTimeout(() => { copyProbeCfgBtn.textContent = '📋 Copier la commande 1-clic'; }, 2200);
+    } catch (_) {}
+  });
+}
 
 const copyContaboBtn = document.getElementById('copyContaboCmdBtn');
 if (copyContaboBtn) {
@@ -1464,7 +2039,7 @@ const testLlmBtn = document.getElementById('testLlmBtn');
 if (testLlmBtn) {
   testLlmBtn.addEventListener('click', async () => {
     const st = document.getElementById('llmCheckStatus');
-    localStorage.setItem('daderezo_llm_key', document.getElementById('cfgLlmKey').value.trim());
+    runtimeLlmKeyOverride = document.getElementById('cfgLlmKey').value.trim();
     localStorage.setItem('daderezo_llm_provider', document.getElementById('cfgLlmProvider').value);
     testLlmBtn.disabled = true;
     if (st) st.textContent = '⏳ Vérification en direct auprès du fournisseur IA…';
@@ -1485,7 +2060,7 @@ if (testLlmBtn) {
 }
 
 document.getElementById('resetSessionBtn').addEventListener('click', () => {
-  sessionId = 'sup-' + Math.random().toString(36).slice(2, 10);
+  sessionId = generateSecureSessionId();
   localStorage.setItem('daderezo_session_id', sessionId);
   document.getElementById('supervisorStatus').textContent = `Nouvelle session ouverte (${sessionId}) · Mémoire conversationnelle réinitialisée.`;
 });
@@ -1497,19 +2072,25 @@ function formatSince(seconds) {
   return `il y a ${Math.floor(seconds / 3600)} h`;
 }
 
+let cachedAlerts = [];
+let cachedAuditLogs = [];
+let cachedLastTrace = [];
+let lastDashboardPayload = null;
+
 function renderAlertsList(alerts, limit) {
-  const slice = limit ? alerts.slice(0, limit) : alerts;
+  cachedAlerts = Array.isArray(alerts) ? alerts : [];
+  const slice = limit ? cachedAlerts.slice(0, limit) : cachedAlerts;
   if (!slice.length) {
     return '<div class="blank-state"><b>Aucune alerte</b><span>Aucun incident ou équipement inconnu relevé.</span></div>';
   }
-  return slice.map(a => {
+  return slice.map((a, idx) => {
     const sev = (a.severity || 'info').toLowerCase();
     const ts = a.ts ? new Date(a.ts).toLocaleString('fr-FR') : '';
-    return `<div class="alert-row">
+    return `<div class="alert-row" data-inspect="alert" data-inspect-target="${idx}" role="button" tabindex="0" title="Cliquer pour investiguer cette alerte et l'équipement associé">
       <span class="sev ${esc(sev)}">${esc(sev)}</span>
-      <div>
+      <div style="flex:1">
         <div>${esc(a.message)}</div>
-        ${ts ? `<div class="alert-meta">${esc(ts)}</div>` : ''}
+        <div class="alert-meta">${ts ? esc(ts) + ' · ' : ''}<span style="color:var(--cyan-ink)">🔍 Approfondir cette alerte ↗</span></div>
       </div>
     </div>`;
   }).join('');
@@ -1550,8 +2131,13 @@ function renderEquipmentTable() {
           ${polOn ? '🟢 Internet ON' : '🔴 Internet OFF'}
          </button>`;
 
-    return `<tr>
-      <td><strong>${esc(d.name || 'Poste réseau')}</strong><br><small style="color:var(--muted)">${esc(d.internet_reason || '')}</small></td>
+    const isRealRow = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+    const srcTag = isRealRow
+      ? '<span class="tag ok" style="padding:2px 7px;font-size:9.5px;margin-left:6px">SONDE RÉELLE</span>'
+      : '<span class="tag" style="padding:2px 7px;font-size:9.5px;margin-left:6px">SIMULÉ</span>';
+
+    return `<tr data-inspect="device" data-inspect-target="${esc(d.ip)}" title="Cliquer pour ouvrir la fiche approfondie, constructeur MAC et options de recherche pour ${esc(d.name || d.ip)}">
+      <td><strong>${esc(d.name || 'Poste réseau')}</strong>${srcTag}<br><small style="color:var(--muted)">${esc(d.internet_reason || '')}</small><div class="inspect-hint">🔍 Approfondir ce poste ↗</div></td>
       <td class="mono">${esc(d.ip)}</td>
       <td class="mono">${esc(d.mac || '—')}</td>
       <td>${esc(d.zone || 'Réseau local')} · <small style="color:var(--muted)">${esc(d.type || 'host')}</small></td>
@@ -1563,7 +2149,8 @@ function renderEquipmentTable() {
   }).join('');
 
   tbody.querySelectorAll('[data-dev-switch]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const ip = btn.getAttribute('data-dev-switch');
       const nextOn = btn.getAttribute('data-dev-next') === '1';
       applyInternetPolicy('device', ip, nextOn);
@@ -1645,18 +2232,170 @@ function applyStandaloneScenario(key) {
   else if (key === 'retablissement') standaloneStore.alerts.unshift({ severity: 'retabli', message: 'Accès Internet rétabli (32 ms)', ts });
 }
 
+function renderWorkLucidActions(data) {
+  const listEl = document.getElementById('workLucidActionList');
+  const tagEl = document.getElementById('workActionStatusTag');
+  if (!listEl) return;
+
+  if (!data || !data.agent) {
+    if (tagEl) { tagEl.textContent = 'En attente sonde'; tagEl.className = 'tag'; }
+    listEl.innerHTML = `
+      <div class="rule"><span class="rule-num">01</span><p><strong>Aucune fausse donnée affichée</strong><br>Contrairement au mode simulation, tous les compteurs restent à <code>0</code> tant que votre vraie sonde locale n’a pas émis.</p></div>
+      <div class="rule"><span class="rule-num">02</span><p><strong>Action immédiate : lancer <code>daderezo_sonde.py</code></strong><br>Cliquez sur « ⬇ Télécharger ma Sonde Prête à Lancer » en haut de page puis exécutez <code>python daderezo_sonde.py</code> sur votre PC.</p></div>
+      <div class="rule"><span class="rule-num">03</span><p><strong>Détection automatique en 5 secondes</strong><br>Dès le 1er envoi, vos vrais routeurs, smartphones, imprimantes et PC apparaîtront ici sans rafraîchir la page.</p></div>`;
+    return;
+  }
+
+  const state = data.state || {};
+  const devs = data.devices || [];
+  const upCount = devs.filter(d => d.status === 'up').length;
+  const downCount = devs.length - upCount;
+  const inetStatus = state.internet_status || 'unknown';
+  const gwStatus = state.gw_status || 'unknown';
+
+  let step1 = '';
+  if (gwStatus === 'down') {
+    if (tagEl) { tagEl.textContent = 'Urgence Passerelle'; tagEl.className = 'tag err'; }
+    step1 = `<strong>🔴 Passerelle locale (${esc(state.gw || 'routeur')}) injoignable</strong><br>Vérifiez l’alimentation électrique et le câble LAN de votre box principale avant toute action FAI.`;
+  } else if (inetStatus === 'down') {
+    if (tagEl) { tagEl.textContent = 'Coupure FAI'; tagEl.className = 'tag err'; }
+    step1 = `<strong>🟠 LAN actif (${upCount} appareils), mais sortie Internet FAI coupée</strong><br>Votre réseau interne fonctionne : demandez à DeepSeek ci-dessus de générer le ticket technique opérateur.`;
+  } else {
+    if (tagEl) { tagEl.textContent = 'Réseau Réel Actif'; tagEl.className = 'tag ok'; }
+    step1 = `<strong>🟢 Liaison FAI &amp; Passerelle (${esc(state.gw || 'OK')}) opérationnelles</strong><br>Latence WAN réelle : <code>${state.wan_latency_ms ? Number(state.wan_latency_ms).toFixed(0) + ' ms' : 'OK'}</code> · Sonde <code>${esc(state.ip_local || data.agent.ip || '')}</code> en ligne.`;
+  }
+
+  const step2 = downCount > 0
+    ? `<strong>⚠️ ${downCount} équipement(s) hors ligne sur ${devs.length} connus</strong><br>Cliquez ici pour inspecter les postes hors ligne et analyser les sous-réseaux.`
+    : `<strong>✅ ${upCount}/${devs.length} équipements réels répondent sur votre LAN</strong><br>Cliquez ici pour explorer la répartition par sous-réseau et les constructeurs MAC.`;
+
+  const step3 = `<strong>🧭 Réalité Physique vs Logique &amp; Mode Contrôle Actif</strong><br>Cliquez ici pour vérifier comment vos règles d’administration s’appliquent sur votre Box (<code>${esc(state.gw || 'passerelle')}</code>) ou via <code>--active-control</code>.`;
+
+  listEl.innerHTML = `
+    <div class="rule" data-inspect="kpi-wan" role="button" tabindex="0" title="Cliquer pour approfondir l'état FAI et passerelle"><span class="rule-num">01</span><p>${step1}<br><span class="inspect-hint">🔍 Approfondir la liaison FAI ↗</span></p></div>
+    <div class="rule" data-inspect="kpi-health" role="button" tabindex="0" title="Cliquer pour explorer la santé du site et les appareils"><span class="rule-num">02</span><p>${step2}<br><span class="inspect-hint">🔍 Explorer les équipements ↗</span></p></div>
+    <div class="rule" data-inspect="logical-vs-physical" role="button" tabindex="0" title="Cliquer pour ouvrir le guide et diagnostic Physique vs Logique"><span class="rule-num">03</span><p>${step3}<br><span class="inspect-hint">🔍 Comprendre &amp; configurer ↗</span></p></div>`;
+}
+
+function renderEmptyWorkWorkspace(dbBackendName = 'SUPABASE') {
+  const orgName = currentAuthUser ? currentAuthUser.org_name : 'Mon Organisation';
+  lastDashboardPayload = null;
+  cachedDevices = [];
+  cachedPolicies = [];
+  cachedBoxes = [];
+  cachedMedia = [];
+  mainBoxInternetOn = true;
+
+  document.getElementById('onboardingNotice').classList.add('hidden');
+  const onboardCard = document.getElementById('realWorkOnboardingCard');
+  if (onboardCard) onboardCard.classList.remove('hidden');
+
+  const banner = document.getElementById('workspaceModeBanner');
+  const bTitle = document.getElementById('wsBannerTitle');
+  const bSub = document.getElementById('wsBannerSub');
+  const bAct = document.getElementById('wsBannerActions');
+  if (banner) banner.className = 'ws-banner work-waiting';
+  if (bTitle) bTitle.innerHTML = `🟡 MODE TRAVAIL ACTIF · ESPACE PRIVÉ « ${esc(orgName)} » (0 DONNÉE SIMULÉE)`;
+  if (bSub) bSub.innerHTML = `Toutes les données fictives sont éliminées. Lancez <code>daderezo_sonde.py</code> sur un PC de votre réseau pour superviser vos vrais appareils.`;
+  if (bAct) {
+    bAct.innerHTML = `
+      <button class="btn" type="button" id="bannerDlProbeWaitingBtn">⬇ Télécharger daderezo_sonde.py</button>
+      <button class="btn secondary" type="button" data-inspect="probe-guide">📖 Guide Sonde &amp; Mode Admin</button>`;
+  }
+  const dlWaitBtn = document.getElementById('bannerDlProbeWaitingBtn');
+  if (dlWaitBtn) dlWaitBtn.addEventListener('click', () => {
+    const mainDl = document.getElementById('downloadSingleProbeBtn') || document.getElementById('downloadSingleProbeCfgBtn');
+    if (mainDl) mainDl.click();
+  });
+
+  const truthPill = document.getElementById('sourceTruthPill');
+  const truthText = document.getElementById('sourceTruthText');
+  truthPill.className = 'truth-pill real';
+  truthText.textContent = 'MODE TRAVAIL · 0 SONDE';
+
+  const pill = document.getElementById('collectorPill');
+  const pillText = document.getElementById('collectorText');
+  pill.className = 'collector-pill offline';
+  pillText.textContent = 'EN ATTENTE SONDE';
+
+  document.getElementById('dbTruthText').textContent = dbBackendName === 'SUPABASE' ? 'DB : SUPABASE PG17' : `DB : ${dbBackendName}`;
+  document.getElementById('sidebarSite').textContent = orgName;
+  document.getElementById('sidebarSub').textContent = '0 sonde connectée · Zéro simulation';
+  document.getElementById('cfgSite').textContent = orgName;
+  document.getElementById('cfgAgentId').textContent = 'En attente de 1re connexion sonde';
+  document.getElementById('cfgIp').textContent = '—';
+  document.getElementById('cfgMask').textContent = '—';
+  document.getElementById('cfgGw').textContent = '—';
+  document.getElementById('cfgDns').textContent = '—';
+  document.getElementById('lastSeenLabel').textContent = 'AUCUNE SONDE ACTIVE · ÉCOUTE AUTO 5S';
+
+  const kpiHealth = document.getElementById('kpiHealth');
+  kpiHealth.textContent = 'Attente sonde';
+  kpiHealth.className = 'kpi-value warn';
+  document.getElementById('kpiHealthNote').textContent = 'Aucune fausse donnée injectée';
+
+  const kpiInet = document.getElementById('kpiInternet');
+  kpiInet.textContent = '—';
+  kpiInet.className = 'kpi-value';
+  document.getElementById('kpiInternetNote').textContent = 'Sera mesuré par votre sonde réelle';
+
+  document.getElementById('kpiDevices').textContent = '0';
+  document.getElementById('kpiDevicesNote').textContent = 'Aucun équipement fictif affiché';
+  document.getElementById('kpiGateway').textContent = '—';
+  document.getElementById('kpiGateway').className = 'kpi-value';
+  document.getElementById('kpiGatewayNote').textContent = 'En attente du 1er scan réel';
+
+  document.getElementById('navEquipCount').textContent = '0';
+  document.getElementById('navBoxCount').textContent = '0';
+  document.getElementById('navAlertCount').textContent = '0';
+  document.getElementById('navMediaCount').textContent = '0';
+
+  document.getElementById('wanBox').className = 'device';
+  document.getElementById('wanMeta').textContent = 'En attente sonde réelle';
+  document.getElementById('gwBox').className = 'device';
+  document.getElementById('gwTitle').textContent = 'Passerelle réelle';
+  document.getElementById('gwMeta').textContent = 'En attente sonde réelle';
+  document.getElementById('topoTag').textContent = 'ATTENTE 1ER SIGNAL';
+  document.getElementById('topoTag').className = 'tag';
+  document.getElementById('zoneCoreMeta').textContent = '0 détecté';
+  document.getElementById('zoneLanMeta').textContent = '0 détecté';
+  document.getElementById('zoneProbeMeta').textContent = 'Lancez daderezo_sonde.py';
+
+  document.getElementById('overviewAlertTag').textContent = '0 événement réel';
+  const emptyAlertHtml = '<div class="blank-state"><b>Aucune alerte sur votre réseau réel</b><span>Les vrais événements apparaîtront dès le démarrage de votre sonde locale.</span></div>';
+  document.getElementById('overviewAlerts').innerHTML = emptyAlertHtml;
+  document.getElementById('fullAlertsList').innerHTML = emptyAlertHtml;
+  document.getElementById('equipTableBody').innerHTML = '<tr><td colspan="8" class="blank-state"><b>Mode Travail Actif · 0 équipement simulé</b><span>Lancez <code>daderezo_sonde.py</code> sur un PC de votre réseau pour voir apparaître vos vrais appareils ici.</span></td></tr>';
+  renderBoxesGrid([]);
+  renderInternetSwitchState();
+  renderWorkLucidActions(null);
+}
+
 async function refreshAll() {
   const base = getApiBase();
   const select = document.getElementById('agentSelect');
+  const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+  applyWorkspaceChrome();
+
   try {
     const agentsRes = await fetch(`${base}/agents`, { headers: getHeaders() });
     if (!agentsRes.ok) throw new Error(`HTTP ${agentsRes.status}`);
-    const agents = await agentsRes.json();
+    const allAgents = await agentsRes.json();
     isStandaloneMode = false;
 
+    const agents = isWork
+      ? allAgents.filter(a => !a.is_simulation && !String(a.id).startsWith('simulation-'))
+      : allAgents.filter(a => a.is_simulation || String(a.id).startsWith('simulation-'));
+
     if (!agents.length) {
-      select.innerHTML = '<option value="">Aucune sonde enregistrée</option>';
-      document.getElementById('onboardingNotice').classList.remove('hidden');
+      currentAgentId = '';
+      if (isWork) {
+        select.innerHTML = `<option value="">[ESPACE PRIVÉ] En attente de votre 1re sonde réelle…</option>`;
+        renderEmptyWorkWorkspace('SUPABASE');
+      } else {
+        select.innerHTML = '<option value="">Aucune sonde de démo</option>';
+        document.getElementById('onboardingNotice').classList.remove('hidden');
+      }
       return;
     }
 
@@ -1666,7 +2405,7 @@ async function refreshAll() {
     }
 
     select.innerHTML = agents.map(a => {
-      const prefix = a.is_simulation ? '[DÉMO] ' : '[SONDE RÉELLE] ';
+      const prefix = a.is_simulation ? '[SIMULATION] ' : '[SONDE RÉELLE] ';
       return `<option value="${esc(a.id)}" ${a.id === currentAgentId ? 'selected' : ''}>${esc(prefix + (a.nom || a.id))} (${a.status === 'online' ? 'en ligne' : 'hors ligne'})</option>`;
     }).join('');
 
@@ -1675,6 +2414,11 @@ async function refreshAll() {
     const data = await dashRes.json();
     updateUI(data);
   } catch (_) {
+    if (isWork) {
+      // En Mode Travail Réel : interdiction absolue d'injecter de fausses données de simulation en cas de coupure réseau
+      select.innerHTML = '<option value="">[MODE TRAVAIL] Reconnexion au serveur…</option>';
+      return;
+    }
     isStandaloneMode = true;
     currentAgentId = 'simulation-bouake';
     select.innerHTML = '<option value="simulation-bouake">[APERÇU] Sainte Marie de Bouaké</option>';
@@ -1683,6 +2427,7 @@ async function refreshAll() {
 }
 
 function updateUI(data) {
+  lastDashboardPayload = data;
   const agent = data.agent;
   const state = data.state || {};
   const devices = data.devices || data.probes || [];
@@ -1713,15 +2458,49 @@ function updateUI(data) {
   document.getElementById('onboardingNotice').classList.add('hidden');
 
   const isSim = Boolean(agent.is_simulation || String(agent.id).startsWith('simulation-'));
+  const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser) && !isSim;
+  const onboardCard = document.getElementById('realWorkOnboardingCard');
+  if (onboardCard) onboardCard.classList.add('hidden');
+
   truthPill.className = `truth-pill ${isSim ? 'sim' : 'real'}`;
-  truthText.textContent = isSim ? 'MODE SIMULATION' : 'SONDE TERRAIN RÉELLE';
+  truthText.textContent = isSim ? 'MODE SIMULATION (FICTIF)' : '🟢 SONDE RÉELLE CERTIFIÉE';
 
   const isOnline = agent.status === 'online';
   pill.className = `collector-pill ${isOnline ? 'online' : 'offline'}`;
-  pillText.textContent = isOnline ? 'AGENT EN LIGNE' : 'HORS LIGNE';
+  pillText.textContent = isOnline ? (isSim ? 'DÉMO ACTIVE' : 'SONDE EN DIRECT') : 'SONDE HORS LIGNE';
 
-  const siteName = state.site_name || agent.nom || 'Sainte Marie de Bouaké';
+  const siteName = state.site_name || agent.nom || 'Site supervisé';
   document.getElementById('sidebarSite').textContent = siteName;
+  document.getElementById('sidebarSub').textContent = isSim
+    ? 'Données fictives · Bac à sable'
+    : `${devices.length} appareil(s) réel(s) · IP ${state.ip_local || agent.ip || 'active'}`;
+
+  const banner = document.getElementById('workspaceModeBanner');
+  const bTitle = document.getElementById('wsBannerTitle');
+  const bSub = document.getElementById('wsBannerSub');
+  const bAct = document.getElementById('wsBannerActions');
+  if (isWork) {
+    if (banner) banner.className = 'ws-banner work-live';
+    if (bTitle) bTitle.innerHTML = `🟢 MODE TRAVAIL ACTIF · TÉLÉMÉTRIE RÉELLE CERTIFIÉE (${esc(siteName)})`;
+    if (bSub) bSub.innerHTML = `Source directe : sonde locale <code>${esc(agent.id)}</code> (${esc(state.ip_local || agent.ip || 'en ligne')}) · <b>${devices.length} équipement(s) réel(s)</b> · Cliquez sur tout élément pour approfondir.`;
+    if (bAct) {
+      bAct.innerHTML = `
+        <button class="btn" type="button" data-inspect="site-radiography">🔬 Radiographie du Site</button>
+        <button class="btn secondary" type="button" data-inspect="security-mac-audit">🛡️ Audit MAC &amp; Constructeurs</button>
+        <button class="btn secondary" type="button" data-inspect="logical-vs-physical">🧭 Physique vs Logique</button>
+        <button class="btn secondary" type="button" data-inspect="gateway-box">⚙️ Box &amp; DNS</button>`;
+    }
+    renderWorkLucidActions(data);
+  } else {
+    if (banner) banner.className = 'ws-banner sim';
+    if (bTitle) bTitle.innerHTML = `🧪 BAC À SABLE DE SIMULATION · DONNÉES D’EXERCICE`;
+    if (bSub) bSub.innerHTML = currentAuthUser
+      ? `Vous consultez la simulation publique. Votre espace privé <b>${esc(currentAuthUser.org_name)}</b> est prêt : basculez en <b>Mode Travail Réel</b> pour voir uniquement votre vraie sonde.`
+      : `Vous consultez les 7 équipements fictifs de démonstration (<code>simulation-bouake</code>). Passez en <b>Mode Travail Réel</b> pour éliminer le superflu et piloter uniquement votre vraie sonde.`;
+    if (bAct) bAct.innerHTML = `<button class="btn" type="button" id="bannerBackWorkBtn">🟢 Passer en Mode Travail Réel</button>`;
+    const wBtn = document.getElementById('bannerBackWorkBtn');
+    if (wBtn) wBtn.addEventListener('click', () => setWorkspaceViewMode('work'));
+  }
   document.getElementById('cfgSite').textContent = siteName;
   document.getElementById('cfgAgentId').textContent = agent.id;
   document.getElementById('cfgIp').textContent = state.ip_local || agent.ip || '—';
@@ -1756,8 +2535,13 @@ function updateUI(data) {
   const kpiInet = document.getElementById('kpiInternet');
   const kpiInetNote = document.getElementById('kpiInternetNote');
   if (!mainBoxInternetOn) {
-    kpiInet.textContent = 'Coupé (Admin)'; kpiInet.className = 'kpi-value warn';
-    kpiInetNote.textContent = 'Box Principale WAN coupée · LAN local actif';
+    if (!isSim && inetStatus === 'up') {
+      kpiInet.textContent = 'Règle OFF · WAN actif'; kpiInet.className = 'kpi-value warn';
+      kpiInetNote.textContent = 'Coupure logique active sur l’app · La Box laisse encore sortir Internet';
+    } else {
+      kpiInet.textContent = 'Coupé (Confirmé)'; kpiInet.className = 'kpi-value warn';
+      kpiInetNote.textContent = 'Box Principale WAN coupée · LAN local actif';
+    }
   } else if (inetStatus === 'up') {
     kpiInet.textContent = 'Connecté'; kpiInet.className = 'kpi-value ok';
     kpiInetNote.textContent = state.wan_latency_ms ? `Latence WAN : ${Number(state.wan_latency_ms).toFixed(0)} ms` : 'Sortie Internet vérifiée';
@@ -1816,16 +2600,17 @@ async function loadAuditLogs() {
     if (!res.ok) return;
     const data = await res.json();
     const logs = data.audit_logs || [];
+    cachedAuditLogs = logs;
     tagEl.textContent = `${logs.length} trace(s)`;
     if (!logs.length) return;
-    listEl.innerHTML = logs.map(l => {
+    listEl.innerHTML = logs.map((l, idx) => {
       const st = (l.status || 'ok').toLowerCase();
       const ts = l.ts ? new Date(l.ts).toLocaleString('fr-FR') : '';
-      return `<div class="alert-row">
+      return `<div class="alert-row" data-inspect="audit-log" data-inspect-target="${idx}" role="button" tabindex="0" title="Cliquer pour inspecter cet appel d'outil IA">
         <span class="sev ${esc(st)}">${esc(l.agent_name)} · ${esc(l.status)}</span>
-        <div>
+        <div style="flex:1">
           <div><code style="color:var(--cyan-ink)">${esc(l.tool_name)}</code> — ${esc(l.details)}</div>
-          <div class="alert-meta">${esc(ts)} · ${Number(l.duration_ms || 1)} ms · session ${esc(l.session_id || '')}</div>
+          <div class="alert-meta">${esc(ts)} · ${Number(l.duration_ms || 1)} ms · session ${esc(l.session_id || '')} · <span style="color:var(--cyan-ink)">🔍 Inspecter ↗</span></div>
         </div>
       </div>`;
     }).join('');
@@ -1933,22 +2718,143 @@ document.getElementById('ttsToggleBtn').addEventListener('click', () => {
   updateTtsToggleButton();
 });
 
-function speakFrench(text) {
-  if (!text || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+let ttsChunkSession = 0;
+if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.getVoices) {
+  try { window.speechSynthesis.getVoices(); } catch (_) {}
+  if ('onvoiceschanged' in window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => { try { window.speechSynthesis.getVoices(); } catch (_) {} };
+  }
+}
+
+function pickBestFrenchVoice() {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window) || !window.speechSynthesis.getVoices) return null;
+  const voices = window.speechSynthesis.getVoices() || [];
+  const frVoices = voices.filter(v => (v.lang || '').toLowerCase().startsWith('fr'));
+  if (!frVoices.length) return null;
+  const preferred = frVoices.find(v => /natural|neural|online|google|denise|henri|vivienne|eloise|amelie|thomas/i.test(v.name || ''));
+  return preferred || frVoices[0];
+}
+
+function sanitizeTextForSpeech(raw) {
+  return String(raw || '')
+    .replace(/\[PISTES\s*:?\s*\][\s\S]*?(\[\/PISTES\]|$)/gi, ' ')
+    .replace(/\[VOIX\s*:?\s*\]|\[\/VOIX\]/gi, ' ')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/^[•*\-–—►▸]+\s*/gm, '')
+    .replace(/\|[^\n]+\|/g, ' ')
+    .replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\uFE0F]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function splitSpeechChunks(text, maxLen = 190) {
+  const clean = sanitizeTextForSpeech(text);
+  if (!clean) return [];
+  const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean];
+  const chunks = [];
+  let buf = '';
+  for (const s of sentences) {
+    const trimmed = s.trim();
+    if (!trimmed) continue;
+    if ((buf ? buf.length + 1 + trimmed.length : trimmed.length) <= maxLen) {
+      buf = buf ? `${buf} ${trimmed}` : trimmed;
+    } else {
+      if (buf) chunks.push(buf);
+      if (trimmed.length <= maxLen) {
+        buf = trimmed;
+      } else {
+        const parts = trimmed.split(/[,;:]\s+/);
+        let sub = '';
+        for (const p of parts) {
+          if ((sub ? sub.length + 2 + p.length : p.length) <= maxLen) {
+            sub = sub ? `${sub}, ${p}` : p;
+          } else {
+            if (sub) chunks.push(sub);
+            sub = p.slice(0, maxLen);
+          }
+        }
+        buf = sub;
+      }
+    }
+  }
+  if (buf) chunks.push(buf);
+  return chunks;
+}
+
+let isAiSpeaking = false;
+let aiSpeechStartedAt = 0;
+
+function stopAiSpeech() {
+  ttsChunkSession += 1;
+  isAiSpeaking = false;
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try { window.speechSynthesis.cancel(); } catch (_) {}
+  }
+}
+
+function speakFrench(text, onFinished = null) {
+  if (!text || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (typeof onInteractiveAiSpeechEnd === 'function') onInteractiveAiSpeechEnd();
+    if (typeof onFinished === 'function') onFinished();
+    return;
+  }
   try {
+    ttsChunkSession += 1;
+    const mySession = ttsChunkSession;
     window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'fr-FR';
-    utter.rate = 1.02;
-    const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
-    const frVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('fr'));
-    if (frVoice) utter.voice = frVoice;
-    window.speechSynthesis.speak(utter);
-  } catch (_) {}
+    const chunks = splitSpeechChunks(text, 190);
+    if (!chunks.length) {
+      if (typeof onInteractiveAiSpeechEnd === 'function') onInteractiveAiSpeechEnd();
+      if (typeof onFinished === 'function') onFinished();
+      return;
+    }
+    isAiSpeaking = true;
+    aiSpeechStartedAt = Date.now();
+    if (typeof onInteractiveAiSpeechStart === 'function') onInteractiveAiSpeechStart();
+
+    const frVoice = pickBestFrenchVoice();
+    const badge = document.getElementById('ttsSpeakingBadge');
+    let idx = 0;
+
+    const speakNext = () => {
+      if (mySession !== ttsChunkSession) return;
+      if (idx >= chunks.length) {
+        isAiSpeaking = false;
+        if (badge) badge.textContent = '✓ Lecture terminée';
+        if (typeof onInteractiveAiSpeechEnd === 'function') onInteractiveAiSpeechEnd();
+        if (typeof onFinished === 'function') onFinished();
+        return;
+      }
+      const utter = new SpeechSynthesisUtterance(chunks[idx]);
+      utter.lang = 'fr-FR';
+      utter.rate = 1.0;
+      utter.pitch = 1.0;
+      if (frVoice) utter.voice = frVoice;
+      if (badge) badge.textContent = `🔊 Lecture en cours (${idx + 1}/${chunks.length})…`;
+      utter.onend = () => { idx += 1; speakNext(); };
+      utter.onerror = () => { idx += 1; speakNext(); };
+      window.speechSynthesis.speak(utter);
+    };
+    speakNext();
+  } catch (_) {
+    isAiSpeaking = false;
+    if (typeof onFinished === 'function') onFinished();
+  }
 }
 
 document.getElementById('replayTtsBtn').addEventListener('click', () => { if (lastSpokenReply) speakFrench(lastSpokenReply); });
-document.getElementById('stopTtsBtn').addEventListener('click', () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); });
+document.getElementById('stopTtsBtn').addEventListener('click', () => {
+  stopAiSpeech();
+  const badge = document.getElementById('ttsSpeakingBadge');
+  if (badge) badge.textContent = '⏹ Lecture arrêtée';
+  if (typeof resumeListeningAfterBargeIn === 'function' && interactiveVoiceActive) {
+    resumeListeningAfterBargeIn('⏹ Lecture interrompue — je vous écoute à nouveau…');
+  }
+});
 
 document.getElementById('toggleBreakdownBtn').addEventListener('click', () => {
   const wrap = document.getElementById('supervisorBreakdownWrap');
@@ -2040,6 +2946,68 @@ function standaloneSupervisorAsk(questionRaw) {
   };
 }
 
+function appendTextWithEntityChips(parent, textStr) {
+  const entityRe = /\b((?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}|(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?)\b/g;
+  let last = 0;
+  let m;
+  while ((m = entityRe.exec(textStr)) !== null) {
+    if (m.index > last) {
+      parent.appendChild(document.createTextNode(textStr.slice(last, m.index)));
+    }
+    const entityVal = m[1];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'inline-entity-chip';
+    btn.setAttribute('data-inspect', 'entity');
+    btn.setAttribute('data-inspect-target', entityVal);
+    btn.title = `Cliquer pour inspecter ${entityVal} et ouvrir les options de recherche`;
+    btn.textContent = `🔍 ${entityVal}`;
+    parent.appendChild(btn);
+    last = entityRe.lastIndex;
+  }
+  if (last < textStr.length) {
+    parent.appendChild(document.createTextNode(textStr.slice(last)));
+  }
+}
+
+function renderSafeFormattedText(container, raw) {
+  if (!container) return;
+  container.textContent = '';
+  const clean = String(raw || '')
+    .replace(/\[VOIX\s*:?\s*\][\s\S]*?(\[\/VOIX\]|$)/gi, '')
+    .replace(/\[PISTES\s*:?\s*\][\s\S]*?(\[\/PISTES\]|$)/gi, '')
+    .trim();
+  const tokenRe = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  let lastIdx = 0;
+  let match;
+  while ((match = tokenRe.exec(clean)) !== null) {
+    if (match.index > lastIdx) {
+      appendTextWithEntityChips(container, clean.slice(lastIdx, match.index));
+    }
+    const tok = match[0];
+    if (tok.startsWith('**') && tok.endsWith('**')) {
+      const b = document.createElement('strong');
+      appendTextWithEntityChips(b, tok.slice(2, -2));
+      container.appendChild(b);
+    } else if (tok.startsWith('`') && tok.endsWith('`')) {
+      const inner = tok.slice(1, -1).trim();
+      if (/^((?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}|(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?)$/.test(inner)) {
+        appendTextWithEntityChips(container, inner);
+      } else {
+        const c = document.createElement('code');
+        c.style.color = 'var(--cyan-ink)';
+        c.style.fontFamily = 'var(--mono)';
+        c.textContent = inner;
+        container.appendChild(c);
+      }
+    }
+    lastIdx = tokenRe.lastIndex;
+  }
+  if (lastIdx < clean.length) {
+    appendTextWithEntityChips(container, clean.slice(lastIdx));
+  }
+}
+
 function renderSupervisorReply(res, silent = false, forceVoice = false) {
   document.getElementById('supervisorReplyBox').classList.remove('hidden');
 
@@ -2048,15 +3016,62 @@ function renderSupervisorReply(res, silent = false, forceVoice = false) {
   document.getElementById('supMetInetYes').textContent = `${m.internet_yes ?? 0} appareil(s)`;
   document.getElementById('supMetInetNo').textContent = `${m.internet_no ?? 0} appareil(s)`;
   document.getElementById('supMetOffline').textContent = `${m.offline ?? 0} appareil(s)`;
-  document.getElementById('supervisorAnswerText').textContent = res.answer || '';
+  renderSafeFormattedText(document.getElementById('supervisorAnswerText'), res.answer || '');
+
+  const voiceBox = document.getElementById('supervisorVoiceBox');
+  const voiceTextEl = document.getElementById('supervisorVoiceText');
+  const badge = document.getElementById('ttsSpeakingBadge');
+  const spokenClean = sanitizeTextForSpeech(res.spoken_text || res.answer || '');
+  if (voiceBox && voiceTextEl) {
+    if (spokenClean) {
+      voiceTextEl.textContent = spokenClean;
+      voiceBox.classList.remove('hidden');
+      if (badge) badge.textContent = (!silent && (forceVoice || ttsAutoEnabled)) ? '🔊 Lecture auto…' : 'Prêt à écouter';
+    } else {
+      voiceBox.classList.add('hidden');
+    }
+  }
+
+  // Pistes d'approfondissement dynamiques (100% DOM sécurisé)
+  const perspBar = document.getElementById('supervisorPerspectivesBar');
+  const perspList = document.getElementById('supervisorPerspectivesList');
+  if (perspBar && perspList) {
+    perspList.textContent = '';
+    const perspectives = Array.isArray(res.perspectives) && res.perspectives.length
+      ? res.perspectives
+      : [
+          { label: '🔬 Radiographie complète du site', inspect: 'site-radiography' },
+          { label: '🛡️ Auditer les MAC & la sécurité', question: 'Analyse les adresses MAC et la posture de sécurité de mon réseau actuel.' },
+          { label: '🧭 Réalité physique vs logique Box', inspect: 'logical-vs-physical' }
+        ];
+    perspectives.forEach(p => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'perspective-chip';
+      chip.textContent = String(p.label || '🔍 Approfondir');
+      chip.addEventListener('click', () => {
+        if (p.inspect) {
+          openDeepInspector(p.inspect, p.target || '');
+        } else if (p.target_ip) {
+          openDeepInspector('device', String(p.target_ip));
+        } else if (p.question) {
+          document.getElementById('supervisorInput').value = String(p.question);
+          askSupervisor(String(p.question), false);
+        }
+      });
+      perspList.appendChild(chip);
+    });
+    perspBar.classList.remove('hidden');
+  }
 
   const trace = res.agent_trace || [];
+  cachedLastTrace = trace;
   updatePipelineVisual(trace);
   document.getElementById('traceCountSpan').textContent = String(trace.length);
-  document.getElementById('supervisorTraceWrap').innerHTML = trace.map(t =>
-    `<div class="trace-item">
+  document.getElementById('supervisorTraceWrap').innerHTML = trace.map((t, idx) =>
+    `<div class="trace-item" data-inspect="trace-step" data-inspect-target="${idx}" role="button" tabindex="0" title="Cliquer pour inspecter cet outil exécuté par ${esc(t.agent)}">
       <span><strong style="color:var(--emerald-ink)">[${esc(t.agent)}]</strong> <code style="color:var(--cyan-ink)">${esc(t.tool)}</code> — ${esc(t.details)}</span>
-      <span style="color:var(--muted)">${esc(t.status)} · ${Number(t.duration_ms || 1)} ms</span>
+      <span style="color:var(--muted)">${esc(t.status)} · ${Number(t.duration_ms || 1)} ms ↗</span>
     </div>`
   ).join('');
 
@@ -2075,8 +3090,8 @@ function renderSupervisorReply(res, silent = false, forceVoice = false) {
   document.getElementById('supervisorBreakdownBody').innerHTML = devs.map(d => {
     const lanUp = d.status === 'up';
     const inetOk = d.internet_access === 'oui' || d.internet_access === 'degrade';
-    return `<tr>
-      <td><strong>${esc(d.name || 'Poste')}</strong>${d.site_name && res.scope === 'global' ? `<br><small style="color:var(--muted)">${esc(d.site_name)}</small>` : ''}</td>
+    return `<tr data-inspect="device" data-inspect-target="${esc(d.ip)}" title="Cliquer pour ouvrir la fiche approfondie de ${esc(d.name || d.ip)}">
+      <td><strong>${esc(d.name || 'Poste')}</strong> <span style="color:var(--cyan-ink);font-size:11px">🔍</span>${d.site_name && res.scope === 'global' ? `<br><small style="color:var(--muted)">${esc(d.site_name)}</small>` : ''}</td>
       <td class="mono">${esc(d.ip)}</td>
       <td><span class="pill-status ${lanUp ? 'up' : 'down'}">${lanUp ? 'CONNECTÉ' : 'HORS LIGNE'}</span></td>
       <td><span class="pill-status ${inetOk ? 'up' : (lanUp ? 'warn' : 'down')}">${inetOk ? 'OUI' : (lanUp ? 'NON (LAN SEUL)' : 'NON')}</span></td>
@@ -2120,6 +3135,9 @@ async function decideHitl(decision) {
 document.getElementById('approveHitlBtn').addEventListener('click', () => decideHitl('approve'));
 document.getElementById('rejectHitlBtn').addEventListener('click', () => decideHitl('reject'));
 
+let currentAskAbortController = null;
+let lastAutoSentVoiceQuestion = '';
+
 async function askSupervisor(questionOverride, fromVoice = false, silentRefresh = false) {
   const inp = document.getElementById('supervisorInput');
   const statusEl = document.getElementById('supervisorStatus');
@@ -2129,55 +3147,93 @@ async function askSupervisor(questionOverride, fromVoice = false, silentRefresh 
 
   const q = (questionOverride != null ? questionOverride : inp.value).trim();
   if (!q) {
-    statusEl.textContent = 'Saisissez une mission ou cliquez sur « 🎙 Parler ».';
+    statusEl.textContent = 'Saisissez une mission ou cliquez sur « 🎙 Dialogue Vocal ».';
     inp.focus();
     return;
   }
   inp.value = q;
   lastSupervisorQuestion = q;
+  if (fromVoice) lastAutoSentVoiceQuestion = q;
+
+  if (currentAskAbortController) {
+    try { currentAskAbortController.abort(); } catch (_) {}
+  }
+  const abortCtrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  currentAskAbortController = abortCtrl;
 
   btn.disabled = true;
   orb.classList.add('thinking');
+  if (interactiveVoiceActive) setInteractiveVoicePhase('thinking', '🧠 Message complet bien reçu — réflexion DeepSeek en cours…');
   if (!silentRefresh) statusEl.textContent = 'Orchestration en cours : SENTINEL-SEC → TOPO-SCAN → DIAG-NET → OPS-DISPATCH…';
 
   try {
-    if (isStandaloneMode) {
+    const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+    if (isStandaloneMode && !isWork) {
       const localRes = standaloneSupervisorAsk(q);
-      renderSupervisorReply(localRes, silentRefresh, fromVoice);
+      renderSupervisorReply(localRes, silentRefresh, fromVoice || interactiveVoiceActive);
       statusEl.textContent = 'Mission exécutée (aperçu autonome).';
       return;
     }
 
-    const res = await fetch(`${getApiBase()}/supervisor/ask`, {
+    const reqBody = JSON.stringify({
+      question: q,
+      agent_id: currentAgentId || null,
+      scope: scopeSel ? scopeSel.value : 'site',
+      session_id: sessionId,
+      voice_mode: Boolean(fromVoice || interactiveVoiceActive)
+    });
+    const fetchOpts = {
       method: 'POST',
       headers: getHeaders(true),
-      body: JSON.stringify({
-        question: q,
-        agent_id: currentAgentId || null,
-        scope: scopeSel ? scopeSel.value : 'site',
-        session_id: sessionId
-      })
-    });
+      body: reqBody,
+      ...(abortCtrl ? { signal: abortCtrl.signal } : {})
+    };
+    let res = await fetch(`${getApiBase()}/supervisor/ask`, fetchOpts);
+    if (!res.ok && isWork && !(abortCtrl && abortCtrl.signal.aborted)) {
+      res = await fetch(`${getApiBase()}/supervisor/ask`, fetchOpts);
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
-    renderSupervisorReply(payload, silentRefresh, fromVoice);
+    if (abortCtrl && abortCtrl.signal.aborted) return;
+    lastAutoSentVoiceQuestion = '';
+    renderSupervisorReply(payload, silentRefresh, fromVoice || interactiveVoiceActive);
     statusEl.textContent = `Mission terminée · Moteur : ${payload.engine_mode || 'multi_agent'} · Périmètre : ${payload.site_label || 'Site actif'}`;
     if ((payload.task_queued && payload.task_queued.status === 'queued') || payload.net_control_result) {
       refreshAll();
     }
-  } catch (_) {
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      return;
+    }
+    const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+    if (isWork) {
+      statusEl.textContent = '⚠️ Délai réseau ou liaison serveur momentanément interrompue — réessayez (aucune fausse donnée de simulation injectée).';
+      if (interactiveVoiceActive) resumeListeningAfterBargeIn('🎙 Liaison rétablie — répétez ou complétez votre question…');
+      return;
+    }
     const localRes = standaloneSupervisorAsk(q);
-    renderSupervisorReply(localRes, silentRefresh, fromVoice);
+    renderSupervisorReply(localRes, silentRefresh, fromVoice || interactiveVoiceActive);
     statusEl.textContent = 'Réponse générée sur cache local.';
   } finally {
+    if (currentAskAbortController === abortCtrl) currentAskAbortController = null;
     btn.disabled = false;
     orb.classList.remove('thinking');
   }
 }
 
-document.getElementById('askSupervisorBtn').addEventListener('click', () => askSupervisor(null, false));
+document.getElementById('askSupervisorBtn').addEventListener('click', () => {
+  if (interactiveVoiceActive && voicePhase === 'listening') {
+    commitInteractiveVoiceTurn(true);
+    return;
+  }
+  askSupervisor(null, false);
+});
 document.getElementById('supervisorInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); askSupervisor(null, false); }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (interactiveVoiceActive && voicePhase === 'listening') commitInteractiveVoiceTurn(true);
+    else askSupervisor(null, false);
+  }
 });
 
 document.querySelectorAll('[data-ask]').forEach(chip => {
@@ -2187,79 +3243,541 @@ document.querySelectorAll('[data-ask]').forEach(chip => {
   });
 });
 
-// Reconnaissance vocale navigateur (Français)
+// =========================================================================
+// v4.6 · MOTEUR VOCAL INTERACTIF FULL-DUPLEX (ÉCOUTE COMPLÈTE + VAD + BARGE-IN)
+// =========================================================================
 const SpeechRecognitionCtor = typeof window !== 'undefined'
   ? (window.SpeechRecognition || window.webkitSpeechRecognition || null)
   : null;
-let activeRecognition = null;
-let isListeningMic = false;
 
 const micBtn = document.getElementById('micBtn');
 const micLabel = document.getElementById('micLabel');
 const micIcon = document.getElementById('micIcon');
 const aiOrb = document.getElementById('aiOrb');
+const voiceStudioEl = document.getElementById('interactiveVoiceStudio');
+const voiceStudioStatusEl = document.getElementById('voiceStudioStatusText');
+const voicePatienceFillEl = document.getElementById('voicePatienceFill');
+const voicePatienceSelectEl = document.getElementById('voicePatienceSelect');
+const voiceLoopCheckboxEl = document.getElementById('voiceLoopCheckbox');
+const voiceSendNowBtn = document.getElementById('voiceSendNowBtn');
+const voiceBargeInBtn = document.getElementById('voiceBargeInBtn');
+const voiceClearBtn = document.getElementById('voiceClearBtn');
+const voiceExitBtn = document.getElementById('voiceExitBtn');
+const voiceEqSpans = document.querySelectorAll('#voiceEqBars span');
 
-function stopMicUI() {
-  isListeningMic = false;
-  micBtn.classList.remove('listening');
-  aiOrb.classList.remove('listening');
-  micIcon.textContent = '🎙';
-  micLabel.textContent = 'Parler';
+let interactiveVoiceActive = false;
+let voicePhase = 'idle'; // 'idle' | 'listening' | 'thinking' | 'speaking'
+let activeRecognition = null;
+let isListeningMic = false;
+let recognitionShouldStayOpen = false;
+let turnCommitted = false;
+
+let priorSegmentsTranscript = '';
+let currentSessionFinal = '';
+let currentSessionInterim = '';
+let currentTurnText = '';
+let lastVocalActivityTs = 0;
+let listeningStartedAt = 0;
+let browserSpeechFlag = false;
+
+// Détection acoustique WebAudio (VAD avec annulation d'écho WebRTC)
+let vadAudioCtx = null;
+let vadMediaStream = null;
+let vadAnalyser = null;
+let vadDataArray = null;
+let vadDisabledForCompatibility = false;
+let ambientNoiseFloor = 0.012;
+let currentMicRms = 0;
+let bargeInFrames = 0;
+let voiceMonitorInterval = null;
+
+const savedPatience = localStorage.getItem('daderezo_voice_patience_ms');
+if (savedPatience !== null && voicePatienceSelectEl) {
+  voicePatienceSelectEl.value = savedPatience;
+}
+if (voicePatienceSelectEl) {
+  voicePatienceSelectEl.addEventListener('change', () => {
+    localStorage.setItem('daderezo_voice_patience_ms', voicePatienceSelectEl.value);
+    lastVocalActivityTs = Date.now();
+  });
 }
 
-micBtn.addEventListener('click', () => {
-  const statusEl = document.getElementById('supervisorStatus');
-  if (!SpeechRecognitionCtor) {
-    statusEl.textContent = 'La dictée vocale nécessite Chrome, Edge ou Safari sur le lien direct HTTPS.';
-    document.getElementById('supervisorInput').focus();
+function isFrenchThoughtIncomplete(txt) {
+  const clean = String(txt || '').trim().replace(/[.,;!?…]+$/, '').trim();
+  if (!clean) return true;
+  const words = clean.split(/\s+/);
+  if (words.length <= 3) return true;
+  const lastWord = (words[words.length - 1] || '').toLowerCase().replace(/^.*['’]/, '');
+  const incompleteEndings = new Set([
+    'et', 'ou', 'mais', 'donc', 'or', 'ni', 'car', 'que', 'qu', 'quand', 'comme', 'si',
+    'parce', 'puisque', 'alors', 'bien', 'meme', 'même', 'malgre', 'malgré', 'pourtant',
+    'cependant', 'de', 'du', 'des', 'd', 'a', 'à', 'au', 'aux', 'sur', 'sous', 'dans',
+    'pour', 'par', 'avec', 'sans', 'vers', 'chez', 'entre', 'contre', 'en', 'le', 'la',
+    'les', 'l', 'un', 'une', 'ce', 'cet', 'cette', 'ces', 'mon', 'ma', 'mes', 'ton', 'ta',
+    'tes', 'son', 'sa', 'ses', 'notre', 'nos', 'votre', 'vos', 'je', 'j', 'tu', 'il', 'elle',
+    'on', 'nous', 'vous', 'ils', 'elles', 'qui', 'dont', 'où', 'est', 'sont', 'etait', 'était',
+    'ai', 'as', 'avons', 'avez', 'ont', 'va', 'vais', 'vont', 'peut', 'peux', 'faut', 'euh', 'heu', 'hum'
+  ]);
+  return incompleteEndings.has(lastWord);
+}
+
+function getEffectiveSilenceThresholdMs(transcript) {
+  const rawSel = voicePatienceSelectEl ? Number(voicePatienceSelectEl.value) : 3200;
+  if (rawSel === 0) return 0; // Mode manuel : ne coupe jamais automatiquement
+  const base = rawSel > 0 ? rawSel : 3200;
+  return isFrenchThoughtIncomplete(transcript) ? (base + 1800) : base;
+}
+
+function updateEqualizerBars(level) {
+  if (!voiceEqSpans || !voiceEqSpans.length) return;
+  const norm = Math.min(1, Math.max(0, level));
+  const factors = [0.55, 0.9, 1.0, 0.8, 0.5];
+  voiceEqSpans.forEach((sp, i) => {
+    const h = Math.round(4 + norm * 14 * factors[i % factors.length]);
+    sp.style.height = `${h}px`;
+  });
+}
+
+function setInteractiveVoicePhase(phase, statusMsg) {
+  voicePhase = phase;
+  if (!voiceStudioEl) return;
+  if (!interactiveVoiceActive || phase === 'idle') {
+    voiceStudioEl.classList.add('hidden');
+    voiceStudioEl.className = 'voice-studio hidden';
+    isListeningMic = false;
+    micBtn.className = 'btn mic';
+    aiOrb.classList.remove('listening');
+    micIcon.textContent = '🎙';
+    micLabel.textContent = 'Dialogue Vocal';
     return;
   }
-  if (isListeningMic && activeRecognition) {
-    activeRecognition.stop();
-    stopMicUI();
-    return;
+
+  voiceStudioEl.classList.remove('hidden');
+  voiceStudioEl.className = `voice-studio ${phase === 'speaking' ? 'phase-speaking' : (phase === 'thinking' ? 'phase-thinking' : '')}`.trim();
+  if (statusMsg && voiceStudioStatusEl) voiceStudioStatusEl.textContent = statusMsg;
+
+  if (phase === 'listening') {
+    isListeningMic = true;
+    micBtn.className = 'btn mic listening';
+    aiOrb.classList.add('listening');
+    micIcon.textContent = currentTurnText.trim() ? '✓' : '🎙';
+    micLabel.textContent = currentTurnText.trim() ? 'Envoyer ma phrase' : 'À l’écoute…';
+    if (voiceSendNowBtn) voiceSendNowBtn.classList.toggle('hidden', !currentTurnText.trim());
+    if (voiceBargeInBtn) voiceBargeInBtn.classList.add('hidden');
+    if (voiceClearBtn) voiceClearBtn.classList.toggle('hidden', !currentTurnText.trim());
+  } else if (phase === 'thinking') {
+    isListeningMic = false;
+    micBtn.className = 'btn mic ai-speaking';
+    aiOrb.classList.remove('listening');
+    micIcon.textContent = '✋';
+    micLabel.textContent = 'Continuer ma phrase';
+    if (voiceSendNowBtn) voiceSendNowBtn.classList.add('hidden');
+    if (voiceBargeInBtn) {
+      voiceBargeInBtn.textContent = '✋ Je n’avais pas fini !';
+      voiceBargeInBtn.classList.remove('hidden');
+    }
+    if (voiceClearBtn) voiceClearBtn.classList.add('hidden');
+    if (voicePatienceFillEl) voicePatienceFillEl.style.width = '100%';
+  } else if (phase === 'speaking') {
+    isListeningMic = false;
+    micBtn.className = 'btn mic ai-speaking';
+    aiOrb.classList.remove('listening');
+    micIcon.textContent = '✋';
+    micLabel.textContent = 'Prendre la parole';
+    if (voiceSendNowBtn) voiceSendNowBtn.classList.add('hidden');
+    if (voiceBargeInBtn) {
+      voiceBargeInBtn.textContent = '✋ Interrompre & parler';
+      voiceBargeInBtn.classList.remove('hidden');
+    }
+    if (voiceClearBtn) voiceClearBtn.classList.add('hidden');
+    if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
   }
+}
+
+async function ensureAcousticVadStarted() {
+  if (vadDisabledForCompatibility || vadAnalyser) return;
+  const isMobileUA = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  if (isMobileUA) return; // Sur mobile, laisser le verrou micro exclusif à SpeechRecognition
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
   try {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    vadMediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    vadAudioCtx = new AudioCtx();
+    const src = vadAudioCtx.createMediaStreamSource(vadMediaStream);
+    vadAnalyser = vadAudioCtx.createAnalyser();
+    vadAnalyser.fftSize = 512;
+    src.connect(vadAnalyser);
+    vadDataArray = new Uint8Array(vadAnalyser.fftSize);
+  } catch (_) {
+    vadAnalyser = null;
+  }
+}
+
+function stopAcousticVad() {
+  if (vadMediaStream) {
+    try { vadMediaStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    vadMediaStream = null;
+  }
+  if (vadAudioCtx) {
+    try { vadAudioCtx.close(); } catch (_) {}
+    vadAudioCtx = null;
+  }
+  vadAnalyser = null;
+  vadDataArray = null;
+}
+
+function sampleMicRms() {
+  if (!vadAnalyser || !vadDataArray) return 0;
+  try {
+    vadAnalyser.getByteTimeDomainData(vadDataArray);
+    let sumSq = 0;
+    for (let i = 0; i < vadDataArray.length; i++) {
+      const v = (vadDataArray[i] - 128) / 128;
+      sumSq += v * v;
+    }
+    return Math.sqrt(sumSq / vadDataArray.length);
+  } catch (_) {
+    return 0;
+  }
+}
+
+function pauseRecognitionInstance() {
+  recognitionShouldStayOpen = false;
+  browserSpeechFlag = false;
+  if (activeRecognition) {
+    const r = activeRecognition;
+    activeRecognition = null;
+    try { r.onend = null; r.onerror = null; r.onresult = null; r.abort(); } catch (_) {}
+  }
+}
+
+function launchRecognitionInstance() {
+  if (!SpeechRecognitionCtor || !interactiveVoiceActive || voicePhase !== 'listening') return;
+  if (activeRecognition) return;
+  try {
     const rec = new SpeechRecognitionCtor();
     activeRecognition = rec;
     rec.lang = 'fr-FR';
+    rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
-    let finalTranscript = '';
+    currentSessionFinal = '';
+    currentSessionInterim = '';
 
-    rec.onstart = () => {
-      isListeningMic = true;
-      micBtn.classList.add('listening');
-      aiOrb.classList.add('listening');
-      micIcon.textContent = '⏺';
-      micLabel.textContent = 'Écoute…';
-      statusEl.textContent = '🎙 Micro actif : dictez votre mission au Superviseur IA…';
+    rec.onspeechstart = () => {
+      browserSpeechFlag = true;
+      lastVocalActivityTs = Date.now();
+    };
+    rec.onspeechend = () => {
+      browserSpeechFlag = false;
+      lastVocalActivityTs = Date.now();
     };
     rec.onresult = (event) => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const txt = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalTranscript += txt + ' ';
-        else interim += txt;
+      let sFinal = '';
+      let sInterim = '';
+      for (let i = 0; i < event.results.length; i++) {
+        const seg = (event.results[i][0]?.transcript || '').trim();
+        if (!seg) continue;
+        if (event.results[i].isFinal) sFinal += (sFinal ? ' ' : '') + seg;
+        else sInterim += (sInterim ? ' ' : '') + seg;
       }
-      document.getElementById('supervisorInput').value = (finalTranscript + interim).trim();
+      currentSessionFinal = sFinal;
+      currentSessionInterim = sInterim;
+      currentTurnText = [priorSegmentsTranscript, currentSessionFinal, currentSessionInterim]
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const inp = document.getElementById('supervisorInput');
+      if (inp) inp.value = currentTurnText;
+      lastVocalActivityTs = Date.now();
+      setInteractiveVoicePhase(
+        'listening',
+        isFrenchThoughtIncomplete(currentTurnText)
+          ? '🗣️ Vous parlez (phrase en cours) — prenez votre temps, j’écoute la suite…'
+          : '🗣️ Parole détectée — continuez librement, j’attends que vous ayez terminé…'
+      );
     };
     rec.onerror = (ev) => {
-      stopMicUI();
-      statusEl.textContent = ev.error === 'not-allowed'
-        ? 'Micro bloqué par le navigateur : ouvrez le lien direct Vercel et autorisez le microphone.'
-        : `Dictée interrompue (${ev.error || 'erreur'}).`;
+      const code = ev && ev.error ? ev.error : '';
+      if (code === 'not-allowed' || code === 'service-not-allowed') {
+        exitInteractiveVoiceMode('Micro bloqué par le navigateur : autorisez l’accès au microphone sur le lien HTTPS.');
+        return;
+      }
+      if (code === 'audio-capture' && vadMediaStream) {
+        vadDisabledForCompatibility = true;
+        stopAcousticVad();
+      }
     };
     rec.onend = () => {
-      stopMicUI();
-      const spokenQ = (finalTranscript || document.getElementById('supervisorInput').value || '').trim();
-      if (spokenQ) askSupervisor(spokenQ, true);
+      if (activeRecognition === rec) activeRecognition = null;
+      const merged = [priorSegmentsTranscript, currentSessionFinal, currentSessionInterim]
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      priorSegmentsTranscript = merged;
+      currentSessionFinal = '';
+      currentSessionInterim = '';
+      currentTurnText = merged;
+
+      // Ne JAMAIS envoyer sur rec.onend ! Tant que l'utilisateur n'a pas terminé sa réflexion, on relance l'écoute en continu.
+      if (interactiveVoiceActive && recognitionShouldStayOpen && voicePhase === 'listening' && !turnCommitted) {
+        setTimeout(() => {
+          if (interactiveVoiceActive && recognitionShouldStayOpen && voicePhase === 'listening' && !turnCommitted) {
+            launchRecognitionInstance();
+          }
+        }, 60);
+      }
     };
     rec.start();
-  } catch (_) {
-    stopMicUI();
-    statusEl.textContent = 'Ouvrez le lien direct HTTPS pour activer le microphone.';
+  } catch (_) {}
+}
+
+function beginListeningTurn(customGreeting = '', preservePrefix = '') {
+  if (!interactiveVoiceActive) return;
+  stopAiSpeech();
+  turnCommitted = false;
+  priorSegmentsTranscript = preservePrefix ? preservePrefix.trim() : '';
+  currentSessionFinal = '';
+  currentSessionInterim = '';
+  currentTurnText = priorSegmentsTranscript;
+  lastVocalActivityTs = Date.now();
+  listeningStartedAt = Date.now();
+  bargeInFrames = 0;
+
+  const inp = document.getElementById('supervisorInput');
+  if (inp) inp.value = currentTurnText;
+  if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
+
+  recognitionShouldStayOpen = true;
+  setInteractiveVoicePhase(
+    'listening',
+    customGreeting || '🟢 Je vous écoute — parlez à votre rythme, je ne vous couperai pas…'
+  );
+  launchRecognitionInstance();
+}
+
+function commitInteractiveVoiceTurn(manualCommit = false) {
+  if (turnCommitted) return;
+  const finalSpoken = (currentTurnText || document.getElementById('supervisorInput').value || '').trim();
+  if (!finalSpoken) {
+    if (manualCommit) exitInteractiveVoiceMode('Session vocale terminée.');
+    return;
+  }
+  turnCommitted = true;
+  recognitionShouldStayOpen = false;
+  pauseRecognitionInstance();
+  priorSegmentsTranscript = '';
+  currentSessionFinal = '';
+  currentSessionInterim = '';
+  currentTurnText = '';
+  askSupervisor(finalSpoken, true);
+}
+
+function resumeListeningAfterBargeIn(reasonMsg, restorePreviousQuestion = false) {
+  if (!interactiveVoiceActive) interactiveVoiceActive = true;
+  if (currentAskAbortController) {
+    try { currentAskAbortController.abort(); } catch (_) {}
+    currentAskAbortController = null;
+  }
+  stopAiSpeech();
+  const prefix = (restorePreviousQuestion && lastAutoSentVoiceQuestion) ? lastAutoSentVoiceQuestion : '';
+  lastAutoSentVoiceQuestion = '';
+  setTimeout(() => {
+    beginListeningTurn(reasonMsg || '🎙 Je me tais et je vous écoute — poursuivez votre pensée…', prefix);
+  }, 150);
+}
+
+function onInteractiveAiSpeechStart() {
+  if (!interactiveVoiceActive) return;
+  pauseRecognitionInstance();
+  bargeInFrames = 0;
+  setInteractiveVoicePhase('speaking', '🔊 L’IA vous répond — parlez simplement au micro (ou cliquez ✋) pour l’interrompre');
+}
+
+function onInteractiveAiSpeechEnd() {
+  if (!interactiveVoiceActive) return;
+  const keepLoop = !voiceLoopCheckboxEl || voiceLoopCheckboxEl.checked;
+  if (keepLoop) {
+    setTimeout(() => {
+      if (interactiveVoiceActive && !isAiSpeaking && voicePhase !== 'thinking') {
+        beginListeningTurn('🎙 À vous — répondez librement quand vous le souhaitez…');
+      }
+    }, 350);
+  } else {
+    exitInteractiveVoiceMode('✓ Réponse vocale terminée.');
+  }
+}
+
+function startVoiceMonitorLoop() {
+  if (voiceMonitorInterval) clearInterval(voiceMonitorInterval);
+  voiceMonitorInterval = setInterval(() => {
+    if (!interactiveVoiceActive) return;
+    const now = Date.now();
+    currentMicRms = sampleMicRms();
+
+    // Calibration douce du bruit de fond ambiant
+    if (!browserSpeechFlag && currentMicRms > 0 && currentMicRms < ambientNoiseFloor * 1.6) {
+      ambientNoiseFloor = ambientNoiseFloor * 0.94 + currentMicRms * 0.06;
+      ambientNoiseFloor = Math.max(0.006, Math.min(0.035, ambientNoiseFloor));
+    }
+
+    if (voicePhase === 'listening') {
+      const vocalDetected = browserSpeechFlag || (currentMicRms > Math.max(0.024, ambientNoiseFloor * 2.35));
+      updateEqualizerBars(vocalDetected ? Math.min(1, currentMicRms * 12 + 0.35) : 0.12);
+      if (vocalDetected) {
+        lastVocalActivityTs = now;
+        if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
+        return;
+      }
+
+      const textSoFar = currentTurnText.trim();
+      if (!textSoFar) {
+        if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
+        // Mise en veille douce après 60s d'inactivité totale sans aucune parole
+        if (now - listeningStartedAt > 60000) {
+          exitInteractiveVoiceMode('⏸ Mode vocal mis en veille après 60s de silence. Cliquez sur 🎙 pour reprendre.');
+        }
+        return;
+      }
+
+      const thresholdMs = getEffectiveSilenceThresholdMs(textSoFar);
+      if (thresholdMs === 0) {
+        if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
+        if (voiceStudioStatusEl) {
+          voiceStudioStatusEl.textContent = '⏸ Mode manuel actif — continuez de parler puis cliquez sur « ✓ J’ai fini (Envoyer) »';
+        }
+        return;
+      }
+
+      const silenceElapsed = now - lastVocalActivityTs;
+      const pct = Math.min(100, Math.round((silenceElapsed / thresholdMs) * 100));
+      if (voicePatienceFillEl) voicePatienceFillEl.style.width = `${pct}%`;
+
+      if (silenceElapsed >= 500 && silenceElapsed < thresholdMs) {
+        const remSec = Math.max(0.1, (thresholdMs - silenceElapsed) / 1000).toFixed(1);
+        if (voiceStudioStatusEl) {
+          voiceStudioStatusEl.textContent = `⏳ Pause détectée — continuez de parler librement ou envoi auto dans ${remSec}s…`;
+        }
+      } else if (silenceElapsed >= thresholdMs) {
+        commitInteractiveVoiceTurn(false);
+      }
+    } else if (voicePhase === 'thinking') {
+      // Si l'utilisateur continue de parler juste après l'envoi auto, on annule l'envoi prématuré et on recolle sa suite !
+      const clearVoice = currentMicRms > Math.max(0.052, ambientNoiseFloor * 3.6);
+      updateEqualizerBars(clearVoice ? 0.85 : 0.2);
+      if (clearVoice && lastAutoSentVoiceQuestion) {
+        bargeInFrames += 1;
+        if (bargeInFrames >= 4) {
+          bargeInFrames = 0;
+          resumeListeningAfterBargeIn('🗣️ Suite de votre phrase détectée — j’écoute la fin de votre idée…', true);
+        }
+      } else {
+        bargeInFrames = Math.max(0, bargeInFrames - 1);
+      }
+    } else if (voicePhase === 'speaking') {
+      // Détection automatique de prise de parole (Barge-In) pendant que l'IA parle
+      const sinceTtsStart = now - aiSpeechStartedAt;
+      const strongHumanVoice = sinceTtsStart > 650 && currentMicRms > Math.max(0.065, ambientNoiseFloor * 4.2);
+      updateEqualizerBars(isAiSpeaking ? 0.55 : 0.15);
+      if (strongHumanVoice) {
+        bargeInFrames += 1;
+        if (bargeInFrames >= 5) {
+          bargeInFrames = 0;
+          resumeListeningAfterBargeIn('🎙 Vous prenez la parole — je m’arrête immédiatement et je vous écoute !', false);
+        }
+      } else {
+        bargeInFrames = Math.max(0, bargeInFrames - 1);
+      }
+    }
+  }, 85);
+}
+
+function exitInteractiveVoiceMode(msg = '') {
+  interactiveVoiceActive = false;
+  recognitionShouldStayOpen = false;
+  turnCommitted = false;
+  pauseRecognitionInstance();
+  stopAcousticVad();
+  stopAiSpeech();
+  if (voiceMonitorInterval) {
+    clearInterval(voiceMonitorInterval);
+    voiceMonitorInterval = null;
+  }
+  setInteractiveVoicePhase('idle', '');
+  if (msg) {
+    const statusEl = document.getElementById('supervisorStatus');
+    if (statusEl) statusEl.textContent = msg;
+  }
+}
+
+async function startInteractiveVoiceMode() {
+  const statusEl = document.getElementById('supervisorStatus');
+  if (!SpeechRecognitionCtor) {
+    statusEl.textContent = 'La conversation vocale nécessite Chrome, Edge ou Safari sur le lien direct HTTPS.';
+    document.getElementById('supervisorInput').focus();
+    return;
+  }
+  interactiveVoiceActive = true;
+  await ensureAcousticVadStarted();
+  startVoiceMonitorLoop();
+  beginListeningTurn('🟢 Dialogue vocal interactif actif — parlez à votre rythme, j’attends que vous ayez complètement terminé…');
+  statusEl.textContent = '🎙 Dialogue vocal interactif actif : parlez librement avec vos pauses naturelles.';
+}
+
+micBtn.addEventListener('click', () => {
+  if (!interactiveVoiceActive) {
+    startInteractiveVoiceMode();
+    return;
+  }
+  if (voicePhase === 'speaking') {
+    resumeListeningAfterBargeIn('🎙 Je vous écoute immédiatement…', false);
+  } else if (voicePhase === 'thinking') {
+    resumeListeningAfterBargeIn('🗣️ Poursuivez votre phrase, je vous écoute…', true);
+  } else if (voicePhase === 'listening') {
+    if (currentTurnText.trim()) commitInteractiveVoiceTurn(true);
+    else exitInteractiveVoiceMode('Dialogue vocal arrêté.');
+  }
+});
+
+if (voiceSendNowBtn) voiceSendNowBtn.addEventListener('click', () => commitInteractiveVoiceTurn(true));
+if (voiceBargeInBtn) {
+  voiceBargeInBtn.addEventListener('click', () => {
+    const restorePrev = voicePhase === 'thinking';
+    resumeListeningAfterBargeIn(
+      restorePrev ? '🗣️ Poursuivez votre phrase, je vous écoute…' : '🎙 Je m’arrête et je vous écoute…',
+      restorePrev
+    );
+  });
+}
+if (voiceClearBtn) {
+  voiceClearBtn.addEventListener('click', () => {
+    priorSegmentsTranscript = '';
+    currentSessionFinal = '';
+    currentSessionInterim = '';
+    currentTurnText = '';
+    const inp = document.getElementById('supervisorInput');
+    if (inp) inp.value = '';
+    lastVocalActivityTs = Date.now();
+    if (voicePatienceFillEl) voicePatienceFillEl.style.width = '0%';
+    setInteractiveVoicePhase('listening', '🗑 Brouillon effacé — reformulez librement votre question…');
+  });
+}
+if (voiceExitBtn) voiceExitBtn.addEventListener('click', () => exitInteractiveVoiceMode('Dialogue vocal interactif terminé.'));
+
+// Raccourci clavier Espace pour interrompre l'IA instantanément pendant le mode vocal (hors champ texte)
+document.addEventListener('keydown', (e) => {
+  if (!interactiveVoiceActive) return;
+  const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (e.code === 'Space' && (voicePhase === 'speaking' || voicePhase === 'thinking')) {
+    e.preventDefault();
+    resumeListeningAfterBargeIn('🎙 Interruption clavier — je vous écoute !', voicePhase === 'thinking');
   }
 });
 
@@ -2275,13 +3793,36 @@ function renderInternetSwitchState() {
   const polCountTag = document.getElementById('activePolicyCountTag');
   if (polCountTag) polCountTag.textContent = `${cachedPolicies.length} règle(s)`;
 
-  document.querySelectorAll('[data-zone-toggle]').forEach(btn => {
-    const zName = btn.getAttribute('data-zone-toggle');
+  const zContainer = document.getElementById('zoneSwitchContainer');
+  if (!zContainer) return;
+
+  const isWork = workspaceViewMode === 'work' && Boolean(currentAuthUser);
+  let zonesList = ['Visiteurs', 'Communauté', 'Accueil', 'Administration'];
+  if (isWork) {
+    const dynamicZones = new Set();
+    cachedDevices.forEach(d => { if (d.zone && d.zone !== 'Supervision') dynamicZones.add(d.zone); });
+    cachedPolicies.forEach(p => { if (p.scope_type === 'zone' && p.target_value) dynamicZones.add(p.target_value); });
+    zonesList = [...dynamicZones];
+  }
+
+  if (!zonesList.length) {
+    zContainer.innerHTML = '<span style="font-size:12px;color:var(--muted)">Vos vraies zones réseau apparaîtront ici dès que la sonde est active (ou utilisez un CIDR ci-dessous).</span>';
+    return;
+  }
+
+  zContainer.innerHTML = zonesList.map(zName => {
     const pol = cachedPolicies.find(p => p.scope_type === 'zone' && (p.target_value || '').toLowerCase() === zName.toLowerCase());
     const zOn = pol ? Boolean(pol.internet_enabled) : true;
-    btn.className = `switch-btn ${zOn ? 'on' : 'off'}`;
-    btn.textContent = `${zName === 'Administration' ? 'Admin' : zName} : ${zOn ? 'ON' : 'OFF'}`;
-    btn.dataset.currentState = zOn ? '1' : '0';
+    const shortName = zName === 'Administration' ? 'Admin' : zName;
+    return `<button class="switch-btn ${zOn ? 'on' : 'off'}" type="button" data-zone-toggle="${esc(zName)}" data-current-state="${zOn ? '1' : '0'}">${esc(shortName)} : ${zOn ? 'ON' : 'OFF'}</button>`;
+  }).join('');
+
+  zContainer.querySelectorAll('[data-zone-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const zName = btn.getAttribute('data-zone-toggle');
+      const curOn = btn.dataset.currentState !== '0';
+      applyInternetPolicy('zone', zName, !curOn);
+    });
   });
 }
 
@@ -2324,14 +3865,6 @@ document.getElementById('mainBoxSwitchBtn').addEventListener('click', () => {
   applyInternetPolicy('global', 'main_box', !mainBoxInternetOn);
 });
 
-document.querySelectorAll('[data-zone-toggle]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const zName = btn.getAttribute('data-zone-toggle');
-    const curOn = btn.dataset.currentState !== '0';
-    applyInternetPolicy('zone', zName, !curOn);
-  });
-});
-
 document.getElementById('subnetCutBtn').addEventListener('click', () => {
   const cidr = (document.getElementById('subnetCidrInput').value || '').trim();
   if (cidr) applyInternetPolicy('subnet', cidr, false);
@@ -2353,9 +3886,9 @@ function renderBoxesGrid(boxes) {
     const score = Number(b.health_score || 85);
     const scoreCls = score >= 90 ? 'up' : (score >= 70 ? 'warn' : 'down');
     return `<div class="box-card" data-box-card="${idx}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px" data-inspect="box-card" data-inspect-target="${idx}" role="button" tabindex="0" title="Cliquer pour approfondir le diagnostic et les réglages de cette Box">
         <div>
-          <strong style="font-size:14.5px;color:var(--ink-strong)">${esc(b.box_name || 'Box Réseau')}</strong>
+          <strong style="font-size:14.5px;color:var(--ink-strong)">${esc(b.box_name || 'Box Réseau')} ↗</strong>
           <div class="mono" style="color:var(--cyan-ink);font-size:11.5px;margin-top:2px">${esc(b.box_ip)} · ${esc(b.driver || 'auto')}</div>
         </div>
         <span class="pill-status ${scoreCls}">Santé ${score}/100</span>
@@ -2363,23 +3896,23 @@ function renderBoxesGrid(boxes) {
 
       <div class="box-form-grid">
         <div class="box-field">
-          <label>SSID Wi-Fi</label>
+          <label>SSID Wi-Fi <button type="button" class="param-help-btn" data-inspect="box-param" data-inspect-target="ssid">? Aide</button></label>
           <input type="text" data-bf="wifi_ssid" value="${esc(b.wifi_ssid || 'DADEREZO-LAN')}">
         </div>
         <div class="box-field">
-          <label>Canal Wi-Fi (2.4G / 5G)</label>
+          <label>Canal Wi-Fi (2.4G / 5G) <button type="button" class="param-help-btn" data-inspect="box-param" data-inspect-target="channel">? Aide</button></label>
           <input type="text" data-bf="wifi_channel" value="${esc(b.wifi_channel || '6')}">
         </div>
         <div class="box-field">
-          <label>DNS Primaire</label>
+          <label>DNS Primaire <button type="button" class="param-help-btn" data-inspect="box-param" data-inspect-target="dns">? Aide</button></label>
           <input type="text" data-bf="dns_primary" value="${esc(b.dns_primary || '1.1.1.1')}">
         </div>
         <div class="box-field">
-          <label>DNS Secondaire</label>
+          <label>DNS Secondaire <button type="button" class="param-help-btn" data-inspect="box-param" data-inspect-target="dns">? Aide</button></label>
           <input type="text" data-bf="dns_secondary" value="${esc(b.dns_secondary || '9.9.9.9')}">
         </div>
         <div class="box-field">
-          <label>Profil QoS Intelligent</label>
+          <label>Profil QoS Intelligent <button type="button" class="param-help-btn" data-inspect="box-param" data-inspect-target="qos">? Aide</button></label>
           <select data-bf="qos_profile">
             <option value="anti_bufferbloat_voix" ${b.qos_profile === 'anti_bufferbloat_voix' ? 'selected' : ''}>Anti-Bufferbloat &amp; Voix</option>
             <option value="priorite_admin" ${b.qos_profile === 'priorite_admin' ? 'selected' : ''}>Priorité Administration</option>
@@ -2387,7 +3920,7 @@ function renderBoxesGrid(boxes) {
           </select>
         </div>
         <div class="box-field">
-          <label>MTU / Plafond Mbps</label>
+          <label>MTU / Plafond Mbps <button type="button" class="param-help-btn" data-inspect="box-param" data-inspect-target="mtu">? Aide</button></label>
           <div style="display:flex;gap:5px">
             <input type="number" data-bf="mtu" value="${Number(b.mtu || 1492)}" title="MTU">
             <input type="number" data-bf="bandwidth_limit_mbps" value="${Number(b.bandwidth_limit_mbps || 0)}" title="Limite Mbps (0 = illimité)">
@@ -2398,6 +3931,7 @@ function renderBoxesGrid(boxes) {
       <div style="font-size:11.5px;color:var(--muted)">${esc(b.notes || 'Prête pour optimisation.')}</div>
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <button class="btn" type="button" data-save-box="${idx}">💾 Appliquer sur cette Box</button>
+        <button class="btn secondary" type="button" data-inspect="box-card" data-inspect-target="${idx}">🔍 Options &amp; IA</button>
         <button class="btn secondary" type="button" data-reboot-box="${esc(b.box_ip)}">🔄 Redémarrer</button>
       </div>
     </div>`;
@@ -2535,8 +4069,9 @@ function renderMediaGrid() {
       <div class="media-preview">${previewHtml}</div>
       <div style="font-size:12px;color:var(--muted)">${esc(m.description || m.filename)}</div>
       <div class="mono" style="font-size:11px;color:var(--muted)">Zone : ${esc(m.target_zone || 'Toutes')} · ${formatBytes(m.size_bytes)}</div>
-      <div style="display:flex;justify-content:space-between;gap:8px">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <a class="btn secondary" href="${esc(dlUrl)}" download="${esc(m.filename)}">⬇ Télécharger</a>
+        <button class="btn secondary" type="button" data-inspect="media-item" data-inspect-target="${esc(m.id)}">🔍 Diffusion LAN</button>
         <button class="btn danger" type="button" data-del-media="${esc(m.id)}">🗑 Supprimer</button>
       </div>
     </div>`;
@@ -2553,10 +4088,18 @@ function renderMediaGrid() {
   });
 }
 
+function getEffectiveMediaAgentId() {
+  if (currentAgentId) return currentAgentId;
+  if (workspaceViewMode === 'work' && currentAuthUser) return `${currentAuthUser.org_slug}-principal`;
+  return 'simulation-bouake';
+}
+
 async function loadMedia() {
-  if (!currentAgentId || isStandaloneMode) return;
+  if (isStandaloneMode) return;
+  const mediaAid = getEffectiveMediaAgentId();
+  if (!mediaAid) return;
   try {
-    const res = await fetch(`${getApiBase()}/media/${encodeURIComponent(currentAgentId)}`, { headers: getHeaders() });
+    const res = await fetch(`${getApiBase()}/media/${encodeURIComponent(mediaAid)}`, { headers: getHeaders() });
     if (res.ok) {
       cachedMedia = await res.json();
       const badge = document.getElementById('navMediaCount');
@@ -2596,7 +4139,7 @@ document.getElementById('uploadMediaBtn').addEventListener('click', () => {
   const reader = new FileReader();
   reader.onload = async () => {
     try {
-      const res = await fetch(`${getApiBase()}/media/${encodeURIComponent(currentAgentId || 'simulation-bouake')}`, {
+      const res = await fetch(`${getApiBase()}/media/${encodeURIComponent(getEffectiveMediaAgentId())}`, {
         method: 'POST',
         headers: getHeaders(true),
         body: JSON.stringify({
@@ -2649,6 +4192,7 @@ document.getElementById('tabLoginBtn').addEventListener('click', () => setAuthTa
 
 function applyAuthUserUI(user) {
   currentAuthUser = user || null;
+  workspaceViewMode = user ? 'work' : 'demo';
   const authBtn = document.getElementById('authAccountBtn');
   const loggedBox = document.getElementById('authLoggedBox');
   const formsBox = document.getElementById('authFormsBox');
@@ -2663,24 +4207,24 @@ function applyAuthUserUI(user) {
     document.getElementById('authOrgTitle').textContent = `Espace Privé : ${user.org_name}`;
     document.getElementById('authUserEmail').textContent = `${user.full_name || ''} (${user.email})`;
     document.getElementById('authProbeKeyDisplay').textContent = user.probe_api_key || '';
-    if (wsModeEl) wsModeEl.textContent = `ESPACE PRIVÉ ISOLÉ (${user.org_slug})`;
+    if (wsModeEl) wsModeEl.textContent = `MODE TRAVAIL ACTIF ISOLÉ (${user.org_slug})`;
     if (pkEl) pkEl.textContent = user.probe_api_key || '—';
   } else {
     authBtn.textContent = '🔐 Espace Privé';
     authBtn.className = 'btn secondary';
     loggedBox.classList.add('hidden');
     formsBox.classList.remove('hidden');
-    if (wsModeEl) wsModeEl.textContent = 'Espace Démo Public (Isolé)';
-    if (pkEl) pkEl.textContent = 'Non connecté (mode démo)';
+    if (wsModeEl) wsModeEl.textContent = 'Espace Démo Public (Simulation)';
+    if (pkEl) pkEl.textContent = 'Non connecté (mode simulation)';
   }
-  updateProbeDeployCommand();
+  applyWorkspaceChrome();
 }
 
 async function checkAuthSession() {
   const tok = (localStorage.getItem('daderezo_saas_token') || '').trim();
   if (!tok) { applyAuthUserUI(null); return; }
   try {
-    const res = await fetch(`${getApiBase()}/auth/me`, { headers: getHeaders() });
+    const res = await fetch(`${getApiBase()}/auth/me`, { headers: getHeaders(false, true) });
     if (res.ok) {
       const data = await res.json();
       if (data.authenticated && data.user) {
@@ -2720,6 +4264,7 @@ document.getElementById('submitAuthBtn').addEventListener('click', async () => {
     fb.textContent = '';
     currentAgentId = '';
     applyAuthUserUI(data.user);
+    closeAuthModal();
     await refreshAll();
     loadMedia();
   } catch (_) {
@@ -2747,11 +4292,31 @@ if (_urlParams.get('focus') === 'voice') {
   }, 350);
 }
 
+fetch(`${getApiBase()}/health`, { headers: { 'Accept': 'application/json' } })
+  .then(r => r.ok ? r.json() : null)
+  .then(h => {
+    if (h && h.llm_configured) {
+      serverLlmStatus = { configured: true, provider: h.llm_provider, model: h.llm_model };
+      const st = document.getElementById('llmCheckStatus');
+      if (st && !runtimeLlmKeyOverride.trim()) {
+        st.textContent = `✅ Clé serveur active sur Vercel : ${(h.llm_provider || 'deepseek').toUpperCase()} (${h.llm_model || 'deepseek-chat'}).`;
+      }
+      updateProbeDeployCommand();
+    }
+  })
+  .catch(() => {});
+
 checkAuthSession().then(() => {
   refreshAll();
   loadMedia();
 });
 setInterval(refreshAll, 15000);
+// Radar rapide (5s) en Mode Travail Actif tant que la 1re sonde réelle n'a pas encore émis
+setInterval(() => {
+  if (workspaceViewMode === 'work' && currentAuthUser && !currentAgentId) {
+    refreshAll();
+  }
+}, 5000);
 
 /* PWA SERVICE WORKER, OFFLINE INDICATOR & INSTALL PROMPT */
 (function initDaderezoSupervisorPWA() {
@@ -2802,6 +4367,809 @@ setInterval(refreshAll, 15000);
     });
   }
 })();
+
+// =========================================================================
+// v4.7 · TIROIR D'INVESTIGATION UNIVERSEL & PISTES D'APPROFONDISSEMENT
+// =========================================================================
+const OUI_VENDOR_PREFIXES = {
+  '00:e0:fc': 'Huawei Technologies (Box / Routeur)',
+  '48:8e:ef': 'Huawei Technologies',
+  '84:a8:e4': 'Huawei Technologies',
+  'ec:a8:6b': 'ELITEGROUP / PC Bureau',
+  'dc:a6:32': 'Raspberry Pi Foundation',
+  'b8:27:eb': 'Raspberry Pi Foundation',
+  '74:ac:b9': 'Ubiquiti Networks (UniFi)',
+  'f0:9f:c2': 'Ubiquiti Networks (UniFi)',
+  '50:c7:bf': 'TP-Link Technologies',
+  'c0:25:e9': 'TP-Link Technologies',
+  'e8:48:b8': 'TP-Link Technologies',
+  'b0:be:76': 'TP-Link Technologies',
+  'd8:0d:17': 'TP-Link Technologies',
+  'c4:ad:34': 'MikroTik RouterBOARD',
+  'dc:2c:6e': 'MikroTik RouterBOARD',
+  '3c:22:fb': 'Apple (iPhone / Mac)',
+  'f0:18:98': 'Apple (iPhone / iPad / Mac)',
+  'ac:bc:32': 'Apple',
+  '28:6a:ba': 'Apple',
+  'fc:aa:14': 'GIGABYTE / Carte PC',
+  '00:1a:2b': 'Cisco / Équipement Réseau',
+  'a0:51:0b': 'Intel Corporate (Carte Wi-Fi / LAN PC)',
+  '3c:97:0e': 'Wistron / Lenovo ThinkPad',
+  'f8:75:a4': 'LCFC / Lenovo PC',
+  'a4:bb:6d': 'Dell Inc. / Périphérique',
+  '00:e0:4c': 'Realtek Semiconductor (Carte Ethernet PC)',
+  '54:e1:ad': 'Lenovo / Carte LAN',
+  'd0:37:45': 'TP-Link',
+  'cc:d8:43': 'Routeur / Passerelle Télécom',
+  '24:fd:52': 'Liteon / Carte Wi-Fi PC',
+  '98:af:65': 'Intel Wi-Fi',
+  '70:85:c2': 'ASRock / Carte mère PC',
+  '50:eb:f6': 'ASUSTek Computer',
+  'dc:f5:05': 'AzureWave (Carte Wi-Fi PC/Mobile)',
+  '8c:85:90': 'Apple',
+  'b4:2e:99': 'GIGABYTE',
+  'c8:ff:28': 'Liteon / Carte Wi-Fi',
+  '00:15:5d': 'Microsoft Hyper-V / Interface virtuelle'
+};
+
+function decodeMacIdentity(macRaw) {
+  const m = String(macRaw || '').trim().toLowerCase().replace(/-/g, ':');
+  if (!m || m === '—' || m.length < 8 || !m.includes(':')) {
+    return {
+      vendor: 'Non communiquée par ARP',
+      isRandomized: false,
+      note: 'Lorsque l’équipement est sur un autre sous-réseau routé ou hors ligne, sa MAC peut ne pas apparaître dans la table ARP locale.'
+    };
+  }
+  const pfx = m.slice(0, 8);
+  if (OUI_VENDOR_PREFIXES[pfx]) {
+    return {
+      vendor: OUI_VENDOR_PREFIXES[pfx],
+      isRandomized: false,
+      note: 'Adresse MAC matérielle universelle enregistrée auprès de l’IEEE (constructeur vérifié).'
+    };
+  }
+  const firstOctet = parseInt(m.slice(0, 2), 16);
+  if (!Number.isNaN(firstOctet) && (firstOctet & 0x02) !== 0) {
+    return {
+      vendor: 'Adresse MAC Privée / Aléatoire (Smartphone iOS / Android ou Hotspot)',
+      isRandomized: true,
+      note: 'Le bit LAA (Locally Administered) est actif : typique des smartphones récents (Tecno, Samsung, iPhone, Xiaomi) qui masquent leur vraie MAC sur le Wi-Fi. Pour appliquer une règle fixe durable à ce téléphone, désactivez « Adresse MAC aléatoire » dans les réglages Wi-Fi de l’appareil.'
+    };
+  }
+  return {
+    vendor: `Constructeur IEEE (${pfx.toUpperCase()})`,
+    isRandomized: false,
+    note: 'Adresse MAC matérielle fixe (OUI fabricant matériel).'
+  };
+}
+
+function describeSubnetRole(ipRaw) {
+  const ip = String(ipRaw || '').trim();
+  if (!ip.includes('.')) return { cidr: '—', role: 'Adresse non définie' };
+  const parts = ip.split('/')[0].split('.');
+  if (parts.length !== 4) return { cidr: ip, role: 'Format particulier' };
+  const pfx = `${parts[0]}.${parts[1]}.${parts[2]}`;
+  const cidr = `${pfx}.0/24`;
+  if (pfx === '192.168.137') {
+    return {
+      cidr,
+      role: 'Point d’accès mobile Windows (Hotspot ICS du PC Sonde) — filtrage physique direct possible en mode Administrateur (--active-control).'
+    };
+  }
+  if (parts[0] === '192' && parts[1] === '168') {
+    return {
+      cidr,
+      role: `Sous-réseau LAN principal (${cidr}) géré par la Box / Routeur local (${pfx}.1).`
+    };
+  }
+  if (parts[0] === '10' || (parts[0] === '172' && Number(parts[1]) >= 16 && Number(parts[1]) <= 31)) {
+    return {
+      cidr,
+      role: `Réseau privé étendu / liaison amont (${cidr}) — souvent utilisé par un modem 4G/5G, VPN ou CGNAT opérateur.`
+    };
+  }
+  return { cidr, role: `Sous-réseau IP (${cidr})` };
+}
+
+function gradeLatency(msRaw) {
+  if (msRaw == null || msRaw === '' || Number.isNaN(Number(msRaw))) return 'Non mesurée (appareil silencieux au ping ou hors ligne)';
+  const ms = Number(msRaw);
+  if (ms < 1) return `${ms.toFixed(1)} ms · Hôte local (Sonde elle-même)`;
+  if (ms <= 8) return `${ms.toFixed(1)} ms · Excellente (Câble Ethernet ou Wi-Fi très proche)`;
+  if (ms <= 35) return `${ms.toFixed(1)} ms · Bonne (Wi-Fi fluide normal)`;
+  if (ms <= 90) return `${ms.toFixed(1)} ms · Moyenne (Éloignement Wi-Fi ou économie d’énergie mobile)`;
+  return `${ms.toFixed(1)} ms · Élevée (Signal faible, mur épais ou saturation radio)`;
+}
+
+function getDetectedSubnetsMap() {
+  const map = new Map();
+  cachedDevices.forEach(d => {
+    const ip = String(d.ip || '');
+    const p = ip.split('.');
+    if (p.length === 4) {
+      const c = `${p[0]}.${p[1]}.${p[2]}.0/24`;
+      if (!map.has(c)) map.set(c, []);
+      map.get(c).push(d);
+    }
+  });
+  return map;
+}
+
+function closeDeepInspector() {
+  const b = document.getElementById('deepInspectorBackdrop');
+  const d = document.getElementById('deepInspectorDrawer');
+  if (b) b.classList.remove('open');
+  if (d) d.classList.remove('open');
+}
+
+document.getElementById('closeDeepInspectorBtn').addEventListener('click', closeDeepInspector);
+document.getElementById('deepInspectorBackdrop').addEventListener('click', closeDeepInspector);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDeepInspector();
+});
+
+function switchToViewAndFilter(viewId, filterKey = null, searchVal = null) {
+  const btn = document.querySelector(`.nav button[data-view="${viewId}"]`);
+  if (btn) btn.click();
+  if (viewId === 'equipment') {
+    if (filterKey) statusFilter = filterKey;
+    const sIn = document.getElementById('equipSearch');
+    if (sIn && searchVal !== null) sIn.value = searchVal;
+    renderEquipmentTable();
+  }
+  closeDeepInspector();
+}
+
+function makeEl(tag, cls = '', text = '') {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== '') node.textContent = text;
+  return node;
+}
+
+async function runDrawerAiResearch(questionText, resultContainer) {
+  if (!questionText) return;
+  resultContainer.classList.remove('hidden');
+  resultContainer.textContent = '⏳ Analyse approfondie DeepSeek en cours sur vos vraies preuves réseau…';
+  document.getElementById('supervisorInput').value = questionText;
+
+  if (isStandaloneMode) {
+    const r = standaloneSupervisorAsk(questionText);
+    renderSupervisorReply(r, false, false);
+    renderSafeFormattedText(resultContainer, r.answer || '');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${getApiBase()}/supervisor/ask`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify({
+        question: questionText,
+        agent_id: currentAgentId || null,
+        scope: 'site',
+        session_id: sessionId,
+        voice_mode: false
+      })
+    });
+    if (!res.ok) {
+      resultContainer.textContent = `❌ Erreur HTTP ${res.status} lors de l'interrogation de l'IA.`;
+      return;
+    }
+    const data = await res.json();
+    if (data.session_id) {
+      sessionId = data.session_id;
+      localStorage.setItem('daderezo_session_id', sessionId);
+    }
+    renderSupervisorReply(data, false, false);
+    renderSafeFormattedText(resultContainer, data.answer || '');
+    if (data.net_control_result || data.task_queued) refreshAll();
+  } catch (_) {
+    resultContainer.textContent = '❌ Connexion momentanément interrompue avec le serveur API.';
+  }
+}
+
+function openDeepInspector(kind, target = '') {
+  const backdrop = document.getElementById('deepInspectorBackdrop');
+  const drawer = document.getElementById('deepInspectorDrawer');
+  const eyeEl = document.getElementById('deepInspectorEyebrow');
+  const titleEl = document.getElementById('deepInspectorTitle');
+  const subEl = document.getElementById('deepInspectorSub');
+  const bodyEl = document.getElementById('deepInspectorBody');
+  if (!drawer || !bodyEl) return;
+
+  bodyEl.textContent = '';
+  const state = (lastDashboardPayload && lastDashboardPayload.state) || {};
+  const agent = (lastDashboardPayload && lastDashboardPayload.agent) || {};
+  const subnetsMap = getDetectedSubnetsMap();
+
+  let spec = {
+    eyebrow: 'INVESTIGATION APPROFONDIE',
+    title: 'Élément supervisé',
+    sub: 'Télémétrie en direct & options de recherche',
+    kvs: [],
+    explanationTitle: 'Compréhension & Diagnostic Technique',
+    explanation: '',
+    extraNode: null,
+    actions: [],
+    prompts: [],
+    customPlaceholder: 'Poser une question précise sur cet élément…'
+  };
+
+  // Résolution automatique si kind === 'entity' (IP, CIDR ou MAC cliquée dans le texte IA)
+  if (kind === 'entity') {
+    const tClean = String(target || '').trim();
+    if (tClean.includes('/')) {
+      kind = 'subnet';
+    } else if (tClean.includes(':')) {
+      const byMac = cachedDevices.find(d => String(d.mac || '').toLowerCase() === tClean.toLowerCase());
+      if (byMac) { kind = 'device'; target = byMac.ip; }
+      else { kind = 'mac-raw'; }
+    } else {
+      const byIp = cachedDevices.find(d => String(d.ip || '') === tClean);
+      if (byIp) { kind = 'device'; target = byIp.ip; }
+      else if (tClean === state.gw) { kind = 'gateway-box'; }
+      else { kind = 'ip-raw'; }
+    }
+  }
+
+  if (kind === 'device') {
+    const dev = cachedDevices.find(d => String(d.ip) === String(target)) || { ip: target, name: `Équipement ${target}`, status: 'unknown' };
+    const macInfo = decodeMacIdentity(dev.mac);
+    const subInfo = describeSubnetRole(dev.ip);
+    const isUp = dev.status === 'up';
+    const polOn = dev.internet_policy_enabled !== false;
+    const isGw = dev.type === 'gateway' || dev.type === 'fai_box' || dev.ip === state.gw;
+    const peersCount = (subnetsMap.get(subInfo.cidr) || []).length;
+
+    spec.eyebrow = 'FICHE ÉQUIPEMENT & DIAGNOSTIC CIBLÉ';
+    spec.title = `${dev.name || 'Poste réseau'} (${dev.ip})`;
+    spec.sub = `${isUp ? '🟢 En ligne sur le LAN' : '🔴 Hors ligne'} · Zone ${dev.zone || 'Réseau local'}`;
+    spec.kvs = [
+      ['Adresse IPv4', dev.ip || '—'],
+      ['Adresse MAC', dev.mac || 'Non visible ARP'],
+      ['Identité MAC / OUI', macInfo.vendor],
+      ['Latence mesurée', gradeLatency(dev.latency_ms)],
+      ['Sous-réseau', `${subInfo.cidr} (${peersCount} hôte(s))`],
+      ['Accès Internet', `${(dev.internet_access || 'inconnu').toUpperCase()} — ${dev.internet_reason || ''}`]
+    ];
+    spec.explanation = `${subInfo.role}\n\n• Analyse MAC : ${macInfo.note}\n• Réalité du contrôle Internet : ${
+      subInfo.cidr.startsWith('192.168.137.')
+        ? 'Cet appareil passe par le Hotspot Windows du PC sonde : lancez daderezo_sonde.py --active-control en Administrateur pour bloquer physiquement son trafic.'
+        : 'Cet appareil est sur le LAN de la Box (' + (state.gw || 'passerelle') + ') : le bouton ON/OFF applique la règle logique immédiatement ; pour un blocage physique Wi-Fi, connectez l’administration de la Box ou faites passer les clients par le Hotspot du PC sonde.'
+    }`;
+    if (!isGw && dev.ip) {
+      spec.actions.push({
+        label: polOn ? '🔴 Couper Internet pour cet appareil' : '🟢 Rétablir Internet pour cet appareil',
+        cls: polOn ? 'btn danger' : 'btn',
+        onClick: async () => {
+          await applyInternetPolicy('device', dev.ip, !polOn);
+          openDeepInspector('device', dev.ip);
+        }
+      });
+    }
+    spec.actions.push(
+      {
+        label: `🔎 Voir les ${peersCount} appareils de ${subInfo.cidr}`,
+        cls: 'btn secondary',
+        onClick: () => switchToViewAndFilter('equipment', 'all', subInfo.cidr.replace('.0/24', '.'))
+      },
+      {
+        label: '📋 Copier IP + MAC',
+        cls: 'btn secondary',
+        onClick: (btnEl) => {
+          navigator.clipboard?.writeText(`${dev.name || 'Appareil'} | IP: ${dev.ip} | MAC: ${dev.mac || 'N/A'}`);
+          btnEl.textContent = '✓ Copié !';
+        }
+      }
+    );
+    spec.prompts = [
+      { label: `🧠 Analyser le profil complet et l’usage probable de ${dev.name || dev.ip}`, q: `Analyse en profondeur l'équipement ${dev.name || dev.ip} (IP ${dev.ip}, MAC ${dev.mac || 'inconnue'}, latence ${dev.latency_ms ?? 'N/A'} ms, zone ${dev.zone || 'LAN'}) : quel type d'appareil est-ce et son comportement est-il normal ?` },
+      { label: '🔒 Évaluer le risque de sécurité et l’authenticité MAC de ce poste', q: `Vérifie si l'équipement ${dev.name || dev.ip} (${dev.ip}, MAC ${dev.mac || 'inconnue'}) présente un risque de sécurité ou d'intrusion sur mon réseau et que dois-je vérifier ?` },
+      { label: '🛑 Comment bloquer ou brider physiquement cet appareil sur ma Box ?', q: `Explique-moi concrètement comment bloquer ou limiter la bande passante de l'appareil ${dev.name || dev.ip} (IP ${dev.ip}, MAC ${dev.mac || 'inconnue'}) sur ma Box ${state.gw || 'principale'} ou via la sonde.` },
+      { label: '⚡ Diagnostiquer sa qualité de signal Wi-Fi / LAN et sa latence', q: `La latence mesurée vers ${dev.name || dev.ip} (${dev.ip}) est de ${dev.latency_ms ?? 'non mesurée'} ms comparée à la passerelle (${state.gw_latency_ms || 'N/A'} ms) : qu'est-ce que cela révèle sur sa qualité de connexion ?` }
+    ];
+    spec.customPlaceholder = `Question sur ${dev.name || dev.ip} (ex: pourquoi cette IP, comment fixer son bail DHCP…)`;
+  } else if (kind === 'site-radiography' || kind === 'kpi-health') {
+    const upDevs = cachedDevices.filter(d => d.status === 'up');
+    const downDevs = cachedDevices.filter(d => d.status !== 'up');
+    const subSummary = [...subnetsMap.entries()].map(([c, arr]) => `${c} (${arr.length})`).join(' · ') || 'Aucun sous-réseau relevé';
+    spec.eyebrow = 'RADIOGRAPHIE COMPLÈTE DU SITE';
+    spec.title = state.site_name || agent.nom || 'Architecture Réseau Active';
+    spec.sub = `${upDevs.length} en ligne / ${cachedDevices.length} recensés · Fraîcheur sonde : ${formatSince(agent.seconds_since_seen)}`;
+    spec.kvs = [
+      ['Équipements en ligne', `${upDevs.length} / ${cachedDevices.length}`],
+      ['Hors ligne / Éteints', `${downDevs.length} équipement(s)`],
+      ['Sous-réseaux détectés', subSummary],
+      ['Passerelle & Latence LAN', `${state.gw || '—'} (${state.gw_latency_ms ? state.gw_latency_ms + ' ms' : '—'})`],
+      ['Sortie FAI & Latence WAN', `${(state.internet_status || 'inconnu').toUpperCase()} (${state.wan_latency_ms ? state.wan_latency_ms + ' ms' : '—'})`],
+      ['Sonde active', `${agent.id || '—'} (${state.ip_local || agent.ip || '—'})`]
+    ];
+    spec.explanation = `Cette radiographie agrège les mesures ARP et ICMP réelles effectuées par votre sonde locale. ${
+      subnetsMap.size > 1
+        ? 'Plusieurs sous-réseaux coexistent sur votre site (' + subSummary + ') : cela signifie que votre PC sonde voit à la fois le réseau de la Box principale et un réseau secondaire (ex: Point d’accès mobile Windows 192.168.137.x).'
+        : 'Tous les hôtes détectés appartiennent au même segment local.'
+    }`;
+
+    if (subnetsMap.size > 0 || downDevs.length > 0) {
+      const wrap = makeEl('div', 'inspector-section');
+      wrap.appendChild(makeEl('h4', '', 'Explorer directement par sous-réseau ou appareils hors ligne'));
+      const chips = makeEl('div', 'inspector-actions-wrap');
+      subnetsMap.forEach((arr, cidr) => {
+        const b = makeEl('button', 'perspective-chip', `🌐 ${cidr} (${arr.length} postes)`);
+        b.type = 'button';
+        b.addEventListener('click', () => switchToViewAndFilter('equipment', 'all', cidr.replace('.0/24', '.')));
+        chips.appendChild(b);
+      });
+      downDevs.slice(0, 6).forEach(d => {
+        const b = makeEl('button', 'perspective-chip', `🔴 ${d.name || d.ip} (${d.ip})`);
+        b.type = 'button';
+        b.addEventListener('click', () => openDeepInspector('device', d.ip));
+        chips.appendChild(b);
+      });
+      wrap.appendChild(chips);
+      spec.extraNode = wrap;
+    }
+
+    spec.actions = [
+      { label: '⚡ Lancer un scan immédiat', cls: 'btn', onClick: () => { document.getElementById('scanBtn')?.click(); closeDeepInspector(); } },
+      { label: '📋 Ouvrir la table complète des équipements', cls: 'btn secondary', onClick: () => switchToViewAndFilter('equipment', 'all', '') }
+    ];
+    if (downDevs.length > 0) {
+      spec.actions.push({ label: `👁️ Filtrer les ${downDevs.length} hors ligne`, cls: 'btn secondary', onClick: () => switchToViewAndFilter('equipment', 'down', '') });
+    }
+    spec.prompts = [
+      { label: '🧠 Bilan complet de santé, points forts et anomalies de mon réseau', q: 'Fais un bilan d’ingénieur complet sur la santé actuelle de mon réseau, mes sous-réseaux détectés, les latences et les points d’attention prioritaires.' },
+      { label: '📡 Lancer un balayage approfondi des 254 adresses IP (avec validation HITL)', q: 'Lance un balayage complet des 254 IP de mon sous-réseau.' },
+      { label: '🔍 Analyser pourquoi certains appareils apparaissent hors ligne', q: 'Explique-moi pourquoi certains équipements de mon inventaire sont marqués hors ligne (veille Wi-Fi des smartphones, bail DHCP expiré ou panne réelle) et lesquels surveiller.' }
+    ];
+  } else if (kind === 'security-mac-audit') {
+    const randDevs = [];
+    const fixedDevs = [];
+    cachedDevices.forEach(d => {
+      const info = decodeMacIdentity(d.mac);
+      if (info.isRandomized) randDevs.push(d);
+      else fixedDevs.push({ dev: d, vendor: info.vendor });
+    });
+    spec.eyebrow = 'AUDIT CYBERSÉCURITÉ & CONSTRUCTEURS MAC (IEEE / LAA)';
+    spec.title = `${cachedDevices.length} équipements analysés · ${randDevs.length} MAC aléatoires mobiles`;
+    spec.sub = 'Distinction entre matériel fixe (Box, PC, Imprimantes) et smartphones à MAC privée';
+    spec.kvs = [
+      ['Total équipements', `${cachedDevices.length} appareil(s)`],
+      ['MAC Matérielles Fixes (IEEE)', `${fixedDevs.length} équipement(s)`],
+      ['MAC Privées / Aléatoires', `${randDevs.length} smartphone(s) probable(s)`],
+      ['Règles de filtrage actives', `${cachedPolicies.length} politique(s)`]
+    ];
+    spec.explanation = `Sur les réseaux Wi-Fi modernes, Android 10+ et iOS 14+ génèrent par défaut une adresse MAC aléatoire (bit LAA actif) pour protéger la vie privée : c’est souvent la raison pour laquelle un téléphone légitime apparaît comme « nouveau » ou change d’IP. À l’inverse, les routeurs, PC et imprimantes gardent leur adresse MAC constructeur d’usine.`;
+
+    const wrap = makeEl('div', 'inspector-section');
+    wrap.appendChild(makeEl('h4', '', 'Cliquez sur un appareil pour inspecter son identité MAC'));
+    const chips = makeEl('div', 'inspector-actions-wrap');
+    cachedDevices.slice(0, 12).forEach(d => {
+      const mInfo = decodeMacIdentity(d.mac);
+      const tag = mInfo.isRandomized ? '📱 MAC aléatoire' : '🖥️ MAC fixe';
+      const b = makeEl('button', 'perspective-chip', `${tag} · ${d.name || d.ip} (${d.ip})`);
+      b.type = 'button';
+      b.addEventListener('click', () => openDeepInspector('device', d.ip));
+      chips.appendChild(b);
+    });
+    wrap.appendChild(chips);
+    spec.extraNode = wrap;
+
+    spec.prompts = [
+      { label: '🛡️ Calculer le score de sécurité (/100) et lister les appareils sensibles', q: 'Réalise un audit complet de cybersécurité de mon réseau actuel : score sur 100, adresses MAC suspectes ou aléatoires, segmentation et mesures concrètes.' },
+      { label: '📱 Comment gérer les smartphones à MAC aléatoire sur le Wi-Fi communautaire ?', q: 'Comment organiser et sécuriser mon Wi-Fi face aux smartphones qui utilisent des adresses MAC aléatoires (invités vs membres permanents) ?' },
+      { label: '🔐 Recommander une architecture Wi-Fi Invités séparée de l’Administration', q: 'Propose-moi un plan simple et concret pour séparer les visiteurs de l’administration sur mon installation actuelle.' }
+    ];
+  } else if (kind === 'logical-vs-physical' || kind === 'kpi-wan' || kind === 'policies-audit') {
+    const gwLat = Number(state.gw_latency_ms || 0);
+    const wanLat = Number(state.wan_latency_ms || 0);
+    const delta = (wanLat > 0 && gwLat >= 0) ? Math.max(0, wanLat - gwLat).toFixed(1) : '—';
+    const has137 = subnetsMap.has('192.168.137.0/24');
+
+    spec.eyebrow = 'CORRÉLATION WAN/FAI & RÉALITÉ PHYSIQUE VS LOGIQUE';
+    spec.title = `Sortie Internet : ${(state.internet_status || 'inconnu').toUpperCase()} · Politique Box : ${mainBoxInternetOn ? 'AUTORISÉE' : 'COUPÉE (LOGIQUE)'}`;
+    spec.sub = `Passerelle ${state.gw || '—'} (${state.gw_latency_ms || '—'} ms) ⇄ Dorsale FAI (${state.wan_latency_ms || '—'} ms)`;
+    spec.kvs = [
+      ['État réel ping WAN', (state.internet_status || 'inconnu').toUpperCase()],
+      ['Latence interne LAN -> Box', state.gw_latency_ms ? `${state.gw_latency_ms} ms` : '—'],
+      ['Latence totale WAN FAI', state.wan_latency_ms ? `${state.wan_latency_ms} ms` : '—'],
+      ['Écart pur opérateur FAI', delta !== '—' ? `+${delta} ms hors de vos murs` : '—'],
+      ['Règles enregistrées', `${cachedPolicies.length} politique(s) active(s)`],
+      ['Hotspot Windows 192.168.137.x', has137 ? 'Détecté sur le PC sonde' : 'Non détecté']
+    ];
+    spec.explanation = `Point crucial d’architecture :\n1. Couche Logique (Cloud Daderezo) : vos interrupteurs enregistrent immédiatement les règles d’accès (${cachedPolicies.length} règle(s)) et mettent à jour la console.\n2. Couche Physique (Terrain) : si vos téléphones et PC sont connectés directement au Wi-Fi de la Box principale (${state.gw || '192.168.8.1'}), une sonde lancée sur un PC client ordinaire (${state.ip_local || 'LAN'}) ne se trouve pas sur le chemin physique des paquets. Pour bloquer réellement le trafic sur le terrain, deux voies existent :\n• Voie A (Sans changer de Box) : connecter les utilisateurs au Point d’accès mobile Windows du PC sonde (192.168.137.x) et lancer « python daderezo_sonde.py --active-control » en PowerShell Administrateur.\n• Voie B (Sur la Box) : appliquer le filtrage MAC / contrôle parental directement dans l’interface d’administration http://${state.gw || '192.168.8.1'}.`;
+
+    spec.actions = [
+      {
+        label: mainBoxInternetOn ? '🔴 Basculer Interrupteur Général sur OFF' : '🟢 Rétablir Interrupteur Général sur ON',
+        cls: mainBoxInternetOn ? 'btn danger' : 'btn',
+        onClick: async () => {
+          await applyInternetPolicy('global', 'main_box', !mainBoxInternetOn);
+          openDeepInspector('logical-vs-physical');
+        }
+      },
+      {
+        label: '📋 Copier commande Sonde Administrateur (--active-control)',
+        cls: 'btn secondary',
+        onClick: (btnEl) => {
+          navigator.clipboard?.writeText('python daderezo_sonde.py --active-control');
+          btnEl.textContent = '✓ Commande Admin copiée !';
+        }
+      },
+      {
+        label: '🎛️ Gérer les interrupteurs par Zone / Appareil',
+        cls: 'btn secondary',
+        onClick: () => switchToViewAndFilter('equipment', 'all', '')
+      }
+    ];
+    spec.prompts = [
+      { label: '🧭 Diagnostiquer l’écart exact entre mes règles logiques et le trafic physique actuel', q: 'Vérifie mes politiques Internet actives par rapport à la topologie réelle de ma sonde et explique-moi comment obtenir une coupure physique effective sur mon site.' },
+      { label: '⚡ Analyser si ma latence actuelle provient de l’opérateur FAI ou du Wi-Fi local', q: `Ma passerelle répond en ${state.gw_latency_ms || 'N/A'} ms et Internet WAN en ${state.wan_latency_ms || 'N/A'} ms : interprète cet écart et dis-moi si ma liaison FAI est saine.` },
+      { label: '📋 Générer un ticket technique complet prêt à transmettre à mon FAI', q: 'Rédige un ticket de diagnostic technique précis avec toutes les métriques actuelles (passerelle, WAN, équipements) pour mon opérateur FAI.' }
+    ];
+  } else if (kind === 'kpi-matrix') {
+    const filterKey = target || 'all';
+    const inetYes = cachedDevices.filter(d => d.internet_access === 'oui' || d.internet_access === 'degrade');
+    const inetNo = cachedDevices.filter(d => d.status === 'up' && d.internet_access !== 'oui' && d.internet_access !== 'degrade');
+    const down = cachedDevices.filter(d => d.status !== 'up');
+    spec.eyebrow = 'MATRICE DÉTAILLÉE LAN ⇄ INTERNET';
+    spec.title = `${cachedDevices.length} équipements · ${inetYes.length} avec Internet · ${inetNo.length} LAN seul`;
+    spec.sub = 'Répartition en temps réel des droits et de la connectivité';
+    spec.kvs = [
+      ['Connectés au LAN', `${cachedDevices.length - down.length} appareil(s)`],
+      ['Accès Internet actif', `${inetYes.length} appareil(s)`],
+      ['Privés d’Internet (LAN seul)', `${inetNo.length} appareil(s)`],
+      ['Hors ligne', `${down.length} appareil(s)`]
+    ];
+    spec.explanation = `Un appareil « LAN seul » peut toujours communiquer localement (imprimantes, partage de fichiers Hub Multimédia Daderezo) tout en étant protégé ou coupé d’Internet.`;
+    spec.actions = [
+      { label: '🟢 Voir ceux avec Internet', cls: 'btn', onClick: () => switchToViewAndFilter('equipment', 'inet_yes', '') },
+      { label: '🟠 Voir ceux sans Internet', cls: 'btn secondary', onClick: () => switchToViewAndFilter('equipment', 'inet_no', '') },
+      { label: '🔴 Voir les hors ligne', cls: 'btn secondary', onClick: () => switchToViewAndFilter('equipment', 'down', '') },
+      { label: '📋 Voir tout l’inventaire', cls: 'btn secondary', onClick: () => switchToViewAndFilter('equipment', filterKey === 'all' ? 'all' : filterKey, '') }
+    ];
+    spec.prompts = [
+      { label: '📊 Synthétiser la répartition par zone et sous-réseau', q: 'Détaille la répartition actuelle de mes appareils par sous-réseau et statut d’accès Internet.' },
+      { label: '🔍 Identifier les appareils les plus lents en latence sur le LAN', q: 'Quels sont les appareils ayant la latence la plus élevée actuellement sur mon réseau local et pourquoi ?' }
+    ];
+  } else if (kind === 'gateway-box' || kind === 'box-card' || kind === 'box-param') {
+    const boxObj = (kind === 'box-card' && cachedBoxes[Number(target)]) ? cachedBoxes[Number(target)] : (cachedBoxes[0] || {});
+    const gwIp = boxObj.box_ip || state.gw || '192.168.8.1';
+    const gwDev = cachedDevices.find(d => d.ip === gwIp) || {};
+    const gwMac = decodeMacIdentity(gwDev.mac);
+
+    const paramGuides = {
+      ssid: 'SSID Wi-Fi : nom visible de votre réseau sans fil. Conseil : utilisez un nom clair sans espaces spéciaux et séparez si possible le Wi-Fi Administration du Wi-Fi Invités.',
+      channel: 'Canal Wi-Fi : en 2,4 GHz, seuls les canaux 1, 6 et 11 ne se chevauchent pas ! Fixer le canal sur 1, 6 ou 11 évite les interférences avec les box voisines. En 5 GHz, privilégiez les canaux 36 à 48.',
+      dns: 'Serveurs DNS : traduisent les noms de sites en adresses IP. Cloudflare (1.1.1.1) accélère l’ouverture des pages web, tandis que Quad9 (9.9.9.9) bloque nativement les domaines malveillants et le phishing.',
+      qos: 'Profil QoS (Quality of Service) : « Anti-Bufferbloat & Voix » empêche un gros téléchargement de hacher les appels WhatsApp/Zoom ou la voix de l’assistant.',
+      mtu: 'MTU (Maximum Transmission Unit) : taille maximale des paquets IP. Sur Fibre/PPPoE utilisez 1492 octets ; sur une Box 4G/5G LTE (ex: 192.168.8.1 Huawei), 1420 à 1480 évite les pages qui bloquent au chargement.'
+    };
+
+    spec.eyebrow = kind === 'box-param' ? 'GUIDE PARAMÈTRE TÉLÉCOM & BOX' : 'PASSERELLE CŒUR & OPTIMISATION BOX';
+    spec.title = `${boxObj.box_name || 'Box / Passerelle Principale'} (${gwIp})`;
+    spec.sub = `Latence ${state.gw_latency_ms || gwDev.latency_ms || '—'} ms · ${gwMac.vendor}`;
+    spec.kvs = [
+      ['Adresse IP Box', gwIp],
+      ['Constructeur détecté', gwMac.vendor],
+      ['DNS actifs sur sonde', state.dns || `${boxObj.dns_primary || '1.1.1.1'}, ${boxObj.dns_secondary || '9.9.9.9'}`],
+      ['Canal / Bande Wi-Fi', `${boxObj.wifi_channel || 'Auto (recommandé: 1/6/11)'} · ${boxObj.wifi_band || '2.4G/5G'}`],
+      ['Profil QoS & MTU', `${boxObj.qos_profile || 'equilibre'} · MTU ${boxObj.mtu || 1492}`],
+      ['État passerelle', (state.gw_status || 'up').toUpperCase()]
+    ];
+    spec.explanation = kind === 'box-param' && paramGuides[target]
+      ? paramGuides[target]
+      : `Votre passerelle (${gwIp}) est le cœur par lequel transitent toutes les requêtes Internet. Une latence locale inférieure à 5 ms vers ${gwIp} confirme une excellente liaison locale ; des DNS rapides (1.1.1.1 / 9.9.9.9) et un MTU adapté (1420–1492 selon 4G/Fibre) accélèrent nettement la navigation.`;
+    spec.actions = [
+      { label: '⚙️ Ouvrir l’onglet 03 · Configuration des Box', cls: 'btn', onClick: () => switchToViewAndFilter('boxes') },
+      { label: '🚀 Optimiser automatiquement mes Box', cls: 'btn secondary', onClick: () => { switchToViewAndFilter('boxes'); setTimeout(() => document.getElementById('optimizeAllBoxesBtn')?.click(), 180); } }
+    ];
+    spec.prompts = [
+      { label: `🧠 Quels réglages idéaux (MTU, DNS, Canal Wi-Fi) recommandes-tu pour ma Box ${gwIp} ?`, q: `Analyse ma passerelle ${gwIp} (DNS actuels: ${state.dns || 'auto'}, latence: ${state.gw_latency_ms || 'N/A'} ms) et recommande-moi les réglages exacts (DNS, MTU Fibre vs 4G/LTE, canal Wi-Fi et QoS).` },
+      { label: `🔐 Comment accéder à l’administration de ${gwIp} et sécuriser son Wi-Fi ?`, q: `Explique-moi comment accéder à l'interface d'administration de ma Box ${gwIp}, sécuriser le mot de passe admin/WPA2-WPA3 et activer le filtrage MAC.` }
+    ];
+  } else if (kind === 'topo-tier' || kind === 'probe-health' || kind === 'probe-guide') {
+    const tier = target || 'probe';
+    if (tier === 'lan' || tier === 'core') {
+      const list = tier === 'core'
+        ? cachedDevices.filter(d => d.type === 'gateway' || d.type === 'fai_box' || d.ip === state.gw)
+        : cachedDevices.filter(d => d.type !== 'gateway' && d.type !== 'fai_box' && d.type !== 'probe');
+      spec.eyebrow = tier === 'core' ? 'ÉTAGE TOPOLOGIQUE 01 · CŒUR & ACCÈS FAI' : 'ÉTAGE TOPOLOGIQUE 02 · POSTES & RELAIS LAN';
+      spec.title = `${list.length} équipement(s) dans cet étage`;
+      spec.sub = 'Cliquez sur n’importe quel équipement ci-dessous pour ouvrir sa fiche';
+      spec.kvs = [
+        ['Équipements dans cet étage', `${list.length}`],
+        ['En ligne', `${list.filter(d => d.status === 'up').length}`],
+        ['Passerelle associée', state.gw || '—'],
+        ['Masque local', state.mask || '255.255.255.0']
+      ];
+      spec.explanation = tier === 'core'
+        ? 'L’étage Cœur regroupe votre Box opérateur et vos routeurs principaux qui assurent le NAT et l’accès WAN.'
+        : 'L’étage Postes & Relais regroupe tous les ordinateurs, smartphones, imprimantes et bornes Wi-Fi découverts sur vos sous-réseaux.';
+      const wrap = makeEl('div', 'inspector-section');
+      wrap.appendChild(makeEl('h4', '', 'Équipements détectés (cliquer pour inspecter)'));
+      const chips = makeEl('div', 'inspector-actions-wrap');
+      list.slice(0, 16).forEach(d => {
+        const b = makeEl('button', 'perspective-chip', `${d.status === 'up' ? '🟢' : '🔴'} ${d.name || d.ip} (${d.ip})`);
+        b.type = 'button';
+        b.addEventListener('click', () => openDeepInspector('device', d.ip));
+        chips.appendChild(b);
+      });
+      wrap.appendChild(chips);
+      spec.extraNode = wrap;
+      spec.actions = [{ label: '📋 Ouvrir dans la table Équipements', cls: 'btn', onClick: () => switchToViewAndFilter('equipment', 'all', '') }];
+      spec.prompts = [{ label: '🧠 Analyser l’organisation topologique de mes postes LAN', q: 'Analyse la topologie de mes postes LAN, leur répartition par sous-réseau et propose des améliorations.' }];
+    } else {
+      spec.eyebrow = 'SONDE LOCALE DADEREZO & MODE CONTRÔLE ACTIF';
+      spec.title = `${agent.id || 'daderezo_sonde.py'} (${state.ip_local || agent.ip || 'attente'})`;
+      spec.sub = `Statut : ${(agent.status || 'attente').toUpperCase()} · Dernier contact : ${formatSince(agent.seconds_since_seen)}`;
+      spec.kvs = [
+        ['Identifiant Sonde', agent.id || 'En attente'],
+        ['IP Locale Sonde', state.ip_local || agent.ip || '—'],
+        ['MAC Sonde', state.mac_local || agent.mac || '—'],
+        ['Dernier relevé', formatSince(agent.seconds_since_seen)],
+        ['Mode Standard', 'python daderezo_sonde.py (Observation 100% sûre)'],
+        ['Mode Contrôle Actif', 'python daderezo_sonde.py --active-control (Admin)']
+      ];
+      spec.explanation = `Votre sonde Python autonome (zéro dépendance externe) découvre automatiquement tous les sous-réseaux IPv4 actifs de votre PC, interroge la table ARP/ICMP et écoute vos ordres toutes les 5 secondes.\n\n• En mode standard, elle supervise sans toucher au système.\n• Lancée dans PowerShell en Administrateur avec « --active-control », elle peut aussi piloter le pare-feu Windows pour filtrer physiquement les clients qui passent par le partage de connexion (192.168.137.x).`;
+      spec.actions = [
+        { label: '⚡ Ordonner un scan immédiat', cls: 'btn', onClick: () => { document.getElementById('scanBtn')?.click(); closeDeepInspector(); } },
+        {
+          label: '📋 Copier commande Mode Administrateur',
+          cls: 'btn secondary',
+          onClick: (btnEl) => {
+            navigator.clipboard?.writeText('python daderezo_sonde.py --active-control');
+            btnEl.textContent = '✓ Copié !';
+          }
+        },
+        { label: '⚙️ Ouvrir Configuration & Téléchargement Sonde', cls: 'btn secondary', onClick: () => switchToViewAndFilter('config') }
+      ];
+      spec.prompts = [
+        { label: '🧠 Comment placer idéalement mon PC sonde pour superviser et filtrer tout le site ?', q: 'Explique-moi comment positionner idéalement mon PC exécutant daderezo_sonde.py sur mon réseau (Wi-Fi Box, câble Ethernet, Hotspot partagé) pour une supervision et un contrôle optimaux.' }
+      ];
+    }
+  } else if (kind === 'alert') {
+    const al = cachedAlerts[Number(target)] || { severity: 'info', message: 'Alerte réseau' };
+    const ipMatch = String(al.message || '').match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+    const foundIp = ipMatch ? ipMatch[0] : '';
+    spec.eyebrow = `INVESTIGATION D'ALERTE (${String(al.severity || 'INFO').toUpperCase()})`;
+    spec.title = al.message || 'Événement réseau';
+    spec.sub = al.ts ? `Horodatage : ${new Date(al.ts).toLocaleString('fr-FR')}` : 'Journal dédupliqué';
+    spec.kvs = [
+      ['Sévérité', String(al.severity || 'info').toUpperCase()],
+      ['Équipement détecté dans l’alerte', foundIp || 'Global / Site'],
+      ['État actuel du site', (state.internet_status || 'inconnu').toUpperCase()],
+      ['Déduplication', 'Active (zéro spam répétitif)']
+    ];
+    spec.explanation = `Chaque alerte correspond à une transition réelle d’état (apparition d’une nouvelle adresse, coupure ou rétablissement). Vous pouvez inspecter directement l’adresse IP concernée ou demander à DeepSeek d’en analyser la cause racine.`;
+    if (foundIp) {
+      spec.actions.push({ label: `🔍 Ouvrir la fiche de ${foundIp}`, cls: 'btn', onClick: () => openDeepInspector('device', foundIp) });
+    }
+    spec.prompts = [
+      { label: '🧠 Analyser la cause probable et la gravité de cette alerte', q: `Analyse cette alerte relevée sur mon réseau : « ${al.message} » (sévérité ${al.severity}). Quelle en est la cause probable et que dois-je faire ?` }
+    ];
+  } else if (kind === 'agent-node' || kind === 'trace-step' || kind === 'audit-log') {
+    let agentCode = String(target || 'SENTINEL-SEC');
+    let toolDetail = '';
+    if (kind === 'trace-step' && cachedLastTrace[Number(target)]) {
+      const t = cachedLastTrace[Number(target)];
+      agentCode = t.agent;
+      toolDetail = `Outil appelé : ${t.tool} (${t.status} en ${t.duration_ms} ms) — ${t.details}`;
+    } else if (kind === 'audit-log' && cachedAuditLogs[Number(target)]) {
+      const l = cachedAuditLogs[Number(target)];
+      agentCode = l.agent_name;
+      toolDetail = `Outil audité : ${l.tool_name} (${l.status} en ${l.duration_ms} ms) — ${l.details}`;
+    }
+    const agentProfiles = {
+      'SENTINEL-SEC': {
+        role: 'Garde-fou cybersécurité, anti-injection de prompt et isolation stricte des organisations SaaS (dzk_…).',
+        prompts: [
+          { label: '🛡️ Lancer un audit de sécurité complet avec SENTINEL-SEC', q: 'Exécute un audit complet de la posture de sécurité de mon réseau et vérifie les équipements non répertoriés.' }
+        ]
+      },
+      'TOPO-SCAN': {
+        role: 'Cartographie ARP/ICMP multi-sous-réseaux, matrice LAN vs Internet et mesure des latences par équipement.',
+        prompts: [
+          { label: '📊 Demander la cartographie complète LAN / WAN par sous-réseau', q: 'Dresse la cartographie complète de mes sous-réseaux et des équipements connectés avec leurs latences.' }
+        ]
+      },
+      'DIAG-NET': {
+        role: 'Corrélation mathématique entre panne opérateur FAI et problème Wi-Fi interne, décodage MAC et rédaction de tickets FAI.',
+        prompts: [
+          { label: '🩺 Diagnostiquer la qualité FAI vs Wi-Fi local', q: 'Diagnostique précisément ma liaison FAI par rapport à ma passerelle locale et mes équipements.' },
+          { label: '📋 Rédiger un ticket technique opérateur FAI', q: 'Rédige un ticket technique complet prêt à envoyer à mon fournisseur d’accès Internet.' }
+        ]
+      },
+      'NET-CONTROL': {
+        role: 'Pilotage des politiques d’accès Internet (Global, Zone/CIDR, Appareil), audit Logique vs Physique et optimisation Multi-Box.',
+        prompts: [
+          { label: '🧭 Auditer mes règles de coupure et la réalité physique du blocage', q: 'Audite mes politiques Internet actives et explique l’état du contrôle logique vs physique sur mon réseau.' },
+          { label: '🚀 Recommander l’optimisation de ma Box principale', q: 'Quels réglages d’optimisation recommandes-tu pour ma Box principale ?' }
+        ]
+      },
+      'MEDIA-HUB': {
+        role: 'Diffusion locale LAN + Cloud de documents, audios et vidéos (accessibles même lorsque le WAN Internet est coupé) et gouvernance HITL.',
+        prompts: [
+          { label: '📁 Vérifier les fichiers multimédias partagés sur mon site', q: 'Quels fichiers multimédias sont actuellement partagés sur mon réseau et comment y accéder en local ?' }
+        ]
+      }
+    };
+    const prof = agentProfiles[agentCode] || agentProfiles['DIAG-NET'];
+    spec.eyebrow = 'AGENT IA SPÉCIALISÉ & TRAÇABILITÉ';
+    spec.title = `Agent ${agentCode}`;
+    spec.sub = 'Architecture Multi-Agents Daderezo + DeepSeek ReAct';
+    spec.kvs = [
+      ['Agent spécialisé', agentCode],
+      ['Moteur de raisonnement', serverLlmStatus.configured ? `${(serverLlmStatus.provider || 'DeepSeek').toUpperCase()} (${serverLlmStatus.model || 'V3'})` : 'DeepSeek ReAct'],
+      ['Sécurité', 'Zéro hallucination · Preuves vérifiées'],
+      ['Journalisation', 'Horodatée en base permanente']
+    ];
+    spec.explanation = `${prof.role}${toolDetail ? '\n\n• Trace sélectionnée : ' + toolDetail : ''}`;
+    spec.prompts = prof.prompts;
+  } else if (kind === 'media-item') {
+    const media = cachedMedia.find(m => String(m.id) === String(target)) || {};
+    spec.eyebrow = 'DIFFUSION MULTIMÉDIA LAN & CLOUD';
+    spec.title = media.title || media.filename || 'Fichier partagé';
+    spec.sub = `Catégorie ${(media.category || 'document').toUpperCase()} · Zone : ${media.target_zone || 'Toutes les zones'}`;
+    spec.kvs = [
+      ['Fichier', media.filename || '—'],
+      ['Taille', formatBytes(media.size_bytes || 0)],
+      ['Zone cible', media.target_zone || 'Toutes les zones'],
+      ['Disponibilité hors Internet', 'OUI via Hub LAN local (:8090)']
+    ];
+    spec.explanation = `Les contenus publiés dans le Hub Multimédia restent consultables par les membres de votre réseau local même lorsque vous coupez l’accès Internet extérieur ou lors d’une panne FAI.`;
+    spec.prompts = [
+      { label: '📡 Comment permettre à tous les téléphones du LAN d’accéder aux médias hors connexion Internet ?', q: 'Explique-moi comment diffuser efficacement nos documents et médias en local sur le Wi-Fi même quand Internet est coupé.' }
+    ];
+  } else {
+    // source-cert, db-persistence, config-param, subnet, ip-raw, mac-raw
+    spec.eyebrow = 'PARAMÈTRE SYSTÈME & CONFIGURATION RÉSEAU';
+    if (kind === 'source-cert') {
+      spec.title = currentAuthUser ? `Certificat d’Isolation Privée : ${currentAuthUser.org_name}` : 'Certificat de Source Télémétrique';
+      spec.sub = currentAuthUser ? `Tenant isolé (${currentAuthUser.org_slug})` : 'Vérification de provenance des données';
+      spec.kvs = [
+        ['Organisation', currentAuthUser ? currentAuthUser.org_name : 'Mode public'],
+        ['Identifiant isolé', currentAuthUser ? currentAuthUser.org_slug : 'public-demo'],
+        ['Données de simulation', workspaceViewMode === 'work' ? '100 % BLOQUÉES & EXCLUES' : 'Actives (bac à sable)'],
+        ['Authentification Sonde', 'Clé secrète unique dzk_… + JWT HMAC']
+      ];
+      spec.explanation = `En Mode Travail Réel, un cloisonnement cryptographique strict garantit qu’aucun visiteur extérieur ne peut voir vos équipements et qu’aucune donnée de démonstration ne se mélange à vos mesures réelles.`;
+    } else if (kind === 'db-persistence') {
+      spec.title = 'Persistance Permanente Supabase PostgreSQL 17';
+      spec.sub = 'Stockage durable des sondes, politiques, boîtiers, médias et sessions IA';
+      spec.kvs = [
+        ['Moteur actif', (lastDashboardPayload?.db_backend || 'Supabase PG17').toUpperCase()],
+        ['Mémoire IA multi-tours', 'Active (historique de conversation conservé)'],
+        ['Politiques Internet', `${cachedPolicies.length} règle(s) persistée(s)`],
+        ['Audit de sécurité', 'Journalisé et horodaté']
+      ];
+      spec.explanation = `Toutes vos configurations de Box, vos règles d’accès Internet et la mémoire contextuelle de vos échanges avec DeepSeek sont sauvegardées de façon permanente dans PostgreSQL 17.`;
+    } else {
+      const paramName = target === 'mask' ? 'Masque de sous-réseau' : (target === 'dns' ? 'Serveurs DNS' : 'Paramètre IP / Sous-réseau');
+      spec.title = `${paramName} (${target || state.ip_local || 'Configuration'})`;
+      spec.sub = `Site ${state.site_name || 'supervisé'}`;
+      spec.kvs = [
+        ['IP locale sonde', state.ip_local || '—'],
+        ['Masque sous-réseau', state.mask || '255.255.255.0'],
+        ['Passerelle par défaut', state.gw || '—'],
+        ['Serveurs DNS', state.dns || '—']
+      ];
+      spec.explanation = target === 'dns'
+        ? `Vos serveurs DNS (${state.dns || 'automatiques'}) déterminent la rapidité d’ouverture de chaque site web et le filtrage de sécurité. Si le DNS par défaut de l’opérateur est lent, configurer 1.1.1.1 (Cloudflare) et 9.9.9.9 (Quad9) sur votre Box améliore immédiatement la réactivité.`
+        : `L’adresse IP (${state.ip_local || '—'}) et le masque (${state.mask || '255.255.255.0'}) définissent la plage d’adresses locales scrutée par la sonde (254 adresses par segment /24).`;
+    }
+    spec.prompts = [
+      { label: '🧠 Auditer la cohérence de ma configuration IP, Masque, Passerelle et DNS', q: `Analyse ma configuration réseau actuelle (IP sonde ${state.ip_local || 'N/A'}, masque ${state.mask || 'N/A'}, passerelle ${state.gw || 'N/A'}, DNS ${state.dns || 'N/A'}) et dis-moi si tout est optimal.` }
+    ];
+  }
+
+  eyeEl.textContent = spec.eyebrow;
+  titleEl.textContent = spec.title;
+  subEl.textContent = spec.sub;
+
+  if (spec.kvs.length) {
+    const kvGrid = makeEl('div', 'inspector-kv-grid');
+    spec.kvs.forEach(([k, v]) => {
+      const card = makeEl('div', 'inspector-kv');
+      card.appendChild(makeEl('small', '', k));
+      card.appendChild(makeEl('b', '', String(v ?? '—')));
+      kvGrid.appendChild(card);
+    });
+    bodyEl.appendChild(kvGrid);
+  }
+
+  if (spec.explanation) {
+    const expSec = makeEl('div', 'inspector-section');
+    expSec.appendChild(makeEl('h4', '', spec.explanationTitle));
+    const p = makeEl('p', '', spec.explanation);
+    p.style.whiteSpace = 'pre-line';
+    expSec.appendChild(p);
+    bodyEl.appendChild(expSec);
+  }
+
+  if (spec.extraNode) {
+    bodyEl.appendChild(spec.extraNode);
+  }
+
+  if (spec.actions.length) {
+    const actSec = makeEl('div', 'inspector-section');
+    actSec.appendChild(makeEl('h4', '', 'Options & Actions Directes'));
+    const actWrap = makeEl('div', 'inspector-actions-wrap');
+    spec.actions.forEach(a => {
+      const b = makeEl('button', a.cls || 'btn secondary', a.label);
+      b.type = 'button';
+      b.addEventListener('click', () => a.onClick(b));
+      actWrap.appendChild(b);
+    });
+    actSec.appendChild(actWrap);
+    bodyEl.appendChild(actSec);
+  }
+
+  const aiSec = makeEl('div', 'inspector-section');
+  aiSec.appendChild(makeEl('h4', '', 'Approfondir la recherche avec DeepSeek IA'));
+  const inlineAiResult = makeEl('div', 'inspector-inline-ai hidden');
+  const pList = makeEl('div', 'inspector-research-list');
+
+  spec.prompts.forEach(pr => {
+    const btn = makeEl('button', 'inspector-research-btn');
+    btn.type = 'button';
+    btn.appendChild(makeEl('span', '', pr.label));
+    btn.appendChild(makeEl('span', 'mono', '→'));
+    btn.addEventListener('click', () => runDrawerAiResearch(pr.q, inlineAiResult));
+    pList.appendChild(btn);
+  });
+  aiSec.appendChild(pList);
+
+  const customRow = makeEl('div', 'inspector-custom-ask');
+  const customIn = document.createElement('input');
+  customIn.type = 'text';
+  customIn.placeholder = spec.customPlaceholder;
+  const customBtn = makeEl('button', 'btn', 'Approfondir');
+  customBtn.type = 'button';
+  const submitCustom = () => {
+    const val = customIn.value.trim();
+    if (!val) return;
+    const contextualQ = `[Contexte ciblé : ${spec.title}] ${val}`;
+    runDrawerAiResearch(contextualQ, inlineAiResult);
+  };
+  customBtn.addEventListener('click', submitCustom);
+  customIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitCustom(); });
+  customRow.appendChild(customIn);
+  customRow.appendChild(customBtn);
+  aiSec.appendChild(customRow);
+
+  bodyEl.appendChild(aiSec);
+  bodyEl.appendChild(inlineAiResult);
+
+  backdrop.classList.add('open');
+  drawer.classList.add('open');
+}
+
+// Délégation universelle clic + clavier sur tous les éléments [data-inspect]
+document.addEventListener('click', (e) => {
+  const trigger = e.target.closest('[data-inspect]');
+  if (!trigger) return;
+  if (e.target.closest('[data-dev-switch], [data-save-box], [data-reboot-box], [data-del-media], input, select, a[download]')) return;
+  e.preventDefault();
+  e.stopPropagation();
+  openDeepInspector(
+    trigger.getAttribute('data-inspect'),
+    trigger.getAttribute('data-inspect-target') || ''
+  );
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const trigger = e.target.closest('[data-inspect]');
+  if (!trigger || e.target.matches('input, textarea, select, button')) return;
+  e.preventDefault();
+  openDeepInspector(
+    trigger.getAttribute('data-inspect'),
+    trigger.getAttribute('data-inspect-target') || ''
+  );
+});
 </script>
 </body>
 </html>

@@ -934,6 +934,434 @@ class TestApiEndpoints(unittest.TestCase):
         chk = subprocess.run(["bash", "-n", "contabo_bootstrap.sh"], capture_output=True, text=True)
         self.assertEqual(chk.returncode, 0, chk.stderr)
 
+    def test_23_strict_work_mode_no_simulation_leak_and_single_file_probe(self):
+        import ast
+
+        # Seed demo simulation first to prove it NEVER leaks into a private workspace
+        self.client.post("/demo/scenario/nominal")
+
+        # Unauthenticated probe script request is rejected
+        unauth_probe = self.client.get("/probe/daderezo_sonde.py")
+        self.assertEqual(unauth_probe.status_code, 401)
+
+        # Create private workspace (including apostrophe in org_name to verify safe codegen)
+        signup = self.client.post(
+            "/auth/signup",
+            json={
+                "email": "maurice.workmode@daderezo.ci",
+                "password": "PasswordWork2026!",
+                "full_name": "Maurice Bogui",
+                "org_name": "Communauté Sainte Marie l'Espérance",
+            },
+        )
+        self.assertEqual(signup.status_code, 200)
+        body = signup.json()
+        token = body["token"]
+        probe_key = body["user"]["probe_api_key"]
+        org_slug = body["user"]["org_slug"]
+        auth_h = {"Authorization": f"Bearer {token}"}
+
+        # 1. Before real probe connects: 0 agents in Work Mode (ZERO simulation-bouake leak!)
+        priv_agents_empty = self.client.get("/agents", headers=auth_h).json()
+        self.assertEqual(priv_agents_empty, [])
+
+        # 2. Reading simulation-bouake dashboard from Work Mode is strictly forbidden (403)
+        sim_block = self.client.get("/dashboard/simulation-bouake", headers=auth_h)
+        self.assertEqual(sim_block.status_code, 403)
+
+        # 3. Asking Supervisor in empty Work Mode returns honest 'aucune_sonde' with daderezo_sonde.py guidance
+        ask_empty = self.client.post(
+            "/supervisor/ask",
+            headers=auth_h,
+            json={"question": "Combien d'appareils sont connectés ?", "session_id": f"work-{org_slug}"},
+        ).json()
+        self.assertEqual(ask_empty["intent"], "aucune_sonde")
+        self.assertEqual(ask_empty["metrics"]["total_devices"], 0)
+        self.assertIn("daderezo_sonde.py", ask_empty["answer"])
+
+        # 4. Single-file pre-configured probe downloads cleanly and parses as valid Python 3 AST
+        probe_res = self.client.get(f"/probe/daderezo_sonde.py?probe_key={probe_key}")
+        self.assertEqual(probe_res.status_code, 200)
+        self.assertIn(probe_key, probe_res.text)
+        self.assertIn(f"{org_slug}-principal", probe_res.text)
+        ast.parse(probe_res.text)
+
+        # 5. Once the real probe transmits telemetry, ONLY real devices appear in Work Mode
+        ingest = self.client.post(
+            "/data",
+            headers={"X-API-Key": probe_key},
+            json={
+                "agent_id": f"{org_slug}-principal",
+                "nom": "Sonde Réelle Bouaké",
+                "site_name": "Réseau Réel Bouaké",
+                "ip_local": "192.168.1.45",
+                "gw": "192.168.1.1",
+                "gw_status": "up",
+                "internet_status": "up",
+                "wan_latency_ms": 24.5,
+                "probes": [
+                    {"ip": "192.168.1.1", "mac": "48:2c:a0:11:22:33", "name": "Box Fibre Réelle", "zone": "Cœur réseau", "status": "up", "type": "gateway", "latency_ms": 1.4},
+                    {"ip": "192.168.1.45", "mac": "00:e0:4c:aa:bb:cc", "name": "PC Sonde Maurice", "zone": "Supervision", "status": "up", "type": "probe", "latency_ms": 0.2},
+                    {"ip": "192.168.1.88", "mac": "3c:22:fb:44:55:66", "name": "MacBook Direction", "zone": "Réseau local", "status": "up", "type": "host", "latency_ms": 3.1},
+                ],
+            },
+        )
+        self.assertEqual(ingest.status_code, 200)
+
+        priv_agents_live = self.client.get("/agents", headers=auth_h).json()
+        self.assertEqual(len(priv_agents_live), 1)
+        self.assertEqual(priv_agents_live[0]["id"], f"{org_slug}-principal")
+        self.assertFalse(priv_agents_live[0]["is_simulation"])
+
+        ui_html = self.client.get("/ui").text
+        self.assertIn("switchWorkModeBtn", ui_html)
+        self.assertIn("realWorkOnboardingCard", ui_html)
+        self.assertIn("downloadSingleProbeBtn", ui_html)
+
+    def test_24_intelligent_diagnostic_no_false_cut_and_thoughtful_voice(self):
+        """v4.5: observational/why questions never misfire NET-CONTROL, detect logical-vs-physical gap, and speak thoughtful LLM voice synthesis."""
+        from unittest.mock import patch
+        import agent_engine
+
+        signup = self.client.post(
+            "/auth/signup",
+            json={
+                "email": "maurice.v45@daderezo.ci",
+                "password": "PasswordV45_2026!",
+                "full_name": "Maurice Bogui",
+                "org_name": "Sainte Marie Diagnostic Réel",
+            },
+        ).json()
+        token = signup["token"]
+        probe_key = signup["user"]["probe_api_key"]
+        org_slug = signup["user"]["org_slug"]
+        aid = f"{org_slug}-principal"
+        auth_h = {"Authorization": f"Bearer {token}"}
+
+        # 1. Real probe transmits live LAN/WAN telemetry (Box 192.168.8.1 + PC Hotspot 192.168.137.1)
+        self.client.post(
+            "/data",
+            headers={"X-API-Key": probe_key},
+            json={
+                "agent_id": aid,
+                "nom": "Sonde Terrain Bouaké",
+                "site_name": "Communauté Sainte Marie",
+                "ip_local": "192.168.8.156",
+                "gw": "192.168.8.1",
+                "gw_status": "up",
+                "internet_status": "up",
+                "wan_latency_ms": 38.0,
+                "probes": [
+                    {"ip": "192.168.8.1", "mac": "48:2c:a0:aa:bb:01", "name": "Box Huawei 4G", "zone": "Cœur réseau", "status": "up", "type": "gateway", "latency_ms": 2.1},
+                    {"ip": "192.168.8.156", "mac": "00:e0:4c:aa:bb:02", "name": "DESKTOP-AB0S9FH", "zone": "Supervision", "status": "up", "type": "probe", "latency_ms": 0.3},
+                    {"ip": "192.168.137.1", "mac": "00:e0:4c:aa:bb:03", "name": "Hotspot Windows", "zone": "Partage", "status": "up", "type": "host", "latency_ms": 0.5},
+                    {"ip": "192.168.8.120", "mac": "28:6c:07:aa:bb:04", "name": "TECNO-SPARK", "zone": "Réseau local", "status": "up", "type": "host", "latency_ms": 14.0},
+                ],
+            },
+        )
+
+        # 2. Admin cuts global Internet in the app -> logical_vs_physical_gap becomes True while WAN is still physically 'up'
+        pol_res = self.client.post(
+            f"/network/policies/{aid}",
+            headers=auth_h,
+            json={"scope_type": "global", "target_value": "main_box", "internet_enabled": False},
+        )
+        self.assertEqual(pol_res.status_code, 200)
+
+        dash = self.client.get(f"/dashboard/{aid}", headers=auth_h).json()
+        self.assertFalse(dash["summary"]["main_box_internet_enabled"])
+        self.assertEqual(dash["summary"]["physical_wan_status"], "up")
+        self.assertTrue(dash["summary"]["logical_vs_physical_gap"])
+
+        # 3. User asks the exact real-world observation question -> MUST NOT misfire _parse_internet_command!
+        exact_q = "je constate que l'internet continue de fonctionner sur place quand bien même j'ai l'ai couper sur l'app et que tout est en rouge"
+        res_offline = self.client.post(
+            "/supervisor/ask",
+            headers=auth_h,
+            json={"question": exact_q, "agent_id": aid, "session_id": "v45-diag-offline"},
+        ).json()
+        self.assertIsNone(res_offline.get("net_control_result"))
+        self.assertIsNone(res_offline.get("task_queued"))
+        self.assertEqual(res_offline["intent"], "diagnostic_ecart_logique_physique")
+        self.assertIn("192.168.8.1", res_offline["answer"])
+        self.assertIn("192.168.8.1", res_offline["spoken_text"])
+        self.assertNotIn("appareils sur 4 sont connectés", res_offline["spoken_text"])
+
+        # 4. With DeepSeek LLM active: verifies tool call + dedicated thoughtful [VOIX]...[/VOIX] extraction into spoken_text
+        ds_hex = "sk-" + ("b2" * 16)
+        old_ds = os.environ.get("DEEPSEEK_API_KEY")
+        os.environ["DEEPSEEK_API_KEY"] = ds_hex
+        try:
+            mock_llm_steps = [
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_topo_v45",
+                                        "type": "function",
+                                        "function": {
+                                            "name": "inspect_control_execution_and_topology",
+                                            "arguments": "{}",
+                                        },
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                },
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": (
+                                    "Votre observation est exacte : dans l'application, la règle est bien enregistrée en **rouge** (couche logique), "
+                                    "mais vos smartphones comme `TECNO-SPARK` passent directement par le Wi-Fi de votre Box `192.168.8.1` sans traverser "
+                                    "le PC sonde `192.168.8.156`.\n\n"
+                                    "Pour bloquer physiquement la sortie Internet, connectez les accès d'administration de la Box `192.168.8.1` ou faites passer les postes par le Hotspot `192.168.137.1` en mode Administrateur.\n\n"
+                                    "[VOIX]\n"
+                                    "C'est tout à fait logique techniquement. Le bouton rouge de l'application enregistre bien votre consigne de coupure, mais sur place vos téléphones communiquent directement en Wi-Fi avec la Box 192.168.8.1 sans passer par l'ordinateur où tourne la sonde. Pour rendre la coupure physique sur tout le site, il faut soit relier les accès administrateur de la Box, soit faire passer les appareils par le partage du PC lancé en administrateur.\n"
+                                    "[/VOIX]"
+                                ),
+                            }
+                        }
+                    ]
+                },
+            ]
+            idx_holder = {"i": 0}
+
+            class _Resp:
+                def __init__(self, d):
+                    self._b = json.dumps(d).encode("utf-8")
+
+                def read(self):
+                    return self._b
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *a):
+                    return False
+
+            def _mock_open(req, timeout=28):
+                i = min(idx_holder["i"], len(mock_llm_steps) - 1)
+                idx_holder["i"] += 1
+                return _Resp(mock_llm_steps[i])
+
+            with patch.object(agent_engine.urllib.request, "urlopen", side_effect=_mock_open):
+                res_llm = self.client.post(
+                    "/supervisor/ask",
+                    headers=auth_h,
+                    json={"question": exact_q, "agent_id": aid, "session_id": "v45-diag-llm"},
+                ).json()
+
+            self.assertIn("multi_agent_llm", res_llm["engine_mode"])
+            self.assertNotIn("[VOIX]", res_llm["answer"])
+            self.assertNotIn("[/VOIX]", res_llm["answer"])
+            self.assertIn("C'est tout à fait logique techniquement", res_llm["spoken_text"])
+            self.assertNotIn("**", res_llm["spoken_text"])
+            self.assertNotIn("appareils sur 4 sont connectés", res_llm["spoken_text"])
+        finally:
+            if old_ds is None:
+                os.environ.pop("DEEPSEEK_API_KEY", None)
+            else:
+                os.environ["DEEPSEEK_API_KEY"] = old_ds
+
+    def test_25_interactive_duplex_voice_mode_and_ui_turn_taking(self):
+        """v4.6: continuous SpeechRecognition without mid-sentence cutoff, French incomplete-clause patience & barge-in."""
+        import re
+        from unittest.mock import patch
+        import agent_engine
+
+        h = self.client.get("/health").json()
+        self.assertTrue(h["version"].startswith("4."))
+        self.assertIn("interactive_duplex_vad_voice_turn_taking", h["capabilities"])
+
+        ui_html = self.client.get("/ui").text
+        self.assertIn('id="interactiveVoiceStudio"', ui_html)
+        self.assertIn("rec.continuous = true;", ui_html)
+        self.assertIn("function isFrenchThoughtIncomplete(", ui_html)
+        self.assertIn("function resumeListeningAfterBargeIn(", ui_html)
+
+        # Verify French incomplete-thought heuristic directly via regex extraction + Python mirror check
+        m = re.search(r"function isFrenchThoughtIncomplete\(txt\)\s*\{.*?\n\}", ui_html, flags=re.S)
+        self.assertIsNotNone(m)
+
+        # Verify voice_mode=True propagates dialogue_vocal_temps_reel to LLM prompt
+        self.client.post("/demo/scenario/nominal")
+        ds_hex = "sk-" + ("c3" * 16)
+        old_ds = os.environ.get("DEEPSEEK_API_KEY")
+        os.environ["DEEPSEEK_API_KEY"] = ds_hex
+        captured_bodies = []
+        try:
+            class _FakeR:
+                def read(self):
+                    return json.dumps(
+                        {
+                            "choices": [
+                                {
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": "Analyse vocale complète.\n[VOIX]Je vous ai écouté jusqu'au bout et voici la réponse directe.[/VOIX]",
+                                    }
+                                }
+                            ]
+                        }
+                    ).encode("utf-8")
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *a):
+                    return False
+
+            def _cap_open(req, timeout=28):
+                captured_bodies.append(req.data.decode("utf-8"))
+                return _FakeR()
+
+            with patch.object(agent_engine.urllib.request, "urlopen", side_effect=_cap_open):
+                res_v = self.client.post(
+                    "/supervisor/ask",
+                    json={
+                        "question": "Quels appareils sont connectés sur le réseau local actuellement ?",
+                        "session_id": "v46-voice-live",
+                        "voice_mode": True,
+                    },
+                ).json()
+
+            self.assertTrue(captured_bodies)
+            self.assertIn("dialogue_vocal_temps_reel", captured_bodies[0])
+            self.assertEqual(res_v["spoken_text"], "Je vous ai écouté jusqu'au bout et voici la réponse directe.")
+        finally:
+            if old_ds is None:
+                os.environ.pop("DEEPSEEK_API_KEY", None)
+            else:
+                os.environ["DEEPSEEK_API_KEY"] = old_ds
+
+    def test_26_v47_deep_dive_perspectives_and_zero_clutter_work_mode(self):
+        """v4.7: zero superfluous comparison buttons in Mode Actif, universal clickable deep-dive drawer & contextual AI perspectives."""
+        from unittest.mock import patch
+        import agent_engine
+
+        h = self.client.get("/health").json()
+        self.assertEqual(h["version"], "4.7.0")
+        self.assertEqual(h["architecture"], "multi_agent_z_v4_7_interactive_deep_dive")
+        self.assertIn("contextual_deep_dive_perspectives", h["capabilities"])
+        self.assertIn("interactive_element_inspection", h["capabilities"])
+
+        ui_html = self.client.get("/ui").text
+        # Aucune pollution / bouton inutile de comparaison démo dans le Mode Travail Actif
+        self.assertNotIn("bannerPeekDemoLiveBtn", ui_html)
+        self.assertNotIn("bannerPeekDemoBtn", ui_html)
+        self.assertNotIn("Comparer avec la Démo", ui_html)
+
+        # Présence du tiroir universel d'investigation approfondie et des hooks data-inspect
+        for marker in (
+            'id="deepInspectorDrawer"',
+            "function openDeepInspector(",
+            "function decodeMacIdentity(",
+            "function appendTextWithEntityChips(",
+            'id="supervisorPerspectivesBar"',
+            'data-inspect="site-radiography"',
+            'data-inspect="security-mac-audit"',
+            'data-inspect="logical-vs-physical"',
+            'data-inspect="gateway-box"',
+            'data-inspect="kpi-health"',
+            'data-inspect="kpi-wan"',
+            'data-inspect="kpi-matrix"',
+            'data-inspect="agent-node"',
+            'data-inspect="box-param"',
+            'data-inspect="config-param"',
+        ):
+            self.assertIn(marker, ui_html)
+
+        # Test ReAct inspect_single_device + extraction propre de [PISTES]...[/PISTES] sans fuite dans answer ni spoken_text
+        self.client.post("/demo/scenario/nominal")
+        ds_hex = "sk-" + ("d4" * 16)
+        old_ds = os.environ.get("DEEPSEEK_API_KEY")
+        os.environ["DEEPSEEK_API_KEY"] = ds_hex
+        step_counter = {"n": 0}
+        try:
+            class _FakeStepResp:
+                def __init__(self, payload):
+                    self._raw = json.dumps(payload).encode("utf-8")
+
+                def read(self):
+                    return self._raw
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *a):
+                    return False
+
+            def _mock_react(req, timeout=28):
+                step_counter["n"] += 1
+                if step_counter["n"] == 1:
+                    return _FakeStepResp(
+                        {
+                            "choices": [
+                                {
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": "",
+                                        "tool_calls": [
+                                            {
+                                                "id": "call_dev_1",
+                                                "type": "function",
+                                                "function": {
+                                                    "name": "inspect_single_device",
+                                                    "arguments": json.dumps({"query": "192.168.8.14"}),
+                                                },
+                                            }
+                                        ],
+                                    }
+                                }
+                            ]
+                        }
+                    )
+                return _FakeStepResp(
+                    {
+                        "choices": [
+                            {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": (
+                                        "Le Poste Secrétariat (`192.168.8.14`) présente une excellente latence de 2.8 ms.\n"
+                                        "[VOIX]Le poste secrétariat répond parfaitement en moins de trois millisecondes sur le réseau local.[/VOIX]\n"
+                                        "[PISTES]\n"
+                                        "🔒 Sécurité du poste | Vérifie la sécurité et les ports exposés sur 192.168.8.14\n"
+                                        "⚙️ Priorité QoS Admin | Comment réserver la bande passante prioritaire pour 192.168.8.14 ?\n"
+                                        "[/PISTES]"
+                                    ),
+                                }
+                            }
+                        ]
+                    }
+                )
+
+            with patch.object(agent_engine.urllib.request, "urlopen", side_effect=_mock_react):
+                resp = self.client.post(
+                    "/supervisor/ask",
+                    json={"question": "Analyse le cas de l'appareil 192.168.8.14", "session_id": "v47-deep-dive"},
+                ).json()
+
+            self.assertNotIn("[PISTES]", resp["answer"])
+            self.assertNotIn("[PISTES]", resp["spoken_text"])
+            self.assertTrue(isinstance(resp.get("perspectives"), list))
+            self.assertGreaterEqual(len(resp["perspectives"]), 3)
+            self.assertTrue(any("192.168.8.14" in p.get("question", "") for p in resp["perspectives"]))
+            self.assertTrue(any(t.get("tool") == "inspect_single_device" for t in resp.get("agent_trace", [])))
+        finally:
+            if old_ds is None:
+                os.environ.pop("DEEPSEEK_API_KEY", None)
+            else:
+                os.environ["DEEPSEEK_API_KEY"] = old_ds
+
 
 if __name__ == "__main__":
     unittest.main()

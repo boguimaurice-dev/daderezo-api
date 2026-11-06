@@ -926,7 +926,7 @@ async function loadHeroTelemetry() {
 // DÉMO INTERACTIVE EN DIRECT (CONNECTÉE AUX 4 AGENTS)
 // =========================================================================
 let demoApprovalId = null;
-const demoSessionId = 'landing-' + Math.random().toString(36).slice(2, 9);
+const demoSessionId = 'landing-' + crypto.getRandomValues(new Uint32Array(2)).join('-');
 
 function updateDemoPipeline(trace) {
   const map = {

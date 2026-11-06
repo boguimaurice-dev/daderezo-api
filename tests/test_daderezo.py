@@ -175,6 +175,19 @@ class TestApiEndpoints(unittest.TestCase):
         os.environ.pop("DADEREZO_API_KEY", None)
         self.tmp.cleanup()
 
+    def test_download_endpoint_serves_allowlisted_file(self):
+        response = self.client.get("/download/agent_client.py")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("attachment; filename=\"agent_client.py\"", response.headers["content-disposition"])
+        with open(self.api.ALLOWED_DOWNLOADS["agent_client.py"], encoding="utf-8") as file:
+            self.assertEqual(response.text, file.read())
+
+    def test_download_endpoint_rejects_path_traversal(self):
+        response = self.client.get("/download/%2e%2e%2fREADME.md")
+
+        self.assertEqual(response.status_code, 404)
+
     def test_register_is_idempotent_and_dashboard_deduplicates_devices(self):
         # JSON health on GET / for API clients, HTML for browsers
         res_json = self.client.get("/", headers={"Accept": "application/json"})

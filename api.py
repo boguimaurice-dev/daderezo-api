@@ -47,14 +47,14 @@ ALLOWED_TASKS = {
     "sync_media",
 }
 ALLOWED_DOWNLOADS = {
-    "agent_client.py",
-    "collector.py",
-    "devices.json",
-    "make_dashboard.py",
-    "net_controller.py",
-    "contabo_watchdog.py",
-    "docker-compose.contabo.yml",
-    "contabo_bootstrap.sh",
+    "agent_client.py": os.path.join(HERE, "agent_client.py"),
+    "collector.py": os.path.join(HERE, "collector.py"),
+    "devices.json": os.path.join(HERE, "devices.json"),
+    "make_dashboard.py": os.path.join(HERE, "make_dashboard.py"),
+    "net_controller.py": os.path.join(HERE, "net_controller.py"),
+    "contabo_watchdog.py": os.path.join(HERE, "contabo_watchdog.py"),
+    "docker-compose.contabo.yml": os.path.join(HERE, "docker-compose.contabo.yml"),
+    "contabo_bootstrap.sh": os.path.join(HERE, "contabo_bootstrap.sh"),
 }
 
 app = FastAPI(
@@ -1095,9 +1095,9 @@ def download_preconfigured_single_probe(
 
 @app.get("/download/{filename}")
 def download_probe_file(filename: str):
-    if filename not in ALLOWED_DOWNLOADS:
+    fpath = ALLOWED_DOWNLOADS.get(filename)
+    if fpath is None:
         raise HTTPException(status_code=404, detail="Fichier non autorisé au téléchargement.")
-    fpath = os.path.join(HERE, filename)
     if not os.path.exists(fpath):
         raise HTTPException(status_code=404, detail="Fichier introuvable.")
     with open(fpath, "r", encoding="utf-8") as f:

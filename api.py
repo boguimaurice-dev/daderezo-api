@@ -1228,6 +1228,27 @@ def google_auth_exchange(req: GoogleExchangeRequest):
     return {"verified": True, "email": user["email"], "access_granted": False, "identity_token": access_token}
 
 
+@app.post("/auth/google/logout")
+def google_auth_logout(authorization: Optional[str] = Header(default=None, alias="Authorization")):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Session Google requise.")
+    token = authorization[7:].strip()
+    if not token or len(token) > 8192:
+        raise HTTPException(status_code=401, detail="Session Google invalide.")
+    url, key = _google_auth_settings()
+    request = urllib.request.Request(
+        url + "/auth/v1/logout?scope=local", data=b"", method="POST",
+        headers={"apikey": key, "Authorization": "Bearer " + token},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            if response.status not in (200, 204):
+                raise ValueError("logout failed")
+    except (urllib.error.URLError, ValueError):
+        raise HTTPException(status_code=503, detail="Impossible de confirmer la déconnexion auprès de Supabase.")
+    return {"status": "ok"}
+
+
 def require_google_identity(authorization: Optional[str] = Header(default=None, alias="Authorization")) -> dict:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Connexion Google requise.")

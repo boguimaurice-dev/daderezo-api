@@ -34,6 +34,19 @@ class GoogleIdentityTests(unittest.TestCase):
             result = self.client.post('/auth/google/exchange', json={'code': 'valid', 'verifier': 'a' * 43})
         self.assertEqual(result.status_code, 401)
 
+    def test_logout_revokes_session_via_supabase_without_sending_server_key_to_client(self):
+        response = io.BytesIO(b'')
+        response.status = 204
+        with patch('api.urllib.request.urlopen', return_value=response) as request:
+            result = self.client.post('/auth/google/logout', headers={'Authorization': 'Bearer session-token'})
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), {'status': 'ok'})
+        sent = request.call_args.args[0]
+        self.assertEqual(sent.full_url, 'https://example.supabase.co/auth/v1/logout?scope=local')
+        self.assertEqual(sent.get_header('Authorization'), 'Bearer session-token')
+        self.assertNotIn('server-only-key', result.text)
+        self.assertEqual(self.client.post('/auth/google/logout').status_code, 401)
+
     def test_invalid_verifier_and_invalid_url(self):
         self.assertEqual(self.client.post('/auth/google/exchange', json={'code': 'valid', 'verifier': 'short'}).status_code, 422)
         with patch.dict(os.environ, {'SUPABASE_URL': 'https://attacker.example'}):

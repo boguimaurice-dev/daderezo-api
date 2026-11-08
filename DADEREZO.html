@@ -914,6 +914,7 @@ tr[data-inspect]:hover td{
       </div>
       <button class="btn secondary" id="themeToggleBtn" type="button" title="Basculer entre le mode clair et le mode sombre">☀️ Clair</button>
       <button class="btn secondary" id="authAccountBtn" type="button" title="Se connecter ou gérer votre Espace Privé">🔐 Espace Privé</button>
+      <button class="btn danger hidden" id="topLogoutBtn" type="button">Se déconnecter</button>
       <select id="agentSelect" class="site-select" aria-label="Sélectionner le site supervisé">
         <option value="">Chargement des sondes…</option>
       </select>
@@ -1684,7 +1685,7 @@ tr[data-inspect]:hover td{
         <button class="btn secondary hidden" id="legacyClaimBtn" type="button">Rattacher mon ancien site à cette candidature</button>
         <p id="legacyClaimInfo" class="hidden" style="font-size:12px;color:var(--muted)">Utilisez le même navigateur que votre ancienne connexion. Votre ancienne session doit être encore valide. La sonde devra être reconfigurée avec une nouvelle clé après approbation.</p>
         <div id="platformAdminBox" class="hidden"><h3>Candidatures · Super admin</h3><div id="platformApplications"></div><h3>Journal des décisions</h3><div id="platformEvents"></div></div>
-        <button class="btn secondary" type="button" id="googleSignOutBtn">Effacer la session Google sur cet onglet</button>
+        <button class="btn secondary" type="button" id="googleSignOutBtn">Se déconnecter de DADEREZO</button>
       </div>
     <div id="authFormsBox">
       <button class="btn secondary" id="googleAuthBtn" type="button" style="width:100%;min-height:42px;margin-bottom:8px">Se connecter avec Google</button>
@@ -4242,6 +4243,7 @@ function applyAuthUserUI(user) {
     if (wsModeEl) wsModeEl.textContent = 'Espace Démo Public (Simulation)';
     if (pkEl) pkEl.textContent = 'Non connecté (mode simulation)';
   }
+  document.getElementById('topLogoutBtn').classList.toggle('hidden', !(user || sessionStorage.getItem('daderezo_google_identity_token')));
   applyWorkspaceChrome();
 }
 
@@ -4301,6 +4303,7 @@ async function finishGoogleAuth() {
     const data = await res.json();
     if (!res.ok || !data.verified) throw new Error(data.detail || 'Vérification impossible.');
     sessionStorage.setItem('daderezo_google_identity_token', data.identity_token);
+    document.getElementById('topLogoutBtn').classList.remove('hidden');
     fb.textContent = 'Identité Google vérifiée. Consultez le statut de votre candidature.';
     await loadPlatform();
   } catch (e) { fb.textContent = e.message || 'Connexion Google impossible.'; }
@@ -4319,6 +4322,7 @@ async function loadPlatform() {
   try {
     const data = await platformFetch('/platform/me');
     document.getElementById('googlePlatformBox').classList.remove('hidden');
+    document.getElementById('topLogoutBtn').classList.remove('hidden');
     document.getElementById('googleIdentityStatus').textContent = `Google : ${data.email} · ${data.access_granted ? "accès actif" : "accès en attente ou suspendu"}`;
     if (data.access_granted) { await checkAuthSession(); await refreshAll(); }
     else if (currentAuthUser) { applyAuthUserUI(null); await refreshAll(); }
@@ -4369,11 +4373,25 @@ document.getElementById('platformApplyBtn').addEventListener('click', async () =
     await loadPlatform();
   } catch(e) { document.getElementById('authFeedbackMsg').textContent = e.message; }
 });
-document.getElementById('googleSignOutBtn').addEventListener('click', () => {
+async function logoutDaderezo() {
+  const googleToken = sessionStorage.getItem('daderezo_google_identity_token');
+  const legacyToken = localStorage.getItem('daderezo_saas_token');
+  if (legacyToken && !confirm('La déconnexion effacera aussi votre ancienne session, qui peut être nécessaire pour rattacher votre ancien site. Continuer ?')) return;
+  let remoteLogoutConfirmed = true;
+  if (googleToken) {
+    try {
+      const res = await fetch('/auth/google/logout', {method:'POST', headers:{Authorization:`Bearer ${googleToken}`}});
+      remoteLogoutConfirmed = res.ok;
+    } catch (_) { remoteLogoutConfirmed = false; }
+  }
   sessionStorage.removeItem('daderezo_google_identity_token');
-  document.getElementById('googlePlatformBox').classList.add('hidden');
-  applyAuthUserUI(null); refreshAll();
-});
+  localStorage.removeItem('daderezo_saas_token');
+  if (!remoteLogoutConfirmed) alert('Session effacée sur cet onglet, mais la déconnexion du serveur n’a pas pu être confirmée.');
+  location.assign('/ui?auth=1');
+}
+document.getElementById('googleSignOutBtn').addEventListener('click', logoutDaderezo);
+document.getElementById('topLogoutBtn').addEventListener('click', logoutDaderezo);
+
 loadPlatform();
 
 
@@ -4412,16 +4430,7 @@ document.getElementById('submitAuthBtn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('logoutSaaSBtn').addEventListener('click', async () => {
-  localStorage.removeItem('daderezo_saas_token');
-  sessionStorage.removeItem('daderezo_google_identity_token');
-  document.getElementById('googlePlatformBox').classList.add('hidden');
-  currentAgentId = '';
-  applyAuthUserUI(null);
-  closeAuthModal();
-  await refreshAll();
-  loadMedia();
-});
+document.getElementById('logoutSaaSBtn').addEventListener('click', logoutDaderezo);
 
 const _urlParams = new URLSearchParams(window.location.search);
 if (_urlParams.get('auth') === '1') {

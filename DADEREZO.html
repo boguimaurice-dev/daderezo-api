@@ -1672,13 +1672,29 @@ tr[data-inspect]:hover td{
       </div>
     </div>
 
+      <div id="googlePlatformBox" class="hidden" style="margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:10px">
+        <p id="googleIdentityStatus"></p>
+        <div id="platformApplicationForm">
+          <div class="modal-field"><label for="platformOrg">Organisation</label><input id="platformOrg" maxlength="120"></div>
+          <div class="modal-field"><label for="platformContact">Nom du responsable</label><input id="platformContact" maxlength="120"></div>
+          <div class="modal-field"><label for="platformSite">Site et réseau à superviser</label><input id="platformSite" maxlength="1000"></div>
+          <label><input type="checkbox" id="platformAuthorization"> Je confirme être autorisé à superviser ce réseau.</label>
+          <button class="btn" type="button" id="platformApplyBtn">Envoyer ma candidature</button>
+        </div>
+        <button class="btn secondary hidden" id="legacyClaimBtn" type="button">Rattacher mon ancien site à cette candidature</button>
+        <p id="legacyClaimInfo" class="hidden" style="font-size:12px;color:var(--muted)">Utilisez le même navigateur que votre ancienne connexion. Votre ancienne session doit être encore valide. La sonde devra être reconfigurée avec une nouvelle clé après approbation.</p>
+        <div id="platformAdminBox" class="hidden"><h3>Candidatures · Super admin</h3><div id="platformApplications"></div><h3>Journal des décisions</h3><div id="platformEvents"></div></div>
+        <button class="btn secondary" type="button" id="googleSignOutBtn">Effacer la session Google sur cet onglet</button>
+      </div>
     <div id="authFormsBox">
-      <div class="modal-tabs">
+      <button class="btn secondary" id="googleAuthBtn" type="button" style="width:100%;min-height:42px;margin-bottom:8px">Se connecter avec Google</button>
+      <p style="font-size:12px;color:var(--muted)">Connexion Google puis candidature : l’accès réel est activé après approbation et confirmation de paiement, ou validation pilote.</p>
+      <div style="display:none" aria-hidden="true"><div class="modal-tabs">
         <button class="btn" id="tabSignupBtn" type="button">Créer mon Espace</button>
         <button class="btn secondary" id="tabLoginBtn" type="button">Se connecter</button>
       </div>
 
-      <div id="signupExtraFields">
+      <div id="signupExtraFields" hidden>
         <div class="modal-field">
           <label for="authOrgNameIn">Nom de votre Organisation / Site</label>
           <input id="authOrgNameIn" type="text" placeholder="Ex: Communauté Sainte Marie / Mon Entreprise">
@@ -1689,18 +1705,18 @@ tr[data-inspect]:hover td{
         </div>
       </div>
 
-      <div class="modal-field">
+      <div class="modal-field" hidden>
         <label for="authEmailIn">Adresse e-mail professionnelle</label>
         <input id="authEmailIn" type="email" placeholder="superviseur@domaine.org">
       </div>
-      <div class="modal-field">
+      <div class="modal-field" hidden>
         <label for="authPassIn">Mot de passe (min. 6 caractères)</label>
         <input id="authPassIn" type="password" placeholder="••••••••">
       </div>
 
-      <div id="authFeedbackMsg" style="font-size:12px;color:var(--amber-ink);min-height:18px;margin-bottom:8px"></div>
-      <button class="btn" id="submitAuthBtn" type="button" style="width:100%;min-height:42px">Créer mon Espace Privé Sécurisé</button>
+      <button class="btn" id="submitAuthBtn" type="button">Ancienne connexion</button></div>
     </div>
+    <div id="authFeedbackMsg" style="font-size:12px;color:var(--amber-ink);min-height:18px;margin-bottom:8px"></div>
   </div>
 </div>
 
@@ -1787,7 +1803,7 @@ function generateSecureSessionId() {
 function getHeaders(json = false, forceAuth = false) {
   const h = { 'Accept': 'application/json' };
   if (json) h['Content-Type'] = 'application/json';
-  const saasTok = (localStorage.getItem('daderezo_saas_token') || '').trim();
+  const saasTok = (sessionStorage.getItem('daderezo_google_identity_token') || localStorage.getItem('daderezo_saas_token') || '').trim();
   if (saasTok && (forceAuth || workspaceViewMode === 'work')) {
     h['Authorization'] = `Bearer ${saasTok}`;
   }
@@ -1826,8 +1842,8 @@ function getOriginBaseUrl() {
 function getWinProbeCommand() {
   const originUrl = getOriginBaseUrl();
   if (currentAuthUser && currentAuthUser.probe_api_key) {
-    const url = `${originUrl}/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
-    return `curl.exe -fsSL "${url}" -o daderezo_sonde.py; python daderezo_sonde.py`;
+    const url = `${originUrl}/probe/daderezo_sonde.py`;
+    return `curl.exe -fsSL -H "X-API-Key: ${currentAuthUser.probe_api_key}" "${url}" -o daderezo_sonde.py; python daderezo_sonde.py`;
   }
   return `python daderezo_sonde.py`;
 }
@@ -1835,8 +1851,8 @@ function getWinProbeCommand() {
 function getLinProbeCommand() {
   const originUrl = getOriginBaseUrl();
   if (currentAuthUser && currentAuthUser.probe_api_key) {
-    const url = `${originUrl}/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
-    return `curl -fsSL "${url}" -o daderezo_sonde.py && python3 daderezo_sonde.py`;
+    const url = `${originUrl}/probe/daderezo_sonde.py`;
+    return `curl -fsSL -H "X-API-Key: ${currentAuthUser.probe_api_key}" "${url}" -o daderezo_sonde.py && python3 daderezo_sonde.py`;
   }
   return `python3 daderezo_sonde.py`;
 }
@@ -1847,7 +1863,7 @@ async function downloadPreconfiguredProbe() {
     openAuthModal();
     return;
   }
-  const url = `${getApiBase()}/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
+  const url = `${getApiBase()}/probe/daderezo_sonde.py`;
   try {
     const res = await fetch(url, { headers: getHeaders(false, true) });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -1862,13 +1878,7 @@ async function downloadPreconfiguredProbe() {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
   } catch (_) {
-    const safeRel = `/probe/daderezo_sonde.py?probe_key=${encodeURIComponent(currentAuthUser.probe_api_key)}`;
-    const a = document.createElement('a');
-    a.href = safeRel;
-    a.download = 'daderezo_sonde.py';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    alert('Téléchargement impossible : vérifiez la connexion et l’état de votre abonnement.');
   }
 }
 
@@ -4035,11 +4045,13 @@ function formatBytes(bytes) {
   return `${(n / (1024 * 1024)).toFixed(2)} Mo`;
 }
 
+let mediaObjectUrls = [];
 function renderMediaGrid() {
+  mediaObjectUrls.forEach(URL.revokeObjectURL);
+  mediaObjectUrls = [];
   const container = document.getElementById('mediaGridContainer');
   if (!container) return;
-  const saasTok = (localStorage.getItem('daderezo_saas_token') || '').trim();
-  const tokQuery = saasTok ? `token=${encodeURIComponent(saasTok)}` : '';
+  const tokQuery = ''; // Les jetons ne doivent jamais figurer dans une URL.
   const list = cachedMedia.filter(m => currentMediaCat === 'all' || m.category === currentMediaCat);
 
   if (!list.length) {
@@ -4054,11 +4066,11 @@ function renderMediaGrid() {
 
     let previewHtml = `<div style="text-align:center;color:var(--cyan-ink);font:700 12px var(--mono)">📄 ${esc(m.filename)}</div>`;
     if (m.category === 'image') {
-      previewHtml = `<img src="${esc(inlineUrl)}" alt="${esc(m.title)}" loading="lazy">`;
+      previewHtml = `<img data-private-media="${esc(m.id)}" alt="${esc(m.title)}" loading="lazy">`;
     } else if (m.category === 'audio') {
-      previewHtml = `<audio controls preload="none" src="${esc(inlineUrl)}"></audio>`;
+      previewHtml = `<audio controls preload="none" data-private-media="${esc(m.id)}"></audio>`;
     } else if (m.category === 'video') {
-      previewHtml = `<video controls preload="metadata" src="${esc(inlineUrl)}"></video>`;
+      previewHtml = `<video controls preload="metadata" data-private-media="${esc(m.id)}"></video>`;
     }
 
     return `<div class="media-card">
@@ -4070,12 +4082,25 @@ function renderMediaGrid() {
       <div style="font-size:12px;color:var(--muted)">${esc(m.description || m.filename)}</div>
       <div class="mono" style="font-size:11px;color:var(--muted)">Zone : ${esc(m.target_zone || 'Toutes')} · ${formatBytes(m.size_bytes)}</div>
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
-        <a class="btn secondary" href="${esc(dlUrl)}" download="${esc(m.filename)}">⬇ Télécharger</a>
+        <a class="btn secondary" data-media-download="${esc(m.id)}" download="${esc(m.filename)}">⬇ Télécharger</a>
         <button class="btn secondary" type="button" data-inspect="media-item" data-inspect-target="${esc(m.id)}">🔍 Diffusion LAN</button>
         <button class="btn danger" type="button" data-del-media="${esc(m.id)}">🗑 Supprimer</button>
       </div>
     </div>`;
   }).join('');
+
+  for (const m of list) {
+    const preview = container.querySelector(`[data-private-media="${CSS.escape(String(m.id))}"]`);
+    const download = container.querySelector(`[data-media-download="${CSS.escape(String(m.id))}"]`);
+    fetch(`${getApiBase()}/media/file/${encodeURIComponent(m.id)}`, {headers: getHeaders()})
+      .then(r => { if (!r.ok) throw new Error('Accès refusé'); return r.blob(); })
+      .then(blob => {
+        if (!container.contains(download)) return;
+        const url = URL.createObjectURL(blob); mediaObjectUrls.push(url);
+        if (preview) preview.src = url;
+        download.href = url;
+      }).catch(() => { if (download) download.textContent = 'Fichier indisponible'; });
+  }
 
   container.querySelectorAll('[data-del-media]').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -4221,7 +4246,7 @@ function applyAuthUserUI(user) {
 }
 
 async function checkAuthSession() {
-  const tok = (localStorage.getItem('daderezo_saas_token') || '').trim();
+  const tok = (sessionStorage.getItem('daderezo_google_identity_token') || localStorage.getItem('daderezo_saas_token') || '').trim();
   if (!tok) { applyAuthUserUI(null); return; }
   try {
     const res = await fetch(`${getApiBase()}/auth/me`, { headers: getHeaders(false, true) });
@@ -4233,9 +4258,124 @@ async function checkAuthSession() {
       }
     }
   } catch (_) {}
-  localStorage.removeItem('daderezo_saas_token');
+  // Conserver l'ancien jeton dans ce navigateur afin de prouver la possession du site historique.
   applyAuthUserUI(null);
 }
+
+// Google OAuth PKCE : aucun accès réseau n'est accordé par cette vérification.
+function googleBase64Url(bytes) {
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+document.getElementById('googleAuthBtn').addEventListener('click', async () => {
+  const fb = document.getElementById('authFeedbackMsg');
+  try {
+    if (!window.crypto || !window.crypto.subtle) throw new Error('Un navigateur en HTTPS est nécessaire.');
+    const res = await fetch('/auth/google/config', {cache: 'no-store'});
+    if (!res.ok) throw new Error('Connexion Google non configurée sur ce serveur.');
+    const cfg = await res.json();
+    const verifier = googleBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+    const challenge = googleBase64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
+    sessionStorage.setItem('daderezo_google_verifier', verifier);
+    const redirect = new URL('/ui?google_callback=1', location.origin);
+    const url = new URL('/auth/v1/authorize', cfg.supabase_url);
+    url.search = new URLSearchParams({provider: 'google', redirect_to: redirect.href, code_challenge: challenge, code_challenge_method: 's256'}).toString();
+    location.assign(url.href);
+  } catch (e) { fb.textContent = e.message || 'Impossible de démarrer la connexion Google.'; }
+});
+
+async function finishGoogleAuth() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('google_callback') !== '1') return;
+  const code = params.get('code');
+  const verifier = sessionStorage.getItem('daderezo_google_verifier');
+  sessionStorage.removeItem('daderezo_google_verifier');
+  history.replaceState(null, '', '/ui?auth=1');
+  openAuthModal();
+  const fb = document.getElementById('authFeedbackMsg');
+  if (!code || !verifier || params.get('error')) {
+    fb.textContent = 'Connexion Google interrompue ou expirée. Veuillez réessayer.';
+    return;
+  }
+  try {
+    const res = await fetch('/auth/google/exchange', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code, verifier})});
+    const data = await res.json();
+    if (!res.ok || !data.verified) throw new Error(data.detail || 'Vérification impossible.');
+    sessionStorage.setItem('daderezo_google_identity_token', data.identity_token);
+    fb.textContent = 'Identité Google vérifiée. Consultez le statut de votre candidature.';
+    await loadPlatform();
+  } catch (e) { fb.textContent = e.message || 'Connexion Google impossible.'; }
+}
+finishGoogleAuth();
+async function platformFetch(path, options = {}) {
+  const token = sessionStorage.getItem('daderezo_google_identity_token');
+  if (!token) throw new Error('Connexion Google requise.');
+  const response = await fetch(path, {...options, headers: {...(options.headers || {}), Authorization: `Bearer ${token}`}});
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.detail || 'Erreur de plateforme.');
+  return result;
+}
+async function loadPlatform() {
+  if (!sessionStorage.getItem('daderezo_google_identity_token')) return;
+  try {
+    const data = await platformFetch('/platform/me');
+    document.getElementById('googlePlatformBox').classList.remove('hidden');
+    document.getElementById('googleIdentityStatus').textContent = `Google : ${data.email} · ${data.access_granted ? "accès actif" : "accès en attente ou suspendu"}`;
+    if (data.access_granted) { await checkAuthSession(); await refreshAll(); }
+    else if (currentAuthUser) { applyAuthUserUI(null); await refreshAll(); }
+    document.getElementById('platformApplicationForm').classList.toggle('hidden', !!data.application);
+    const mayClaim = !!data.application && data.application.status === 'pending' && !!localStorage.getItem('daderezo_saas_token');
+    document.getElementById('legacyClaimBtn').classList.toggle('hidden', !mayClaim);
+    document.getElementById('legacyClaimInfo').classList.toggle('hidden', !mayClaim);
+    if (data.application) document.getElementById('googleIdentityStatus').textContent += ` · candidature : ${data.application.status} · paiement : ${data.application.payment_status}`;
+    document.getElementById('platformAdminBox').classList.toggle('hidden', !data.is_admin);
+    if (data.is_admin) {
+      const list = (await platformFetch('/platform/admin/applications')).applications;
+      const container = document.getElementById('platformApplications');
+      container.replaceChildren();
+      for (const a of list) {
+        const row = document.createElement('div'); row.style.cssText = 'padding:10px;border-bottom:1px solid var(--border)';
+        const label = document.createElement('p'); label.textContent = `${a.org_name} — ${a.email} — ${a.contact_name} — ${a.site_description} (${a.status}, ${a.payment_status})`; row.append(label);
+        const status = document.createElement('select');
+        for (const [v, label] of [['pending','En attente'],['approved','Approuvée'],['rejected','Refusée'],['suspended','Suspendue']]) { status.add(new Option(label, v)); } status.value = a.status;
+        const payment = document.createElement('select');
+        for (const [v, label] of [['unpaid','Non payé'],['paid','Paiement confirmé'],['pilot','Pilote gratuit']]) { payment.add(new Option(label, v)); } payment.value = a.payment_status;
+        const end = document.createElement('input'); end.type = 'date'; end.value = a.subscription_end || ''; end.title = 'Fin de l’abonnement payé (UTC)';
+        const button = document.createElement('button'); button.textContent = 'Enregistrer la décision'; button.className = 'btn secondary'; button.type = 'button';
+        button.onclick = async () => { try { await platformFetch(`/platform/admin/applications/${encodeURIComponent(a.id)}/decision`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status:status.value,payment_status:payment.value,subscription_end:end.value || null})}); await loadPlatform(); } catch(e) { document.getElementById('authFeedbackMsg').textContent = e.message; } };
+        row.append(status, payment, end, button); container.append(row);
+      }
+      const events = (await platformFetch('/platform/admin/events')).events;
+      const journal = document.getElementById('platformEvents'); journal.replaceChildren();
+      for (const event of events) {
+        const item = document.createElement('p');
+        item.textContent = `${event.ts} · ${event.actor} · ${event.application_id} · ${event.details}`;
+        journal.append(item);
+      }
+    }
+  } catch (e) { document.getElementById('authFeedbackMsg').textContent = e.message; }
+}
+document.getElementById('legacyClaimBtn').addEventListener('click', async () => {
+  try {
+    const legacy_token = localStorage.getItem('daderezo_saas_token');
+    await platformFetch('/platform/claim-legacy', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({legacy_token})});
+    localStorage.removeItem('daderezo_saas_token');
+    document.getElementById('authFeedbackMsg').textContent = 'Ancien site rattaché. Il reste soumis à l’approbation et au paiement ou statut pilote.';
+    await loadPlatform();
+  } catch (e) { document.getElementById('authFeedbackMsg').textContent = e.message; }
+});
+document.getElementById('platformApplyBtn').addEventListener('click', async () => {
+  try {
+    await platformFetch('/platform/applications', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({org_name:document.getElementById('platformOrg').value,contact_name:document.getElementById('platformContact').value,site_description:document.getElementById('platformSite').value,authorization_confirmed:document.getElementById('platformAuthorization').checked})});
+    await loadPlatform();
+  } catch(e) { document.getElementById('authFeedbackMsg').textContent = e.message; }
+});
+document.getElementById('googleSignOutBtn').addEventListener('click', () => {
+  sessionStorage.removeItem('daderezo_google_identity_token');
+  document.getElementById('googlePlatformBox').classList.add('hidden');
+  applyAuthUserUI(null); refreshAll();
+});
+loadPlatform();
+
 
 document.getElementById('submitAuthBtn').addEventListener('click', async () => {
   const fb = document.getElementById('authFeedbackMsg');
@@ -4274,6 +4414,8 @@ document.getElementById('submitAuthBtn').addEventListener('click', async () => {
 
 document.getElementById('logoutSaaSBtn').addEventListener('click', async () => {
   localStorage.removeItem('daderezo_saas_token');
+  sessionStorage.removeItem('daderezo_google_identity_token');
+  document.getElementById('googlePlatformBox').classList.add('hidden');
   currentAgentId = '';
   applyAuthUserUI(null);
   closeAuthModal();

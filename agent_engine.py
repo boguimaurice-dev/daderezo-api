@@ -1292,13 +1292,16 @@ def run_multi_agent_mission(
         }
         agent_trace.append(entry)
         try:
-            storage.record_audit_log(now_iso, sid, agent_name, action_type, tool_name, status, dur, details)
+            storage.record_audit_log(now_iso, sid, agent_name, action_type, tool_name, status, dur, details, org_slug=org_slug)
         except Exception:
             pass
 
-    history = storage.get_session_turns(sid, limit=10)
+    def _append_session_turn(*args, **kwargs):
+        storage.append_session_turn(*args, **kwargs, org_slug=org_slug)
+
+    history = storage.get_session_turns(sid, limit=10, org_slug=org_slug)
     prev_ctx = _extract_last_context(history)
-    storage.append_session_turn(sid, now_iso, "user", q_clean, target_agent_id, {"scope": scope})
+    _append_session_turn(sid, now_iso, "user", q_clean, target_agent_id, {"scope": scope})
 
     # =========================================================================
     # AGENT 01 · SENTINEL-SEC (Anti-Injection de Prompt & Garde-Fou Système)
@@ -1386,7 +1389,7 @@ def run_multi_agent_mission(
             "Les garde-fous de sécurité DADEREZO et l'isolation multi-tenant sont immuables et journalisés."
         )
         spoken = "Alerte sécurité Sentinel : tentative d'injection bloquée et journalisée."
-        storage.append_session_turn(sid, now_iso, "assistant", ans, target_agent_id, {"intent": "blocage_injection"})
+        _append_session_turn(sid, now_iso, "assistant", ans, target_agent_id, {"intent": "blocage_injection"})
         return {
             "status": "ok",
             "session_id": sid,
@@ -1447,7 +1450,7 @@ def run_multi_agent_mission(
             "Cette question sort du périmètre de supervision réseau DADEREZO. "
             "Je peux en revanche analyser votre sécurité réseau, vos équipements ou piloter vos accès Internet."
         )
-        storage.append_session_turn(
+        _append_session_turn(
             sid,
             datetime.now(timezone.utc).isoformat(),
             "assistant",
@@ -1510,7 +1513,7 @@ def run_multi_agent_mission(
                 f"Bonjour ! Je suis l'Orchestrateur DADEREZO sur {scope_label}. "
                 f"{len(lan_up_devs)} appareils sur {len(all_devices)} sont actifs sur le réseau local. Comment puis-je vous aider ?"
             )
-        storage.append_session_turn(
+        _append_session_turn(
             sid,
             datetime.now(timezone.utc).isoformat(),
             "assistant",
@@ -1569,7 +1572,7 @@ def run_multi_agent_mission(
                 f"{recent_bullets}{focus_note}"
             )
             spoken = f"Votre dernière question dans cette session était : {prev_ctx['last_user_q']}."
-        storage.append_session_turn(
+        _append_session_turn(
             sid,
             datetime.now(timezone.utc).isoformat(),
             "assistant",
@@ -2361,7 +2364,7 @@ def run_multi_agent_mission(
         llm_perspectives=llm_perspectives,
     )
 
-    storage.append_session_turn(
+    _append_session_turn(
         sid,
         datetime.now(timezone.utc).isoformat(),
         "assistant",

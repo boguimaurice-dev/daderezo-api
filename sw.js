@@ -1,6 +1,6 @@
 /* Daderezo PWA Service Worker v4.2 — Résilience Hors-Ligne & Cache Intelligent */
-const CACHE_SHELL = 'daderezo-shell-v4.3';
-const CACHE_DATA = 'daderezo-telemetry-v4.3';
+const CACHE_SHELL = 'daderezo-shell-v5.0';
+const CACHE_DATA = 'daderezo-telemetry-v5.0';
 
 const SHELL_ASSETS = [
   '/',
@@ -41,7 +41,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   // Ne jamais mettre en cache les endpoints d'authentification privés
-  if (url.pathname.startsWith('/auth/')) return;
+  if (url.pathname.startsWith('/auth/') || url.pathname.startsWith('/platform/') || url.searchParams.has('google_callback')) return;
 
   // 1. Assets visuels statiques -> Stale-While-Revalidate
   if (/\.(png|jpg|jpeg|svg|ico|webmanifest)$/.test(url.pathname)) {
@@ -91,13 +91,16 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          if (res && res.ok && !req.headers.get('authorization')) {
+          if (res && res.ok && !req.headers.get('authorization') && !req.headers.get('x-api-key')) {
             const copy = res.clone();
             caches.open(CACHE_DATA).then((c) => c.put(req, copy));
           }
           return res;
         })
         .catch(async () => {
+          if (req.headers.get('authorization') || req.headers.get('x-api-key')) {
+            return new Response(JSON.stringify({ status: 'offline' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+          }
           const dataCache = await caches.open(CACHE_DATA);
           const cached = await dataCache.match(req);
           if (cached) return cached;

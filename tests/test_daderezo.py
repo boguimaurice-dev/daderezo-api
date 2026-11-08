@@ -164,6 +164,7 @@ class TestApiEndpoints(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.api_db = os.path.join(self.tmp.name, "saas.db")
         os.environ["DADEREZO_DB_PATH"] = self.api_db
+        os.environ["DADEREZO_LEGACY_AUTH"] = "1"
         os.environ.pop("DADEREZO_API_KEY", None)
         import api
         api.init_db()
@@ -172,8 +173,19 @@ class TestApiEndpoints(unittest.TestCase):
 
     def tearDown(self):
         os.environ.pop("DADEREZO_DB_PATH", None)
+        os.environ.pop("DADEREZO_LEGACY_AUTH", None)
         os.environ.pop("DADEREZO_API_KEY", None)
         self.tmp.cleanup()
+
+    def test_download_endpoint_serves_allowlisted_file(self):
+        response = self.client.get("/download/agent_client.py")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('attachment; filename="agent_client.py"', response.headers["content-disposition"])
+        with open(self.api.ALLOWED_DOWNLOADS["agent_client.py"], encoding="utf-8") as file:
+            self.assertEqual(response.text, file.read())
+
+    def test_download_endpoint_rejects_path_traversal(self):
+        self.assertEqual(self.client.get("/download/%2e%2e%2fREADME.md").status_code, 404)
 
     def test_register_is_idempotent_and_dashboard_deduplicates_devices(self):
         # JSON health on GET / for API clients, HTML for browsers
@@ -757,7 +769,7 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertIn("application/javascript", r_sw.headers.get("content-type", ""))
         self.assertEqual(r_sw.headers.get("service-worker-allowed"), "/")
         self.assertEqual(r_sw.headers.get("cache-control"), "no-cache")
-        self.assertIn("daderezo-shell-v4.3", r_sw.text)
+        self.assertIn("daderezo-shell-v5.0", r_sw.text)
 
         # 3. Offline fallback & PWA PNG icons (GET + HEAD)
         r_off = self.client.get("/offline.html")

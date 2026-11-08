@@ -11,7 +11,7 @@ Architecture Multi-Agents :
   05 · MEDIA-HUB    : Partage sécurisé de Documents, Images, Audios & Vidéos (Cloud + LAN local)
 """
 import base64
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import hashlib
 import hmac
 import json
@@ -21,6 +21,9 @@ import re
 import secrets
 import struct
 import time
+import urllib.error
+import urllib.request
+import urllib.parse
 from typing import Dict, List, Optional, Tuple, Union
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
@@ -47,14 +50,11 @@ ALLOWED_TASKS = {
     "sync_media",
 }
 ALLOWED_DOWNLOADS = {
-    "agent_client.py",
-    "collector.py",
-    "devices.json",
-    "make_dashboard.py",
-    "net_controller.py",
-    "contabo_watchdog.py",
-    "docker-compose.contabo.yml",
-    "contabo_bootstrap.sh",
+    name: os.path.join(HERE, name)
+    for name in (
+        "agent_client.py", "collector.py", "devices.json", "make_dashboard.py",
+        "net_controller.py", "contabo_watchdog.py", "docker-compose.contabo.yml", "contabo_bootstrap.sh",
+    )
 }
 
 app = FastAPI(
@@ -69,6 +69,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(PermissionError)
+async def tenant_conflict_handler(request: Request, exc: PermissionError):
+    return JSONResponse(status_code=403, content={"detail": "Cette sonde appartient à un autre espace."})
+
+
+@app.middleware("http")
+async def prevent_private_caching(request: Request, call_next):
+    response = await call_next(request)
+    if (request.headers.get("authorization") or request.headers.get("x-api-key")
+            or request.url.path.startswith(("/auth/", "/platform/", "/probe/", "/media/"))):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 def get_api_key() -> str:
@@ -157,6 +171,31 @@ def _extract_token(x_api_key: Optional[str], authorization: Optional[str]) -> st
     return ""
 
 
+def _legacy_auth_enabled() -> bool:
+    # Explicit opt-in for local legacy compatibility only, never use in production.
+    return os.environ.get("DADEREZO_LEGACY_AUTH", "0") == "1"
+
+
+def _application_active(app: Optional[dict]) -> bool:
+    if not app or app.get("status") != "approved" or not app.get("org_slug") or not app.get("probe_api_key"):
+        return False
+    if app.get("payment_status") == "pilot":
+        return True
+    if app.get("payment_status") != "paid":
+        return False
+    try:
+        return date.fromisoformat(app.get("subscription_end") or "") >= datetime.now(timezone.utc).date()
+    except (ValueError, TypeError):
+        return False
+
+
+def _application_context(app: dict, mode: str) -> dict:
+    return {"authenticated": True, "can_write": True, "mode": mode,
+            "org_slug": app["org_slug"], "org_name": app["org_name"],
+            "actor": app["contact_name"] if mode == "private_org" else "Sonde (" + app["org_name"] + ")",
+            "email": app["email"], "probe_api_key": app["probe_api_key"]}
+
+
 def resolve_tenant_context(
     x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
     authorization: Optional[str] = Header(default=None, alias="Authorization"),
@@ -172,7 +211,16 @@ def resolve_tenant_context(
     if authorization and authorization.lower().startswith("bearer "):
         bearer = authorization[7:].strip()
 
+    if bearer and not bearer.startswith(("dzt_", "dzk_")) and bearer != get_api_key():
+        identity = require_google_identity(authorization="Bearer " + bearer)
+        application = storage.find_application(identity["id"])
+        if not _application_active(application):
+            raise HTTPException(status_code=403, detail="Candidature ou abonnement non actif.")
+        return _application_context(application, "private_org")
+
     if bearer.startswith("dzt_"):
+        if not _legacy_auth_enabled():
+            raise HTTPException(status_code=403, detail="Ancien compte désactivé : une candidature Google est nécessaire.")
         claims = _verify_saas_token(bearer)
         if claims:
             return {
@@ -187,7 +235,12 @@ def resolve_tenant_context(
 
     probe_candidate = (x_api_key or bearer or "").strip()
     if probe_candidate.startswith("dzk_"):
-        u = storage.get_saas_user_by_probe_key(probe_candidate)
+        application = storage.find_platform_application_by_probe_key(probe_candidate)
+        if application:
+            if not _application_active(application):
+                raise HTTPException(status_code=403, detail="Sonde suspendue ou abonnement expiré.")
+            return _application_context(application, "private_probe")
+        u = storage.get_saas_user_by_probe_key(probe_candidate) if _legacy_auth_enabled() else None
         if u:
             return {
                 "authenticated": True,
@@ -202,7 +255,7 @@ def resolve_tenant_context(
 
     global_expected = get_api_key()
     provided = _extract_token(x_api_key, authorization)
-    can_write_public = (not global_expected) or (bool(provided) and hmac.compare_digest(provided, global_expected))
+    can_write_public = (not global_expected and _legacy_auth_enabled()) or (bool(global_expected) and bool(provided) and hmac.compare_digest(provided, global_expected))
     return {
         "authenticated": bool(global_expected and can_write_public),
         "can_write": can_write_public,
@@ -240,6 +293,8 @@ def require_read_auth(
 def _ensure_agent_tenant_access(agent_id: str, ctx: dict) -> Optional[dict]:
     ag = storage.get_agent_raw(agent_id)
     if not ag:
+        if not _legacy_auth_enabled() and ctx["org_slug"] != "public-demo" and not agent_id.startswith(ctx["org_slug"] + "-"):
+            raise HTTPException(status_code=403, detail="Identifiant de sonde hors de votre espace.")
         return None
     ag_org = ag.get("org_slug") or "public-demo"
     if ctx["org_slug"] != "public-demo":
@@ -1058,24 +1113,20 @@ def download_preconfigured_single_probe(
 ):
     """Génère en 1 fichier autonome la sonde réelle pré-configurée pour l'Espace Privé de l'utilisateur."""
     init_db()
-    user = None
-    cand_probe = (probe_key or x_api_key or "").strip()
-    cand_bearer = (token or "").strip()
-    if not cand_bearer and authorization and authorization.lower().startswith("bearer "):
-        cand_bearer = authorization[7:].strip()
-
-    if cand_probe.startswith("dzk_"):
-        user = storage.get_saas_user_by_probe_key(cand_probe)
-    elif cand_bearer.startswith("dzt_"):
-        claims = _verify_saas_token(cand_bearer)
-        if claims and claims.get("email"):
-            user = storage.get_saas_user_by_email(claims["email"])
-
-    if not user or not user.get("probe_api_key"):
-        raise HTTPException(
-            status_code=401,
-            detail="Connectez-vous à votre Espace Privé pour télécharger votre sonde pré-configurée.",
-        )
+    if (probe_key or token) and not _legacy_auth_enabled():
+        raise HTTPException(status_code=400, detail="Transmettez les identifiants dans les en-têtes, pas dans l'URL.")
+    if _legacy_auth_enabled() and (probe_key or token):
+        ctx = resolve_tenant_context(x_api_key=probe_key or x_api_key, authorization=("Bearer " + token) if token else authorization)
+    else:
+        ctx = resolve_tenant_context(x_api_key=x_api_key, authorization=authorization)
+    if ctx["mode"] not in ("private_org", "private_probe"):
+        raise HTTPException(status_code=401, detail="Espace privé actif requis.")
+    user = {"org_slug": ctx["org_slug"], "org_name": ctx["org_name"], "probe_api_key": ctx.get("probe_api_key")}
+    if not user["probe_api_key"] and _legacy_auth_enabled():
+        old = storage.get_saas_user_by_email(ctx.get("email") or "")
+        user["probe_api_key"] = old.get("probe_api_key") if old else None
+    if not user["probe_api_key"]:
+        raise HTTPException(status_code=401, detail="Clé sonde indisponible.")
 
     proto = request.headers.get("x-forwarded-proto") or request.url.scheme or "https"
     host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "daderezo-api-nine.vercel.app"
@@ -1095,9 +1146,9 @@ def download_preconfigured_single_probe(
 
 @app.get("/download/{filename}")
 def download_probe_file(filename: str):
-    if filename not in ALLOWED_DOWNLOADS:
+    fpath = ALLOWED_DOWNLOADS.get(filename)
+    if fpath is None:
         raise HTTPException(status_code=404, detail="Fichier non autorisé au téléchargement.")
-    fpath = os.path.join(HERE, filename)
     if not os.path.exists(fpath):
         raise HTTPException(status_code=404, detail="Fichier introuvable.")
     with open(fpath, "r", encoding="utf-8") as f:
@@ -1120,8 +1171,218 @@ def simple_ui():
 # ---------------------------------------------------------------------------
 # Endpoints Comptes Privés SaaS (`/auth/*`)
 # ---------------------------------------------------------------------------
+class GoogleExchangeRequest(BaseModel):
+    code: str = Field(..., min_length=1, max_length=2048)
+    verifier: str = Field(..., min_length=43, max_length=128, pattern=r"^[A-Za-z0-9._~-]+$")
+
+
+def _google_auth_settings() -> tuple:
+    url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https" or not parsed.hostname or not parsed.hostname.endswith(".supabase.co") or parsed.path or parsed.query or parsed.fragment or parsed.username or parsed.password or parsed.port:
+        raise HTTPException(status_code=503, detail="Connexion Google non configurée sur ce serveur.")
+    if not key:
+        raise HTTPException(status_code=503, detail="Connexion Google non configurée sur ce serveur.")
+    return url, key
+
+
+@app.get("/auth/google/config")
+def google_auth_config():
+    url, _ = _google_auth_settings()
+    return {"supabase_url": url}
+
+
+@app.post("/auth/google/exchange")
+def google_auth_exchange(req: GoogleExchangeRequest):
+    """Vérifie l'identité Google, sans créer de compte ni accorder d'accès réseau."""
+    url, key = _google_auth_settings()
+    body = json.dumps({"auth_code": req.code, "code_verifier": req.verifier}).encode("utf-8")
+    try:
+        exchange = urllib.request.Request(
+            url + "/auth/v1/token?grant_type=pkce", data=body, method="POST",
+            headers={"apikey": key, "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(exchange, timeout=10) as response:
+            result = json.load(response)
+        access_token = result.get("access_token")
+        if not isinstance(access_token, str) or not access_token:
+            raise ValueError("missing access token")
+        check = urllib.request.Request(
+            url + "/auth/v1/user", headers={"apikey": key, "Authorization": "Bearer " + access_token}
+        )
+        with urllib.request.urlopen(check, timeout=10) as response:
+            user = json.load(response)
+        email = (user.get("email") or "").strip().lower()
+        if not user.get("id") or not email or not user.get("email_confirmed_at") or any(
+            identity.get("provider") != "google" for identity in (user.get("identities") or [])
+        ) or not any(
+            identity.get("provider") == "google"
+            and (identity.get("identity_data") or {}).get("email", "").strip().lower() == email
+            and (identity.get("identity_data") or {}).get("email_verified") is True
+            for identity in (user.get("identities") or [])
+        ):
+            raise ValueError("Google identity not verified")
+    except (urllib.error.URLError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+        raise HTTPException(status_code=401, detail="Impossible de vérifier la connexion Google. Réessayez.")
+    return {"verified": True, "email": user["email"], "access_granted": False, "identity_token": access_token}
+
+
+def require_google_identity(authorization: Optional[str] = Header(default=None, alias="Authorization")) -> dict:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Connexion Google requise.")
+    token = authorization[7:].strip()
+    if not token or len(token) > 8192:
+        raise HTTPException(status_code=401, detail="Session invalide.")
+    url, key = _google_auth_settings()
+    try:
+        request = urllib.request.Request(url + "/auth/v1/user", headers={"apikey": key, "Authorization": "Bearer " + token})
+        with urllib.request.urlopen(request, timeout=10) as response:
+            user = json.load(response)
+        email = (user.get("email") or "").strip().lower()
+        identities = user.get("identities") or []
+        google = [x for x in identities if x.get("provider") == "google"]
+        if not user.get("id") or not email or not user.get("email_confirmed_at") or not google or len(google) != len(identities):
+            raise ValueError("unverified identity")
+        # Ne jamais attribuer un droit à partir d'un e-mail non confirmé côté Google.
+        if not any((x.get("identity_data") or {}).get("email", "").strip().lower() == email
+                   and (x.get("identity_data") or {}).get("email_verified") is True for x in google):
+            raise ValueError("unverified Google email")
+        return {"id": str(user["id"]), "email": email}
+    except (urllib.error.URLError, ValueError, TypeError, KeyError):
+        raise HTTPException(status_code=401, detail="Session Google invalide ou expirée.")
+
+
+def require_platform_admin(identity: dict = Depends(require_google_identity)) -> dict:
+    configured = os.environ.get("DADEREZO_SUPERADMIN_EMAIL", "").strip().lower()
+    if not configured or not hmac.compare_digest(configured, identity["email"]):
+        raise HTTPException(status_code=403, detail="Accès super administrateur interdit.")
+    return identity
+
+
+class PlatformApplicationRequest(BaseModel):
+    org_name: str = Field(..., min_length=2, max_length=120)
+    contact_name: str = Field(..., min_length=2, max_length=120)
+    site_description: str = Field(..., min_length=10, max_length=1000)
+    authorization_confirmed: bool
+
+
+class PlatformDecisionRequest(BaseModel):
+    status: str
+    payment_status: str
+    subscription_end: Optional[str] = None
+
+
+@app.get("/platform/me")
+def platform_me(identity: dict = Depends(require_google_identity)):
+    init_db()
+    configured = os.environ.get("DADEREZO_SUPERADMIN_EMAIL", "").strip().lower()
+    application = storage.find_application(identity["id"])
+    visible = dict(application) if application else None
+    if visible:
+        visible.pop("probe_api_key", None)
+    return {"email": identity["email"], "is_admin": bool(configured and hmac.compare_digest(configured, identity["email"])),
+            "application": visible, "access_granted": _application_active(application)}
+
+
+@app.post("/platform/applications")
+def create_platform_application(req: PlatformApplicationRequest, identity: dict = Depends(require_google_identity)):
+    init_db()
+    if not req.authorization_confirmed or min(len(req.org_name.strip()), len(req.contact_name.strip())) < 2 or len(req.site_description.strip()) < 10:
+        raise HTTPException(status_code=400, detail="Informations et attestation d'autorisation requises.")
+    if storage.find_application(identity["id"]):
+        raise HTTPException(status_code=409, detail="Une candidature existe déjà pour ce compte.")
+    now = datetime.now(timezone.utc).isoformat()
+    app_row = {"id": secrets.token_hex(16), "identity_id": identity["id"], "email": identity["email"],
+               "org_name": req.org_name.strip(), "contact_name": req.contact_name.strip(),
+               "site_description": req.site_description.strip(), "authorization_confirmed": 1,
+               "status": "pending", "payment_status": "unpaid", "created_at": now, "updated_at": now,
+               "org_slug": "org-" + secrets.token_hex(12), "probe_api_key": "dzk_" + secrets.token_urlsafe(32), "subscription_end": None}
+    try:
+        saved = storage.save_application(app_row)
+    except Exception:
+        # Une contrainte unique protège également contre les soumissions simultanées.
+        if storage.find_application(identity["id"]):
+            raise HTTPException(status_code=409, detail="Une candidature existe déjà pour ce compte.")
+        raise
+    saved.pop("probe_api_key", None)
+    return {"application": saved, "access_granted": False}
+
+
+class LegacyClaimRequest(BaseModel):
+    legacy_token: str = Field(..., min_length=10, max_length=8192)
+
+
+@app.post("/platform/claim-legacy")
+def claim_legacy_account(req: LegacyClaimRequest, identity: dict = Depends(require_google_identity)):
+    # Never accept the predictable development signing fallback for account migration.
+    if len(os.environ.get("DADEREZO_AUTH_SECRET", "").strip()) < 32:
+        raise HTTPException(status_code=503, detail="Migration indisponible : secret de signature non configuré.")
+    claims = _verify_saas_token(req.legacy_token)
+    if not claims or (claims.get("email") or "").strip().lower() != identity["email"]:
+        raise HTTPException(status_code=401, detail="Ancienne session expirée ou ne correspondant pas au compte Google.")
+    legacy_user = storage.get_saas_user_by_email(identity["email"])
+    legacy_org = (legacy_user or {}).get("org_slug")
+    if not legacy_org or legacy_org == "public-demo" or legacy_org != claims.get("org_slug"):
+        raise HTTPException(status_code=403, detail="Ancien espace privé introuvable ou non vérifiable.")
+    application = storage.find_application(identity["id"])
+    if not application:
+        raise HTTPException(status_code=409, detail="Déposez d'abord une candidature pour votre organisation.")
+    try:
+        linked = storage.claim_legacy_workspace(identity["id"], legacy_org, identity["email"], datetime.now(timezone.utc).isoformat())
+    except Exception:
+        # Concurrent claims are protected by a unique constraint; do not expose internals.
+        raise HTTPException(status_code=409, detail="Rattachement impossible : contactez l'administrateur.")
+    if not linked:
+        raise HTTPException(status_code=409, detail="Rattachement impossible : candidature déjà traitée, espace déjà associé ou activité existante.")
+    linked.pop("probe_api_key", None)
+    return {"application": linked, "access_granted": False}
+
+
+@app.get("/platform/admin/applications")
+def admin_list_applications(admin: dict = Depends(require_platform_admin)):
+    init_db()
+    applications = storage.list_platform_applications()
+    for application in applications:
+        application.pop("probe_api_key", None)
+    return {"applications": applications}
+
+
+@app.get("/platform/admin/events")
+def admin_platform_events(admin: dict = Depends(require_platform_admin)):
+    init_db()
+    return {"events": storage.list_platform_admin_events()}
+
+
+@app.post("/platform/admin/applications/{application_id}/decision")
+def admin_decide_application(application_id: str, req: PlatformDecisionRequest, admin: dict = Depends(require_platform_admin)):
+    if req.status not in {"pending", "approved", "rejected", "suspended"} or req.payment_status not in {"unpaid", "paid", "pilot"}:
+        raise HTTPException(status_code=400, detail="Statut invalide.")
+    if req.status != "approved" and req.payment_status != "unpaid":
+        raise HTTPException(status_code=400, detail="Le paiement ou le pilote exige une candidature approuvée.")
+    if req.payment_status == "paid":
+        try:
+            end = date.fromisoformat(req.subscription_end or "")
+            if end < datetime.now(timezone.utc).date():
+                raise ValueError("past date")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Date de fin d'abonnement valide et future requise (AAAA-MM-JJ).")
+        subscription_end = end.isoformat()
+    else:
+        subscription_end = None
+    init_db()
+    result = storage.decide_application(application_id, req.status, req.payment_status, admin["email"], datetime.now(timezone.utc).isoformat(), subscription_end)
+    if not result:
+        raise HTTPException(status_code=404, detail="Candidature introuvable.")
+    active = _application_active(result)
+    result.pop("probe_api_key", None)
+    return {"application": result, "access_granted": active}
+
+
 @app.post("/auth/signup")
 def auth_signup(req: SignupRequest):
+    if not _legacy_auth_enabled():
+        raise HTTPException(status_code=403, detail="Inscription historique désactivée. Connectez-vous avec Google et déposez une candidature.")
     init_db()
     email = req.email.lower().strip()
     if "@" not in email:
@@ -1154,6 +1415,7 @@ def auth_signup(req: SignupRequest):
         "OK",
         4,
         f"Espace réseau privé créé pour « {req.org_name} » ({org_slug}).",
+        org_slug=org_slug,
     )
     return {
         "status": "ok",
@@ -1170,6 +1432,8 @@ def auth_signup(req: SignupRequest):
 
 @app.post("/auth/login")
 def auth_login(req: LoginRequest):
+    if not _legacy_auth_enabled():
+        raise HTTPException(status_code=403, detail="Connexion historique désactivée. Connectez-vous avec Google.")
     init_db()
     user = storage.get_saas_user_by_email(req.email)
     if not user or not _verify_password(req.password, user.get("password_hash", "")):
@@ -1191,7 +1455,7 @@ def auth_login(req: LoginRequest):
 @app.get("/auth/me")
 def auth_me(ctx: dict = Depends(resolve_tenant_context)):
     if ctx["mode"] == "private_org" and ctx.get("email"):
-        u = storage.get_saas_user_by_email(ctx["email"])
+        u = storage.get_saas_user_by_email(ctx["email"]) if _legacy_auth_enabled() and not ctx.get("probe_api_key") else None
         return {
             "authenticated": True,
             "mode": "private_org",
@@ -1202,7 +1466,7 @@ def auth_me(ctx: dict = Depends(resolve_tenant_context)):
                 "full_name": ctx["actor"],
                 "org_slug": ctx["org_slug"],
                 "org_name": ctx["org_name"],
-                "probe_api_key": u.get("probe_api_key") if u else None,
+                "probe_api_key": ctx.get("probe_api_key") or (u.get("probe_api_key") if u else None),
             },
         }
     return {
@@ -1217,9 +1481,14 @@ def auth_me(ctx: dict = Depends(resolve_tenant_context)):
 # ---------------------------------------------------------------------------
 # Endpoints Sondes & Tableau de Bord (isolés par `org_slug`)
 # ---------------------------------------------------------------------------
+def _check_ingest_tenant(data: AgentData, ctx: dict):
+    _ensure_agent_tenant_access(data.agent_id, ctx)
+
+
 @app.post("/register")
 def register_agent(data: AgentData, ctx: dict = Depends(require_write_auth)):
     init_db()
+    _check_ingest_tenant(data, ctx)
     now_iso = datetime.now(timezone.utc).isoformat()
     storage.upsert_agent(
         data.agent_id,
@@ -1235,6 +1504,7 @@ def register_agent(data: AgentData, ctx: dict = Depends(require_write_auth)):
 @app.post("/data")
 def receive_data(data: AgentData, ctx: dict = Depends(require_write_auth)):
     init_db()
+    _check_ingest_tenant(data, ctx)
     now_iso = datetime.now(timezone.utc).isoformat()
 
     probe_dicts = [
@@ -1486,6 +1756,7 @@ def set_internet_policy(agent_id: str, req: InternetPolicyRequest, ctx: dict = D
         "ON" if req.internet_enabled else "OFF",
         3,
         f"{default_reason} par {ctx['actor']} ({agent_id})",
+        org_slug=ctx["org_slug"],
     )
     return {
         "status": "applied",
@@ -1546,6 +1817,7 @@ def save_box_config(agent_id: str, req: BoxConfigRequest, ctx: dict = Depends(re
         "APPLIED",
         4,
         f"Box {req.box_name} ({req.box_ip}) configurée : Canal {req.wifi_channel}, DNS {req.dns_primary}, QoS {req.qos_profile}.",
+        org_slug=ctx["org_slug"],
     )
     return {"status": "saved", "box": saved, "router_commands": cmds, "task_queued": task}
 
@@ -1575,6 +1847,7 @@ def optimize_all_boxes(agent_id: str, ctx: dict = Depends(require_write_auth)):
         "OPTIMIZED",
         6,
         f"{len(optimized)} box/relais optimisés automatiquement sur {agent_id}.",
+        org_slug=ctx["org_slug"],
     )
     return {
         "status": "optimized",
@@ -1602,6 +1875,7 @@ def reboot_box(agent_id: str, req: BoxRebootRequest, ctx: dict = Depends(require
         "QUEUED",
         2,
         f"Redémarrage contrôlé envoyé à la box {req.box_ip} ({agent_id}).",
+        org_slug=ctx["org_slug"],
     )
     return {"status": "queued", "box_ip": req.box_ip, "router_commands": cmds, "task_queued": task}
 
@@ -1777,6 +2051,7 @@ def upload_media(agent_id: str, req: SharedMediaUploadRequest, ctx: dict = Depen
         "OK",
         5,
         f"Média partagé « {req.title} » ({cat}, {len(raw_bytes)} octets) vers {req.target_zone}.",
+        org_slug=ctx["org_slug"],
     )
     return {"status": "shared", "media": saved}
 
@@ -1790,7 +2065,7 @@ def stream_or_download_media(
 ):
     init_db()
     eff_org = ctx["org_slug"]
-    if token:
+    if token and _legacy_auth_enabled():
         claims = _verify_saas_token(token)
         if claims:
             eff_org = claims["org_slug"]
@@ -2075,20 +2350,7 @@ def supervisor_audit(limit: int = Query(default=25, ge=1, le=100), ctx: dict = D
         for p in storage.list_human_approvals(status="pending", limit=25)
         if (p.get("agent_id") in allowed_ids) or (ctx["org_slug"] == "public-demo" and p.get("agent_id") == "simulation-bouake")
     ]
-    raw_logs = storage.list_audit_logs(limit=max(limit * 2, 50))
-    if ctx["org_slug"] != "public-demo":
-        org_tag = ctx["org_slug"].lower()
-        org_name_tag = (ctx.get("org_name") or "").lower()
-        filtered_logs = [
-            l for l in raw_logs
-            if org_tag in str(l.get("session_id", "")).lower()
-            or org_tag in str(l.get("details", "")).lower()
-            or (org_name_tag and org_name_tag in str(l.get("details", "")).lower())
-            or any(aid.lower() in str(l.get("details", "")).lower() for aid in allowed_ids)
-        ]
-        audit_logs = filtered_logs[:limit]
-    else:
-        audit_logs = raw_logs[:limit]
+    audit_logs = storage.list_audit_logs(limit=limit, org_slug=ctx["org_slug"])
     return {
         "db_backend": storage.get_backend_mode(),
         "workspace_mode": ctx["mode"],
@@ -2102,7 +2364,7 @@ def supervisor_session_history(
     session_id: str, limit: int = Query(default=12, ge=1, le=50), ctx: dict = Depends(require_read_auth)
 ):
     init_db()
-    return {"session_id": session_id, "turns": storage.get_session_turns(session_id, limit=limit)}
+    return {"session_id": session_id, "turns": storage.get_session_turns(session_id, limit=limit, org_slug=ctx["org_slug"])}
 
 
 @app.post("/supervisor/approve/{approval_id}")
@@ -2141,6 +2403,7 @@ def supervisor_decide_approval(
             "APPROVED",
             2,
             f"Validation humaine #{approval_id} acceptée par {ctx['actor']} -> tâche '{act}' envoyée à '{aid}'.",
+            org_slug=ctx["org_slug"],
         )
     else:
         storage.record_audit_log(
@@ -2152,6 +2415,7 @@ def supervisor_decide_approval(
             "REJECTED",
             1,
             f"Validation humaine #{approval_id} refusée par {ctx['actor']}.",
+            org_slug=ctx["org_slug"],
         )
 
     return {"status": "ok", "approval": resolved, "task_queued": queued_task}

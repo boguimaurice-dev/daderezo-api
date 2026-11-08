@@ -205,12 +205,12 @@ def init_db() -> None:
         c.execute(
             f"CREATE TABLE IF NOT EXISTS agent_sessions ("
             f"id {serial_pk}, session_id TEXT, ts TEXT, role TEXT, content TEXT, "
-            f"agent_id TEXT, metadata_json TEXT)"
+            f"agent_id TEXT, metadata_json TEXT, org_slug TEXT)"
         )
         c.execute(
             f"CREATE TABLE IF NOT EXISTS agent_audit_logs ("
             f"id {serial_pk}, ts TEXT, session_id TEXT, agent_name TEXT, "
-            f"action_type TEXT, tool_name TEXT, status TEXT, duration_ms INTEGER, details TEXT)"
+            f"action_type TEXT, tool_name TEXT, status TEXT, duration_ms INTEGER, details TEXT, org_slug TEXT)"
         )
         c.execute(
             f"CREATE TABLE IF NOT EXISTS human_approvals ("
@@ -222,6 +222,17 @@ def init_db() -> None:
             f"id {serial_pk}, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, "
             f"full_name TEXT, org_slug TEXT NOT NULL, org_name TEXT NOT NULL, "
             f"probe_api_key TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL)"
+        )
+        c.execute(
+            "CREATE TABLE IF NOT EXISTS platform_applications ("
+            "id TEXT PRIMARY KEY, identity_id TEXT NOT NULL UNIQUE, email TEXT NOT NULL, "
+            "org_name TEXT NOT NULL, contact_name TEXT NOT NULL, site_description TEXT NOT NULL, "
+            "authorization_confirmed INTEGER NOT NULL, status TEXT NOT NULL, payment_status TEXT NOT NULL, "
+            "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, org_slug TEXT, probe_api_key TEXT, subscription_end TEXT)"
+        )
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS platform_admin_events (id {serial_pk}, ts TEXT NOT NULL, "
+            "actor TEXT NOT NULL, application_id TEXT NOT NULL, action TEXT NOT NULL, details TEXT NOT NULL)"
         )
         c.execute(
             f"CREATE TABLE IF NOT EXISTS internet_policies ("
@@ -250,6 +261,22 @@ def init_db() -> None:
             f"storage_mode TEXT NOT NULL DEFAULT 'inline', storage_key TEXT, content_b64 TEXT, "
             f"uploaded_by TEXT DEFAULT 'Superviseur Général', created_at TEXT NOT NULL)"
         )
+
+        if is_pg:
+            c.execute("ALTER TABLE agent_sessions ADD COLUMN IF NOT EXISTS org_slug TEXT")
+            c.execute("ALTER TABLE agent_audit_logs ADD COLUMN IF NOT EXISTS org_slug TEXT")
+            c.execute("ALTER TABLE platform_applications ADD COLUMN IF NOT EXISTS org_slug TEXT")
+            c.execute("ALTER TABLE platform_applications ADD COLUMN IF NOT EXISTS probe_api_key TEXT")
+            c.execute("ALTER TABLE platform_applications ADD COLUMN IF NOT EXISTS subscription_end TEXT")
+        else:
+            _ensure_sqlite_column(c, "agent_sessions", "org_slug", "TEXT")
+            _ensure_sqlite_column(c, "agent_audit_logs", "org_slug", "TEXT")
+            _ensure_sqlite_column(c, "platform_applications", "org_slug", "TEXT")
+            _ensure_sqlite_column(c, "platform_applications", "probe_api_key", "TEXT")
+            _ensure_sqlite_column(c, "platform_applications", "subscription_end", "TEXT")
+
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS platform_application_org_idx ON platform_applications(org_slug)")
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS platform_application_probe_idx ON platform_applications(probe_api_key)")
 
         if not is_pg:
             _ensure_sqlite_column(c, "agents", "org_slug", "TEXT DEFAULT 'public-demo'")
@@ -351,20 +378,12 @@ def upsert_agent(
     org_slug: Optional[str] = None,
 ) -> None:
     if get_backend_mode() == "supabase":
-        sb = _sb()
-        existing = sb.request("GET", "agents", f"id=eq.{urllib.parse.quote(agent_id)}&limit=1") or []
-        prev = existing[0] if existing else {}
-        effective_org = org_slug or prev.get("org_slug") or "public-demo"
-        row = {
-            "id": agent_id,
-            "nom": nom,
-            "ip": ip if ip is not None else prev.get("ip"),
-            "mac": mac if mac is not None else prev.get("mac"),
-            "last_seen": now_iso,
-            "status": "online",
-            "org_slug": effective_org,
-        }
-        sb.request("POST", "agents", "on_conflict=id", row, prefer="resolution=merge-duplicates,return=minimal")
+        rows = _sb().request("POST", "rpc/upsert_tenant_agent", "", {
+            "p_id": agent_id, "p_nom": nom, "p_ip": ip, "p_mac": mac,
+            "p_ts": now_iso, "p_org": org_slug or "public-demo",
+        }) or []
+        if not rows or not rows[0].get("allowed"):
+            raise PermissionError("Agent belongs to another organization")
         return
 
     with _sql_cursor() as (_, c, ph):
@@ -375,7 +394,8 @@ def upsert_agent(
             f"ON CONFLICT (id) DO UPDATE SET "
             f"nom = {ph}, ip = COALESCE({ph}, agents.ip), mac = COALESCE({ph}, agents.mac), "
             f"last_seen = {ph}, status = {ph}, "
-            f"org_slug = CASE WHEN {ph} IS NOT NULL THEN {ph} ELSE COALESCE(agents.org_slug, 'public-demo') END",
+            f"org_slug = COALESCE(agents.org_slug, 'public-demo') "
+            f"WHERE COALESCE(agents.org_slug, 'public-demo') = {ph}",
             (
                 agent_id,
                 nom,
@@ -389,10 +409,11 @@ def upsert_agent(
                 mac,
                 now_iso,
                 "online",
-                org_slug,
-                org_slug,
+                eff,
             ),
         )
+        if not c.rowcount:
+            raise PermissionError("Agent belongs to another organization")
 
 
 def list_agents_raw(org_slug: Optional[str] = None, include_all_orgs: bool = False) -> List[dict]:
@@ -1092,7 +1113,7 @@ def delete_shared_media(media_id: int, org_slug: str) -> bool:
 # Mémoire de session, Journal d'Audit & Validation Humaine
 # ---------------------------------------------------------------------------
 def append_session_turn(
-    session_id: str, ts: str, role: str, content: str, agent_id: Optional[str], metadata: Optional[dict] = None
+    session_id: str, ts: str, role: str, content: str, agent_id: Optional[str], metadata: Optional[dict] = None, org_slug: Optional[str] = None
 ) -> None:
     meta_str = json.dumps(metadata or {}, ensure_ascii=False)
     if get_backend_mode() == "supabase":
@@ -1107,20 +1128,21 @@ def append_session_turn(
                 "content": content[:4000],
                 "agent_id": agent_id or "",
                 "metadata_json": meta_str,
+                "org_slug": org_slug,
             },
             prefer="return=minimal",
         )
         return
     with _sql_cursor() as (_, c, ph):
         c.execute(
-            f"INSERT INTO agent_sessions (session_id, ts, role, content, agent_id, metadata_json) "
-            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph})",
-            (session_id, ts, role, content[:4000], agent_id or "", meta_str),
+            f"INSERT INTO agent_sessions (session_id, ts, role, content, agent_id, metadata_json, org_slug) "
+            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph})",
+            (session_id, ts, role, content[:4000], agent_id or "", meta_str, org_slug),
         )
 
 
-def get_session_turns(session_id: str, limit: int = 8) -> List[dict]:
-    if not session_id:
+def get_session_turns(session_id: str, limit: int = 8, org_slug: Optional[str] = None) -> List[dict]:
+    if not session_id or not org_slug:
         return []
     if get_backend_mode() == "supabase":
         q_sid = urllib.parse.quote(session_id)
@@ -1128,7 +1150,7 @@ def get_session_turns(session_id: str, limit: int = 8) -> List[dict]:
             _sb().request(
                 "GET",
                 "agent_sessions",
-                f"session_id=eq.{q_sid}&select=id,ts,role,content,agent_id,metadata_json&order=id.desc&limit={int(limit)}",
+                f"org_slug=eq.{urllib.parse.quote(org_slug, safe='')}&session_id=eq.{q_sid}&select=id,ts,role,content,agent_id,metadata_json&order=id.desc&limit={int(limit)}",
             )
             or []
         )
@@ -1136,8 +1158,8 @@ def get_session_turns(session_id: str, limit: int = 8) -> List[dict]:
     with _sql_cursor() as (_, c, ph):
         c.execute(
             f"SELECT id, ts, role, content, agent_id, metadata_json "
-            f"FROM agent_sessions WHERE session_id = {ph} ORDER BY id DESC LIMIT {ph}",
-            (session_id, limit),
+            f"FROM agent_sessions WHERE org_slug = {ph} AND session_id = {ph} ORDER BY id DESC LIMIT {ph}",
+            (org_slug, session_id, limit),
         )
         rows = c.fetchall()
         cols = [d[0] for d in c.description]
@@ -1153,6 +1175,7 @@ def record_audit_log(
     status: str,
     duration_ms: int,
     details: str,
+    org_slug: Optional[str] = None,
 ) -> None:
     if get_backend_mode() == "supabase":
         _sb().request(
@@ -1168,23 +1191,26 @@ def record_audit_log(
                 "status": status,
                 "duration_ms": int(duration_ms),
                 "details": details[:1000],
+                "org_slug": org_slug,
             },
             prefer="return=minimal",
         )
         return
     with _sql_cursor() as (_, c, ph):
         c.execute(
-            f"INSERT INTO agent_audit_logs (ts, session_id, agent_name, action_type, tool_name, status, duration_ms, details) "
-            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})",
-            (ts, session_id, agent_name, action_type, tool_name, status, int(duration_ms), details[:1000]),
+            f"INSERT INTO agent_audit_logs (ts, session_id, agent_name, action_type, tool_name, status, duration_ms, details, org_slug) "
+            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})",
+            (ts, session_id, agent_name, action_type, tool_name, status, int(duration_ms), details[:1000], org_slug),
         )
 
 
-def list_audit_logs(limit: int = 30) -> List[dict]:
+def list_audit_logs(limit: int = 30, org_slug: Optional[str] = None) -> List[dict]:
+    if not org_slug:
+        return []
     if get_backend_mode() == "supabase":
-        return _sb().request("GET", "agent_audit_logs", f"order=id.desc&limit={int(limit)}") or []
+        return _sb().request("GET", "agent_audit_logs", f"org_slug=eq.{urllib.parse.quote(org_slug, safe='')}&order=id.desc&limit={int(limit)}") or []
     with _sql_cursor() as (_, c, ph):
-        c.execute(f"SELECT * FROM agent_audit_logs ORDER BY id DESC LIMIT {ph}", (limit,))
+        c.execute(f"SELECT * FROM agent_audit_logs WHERE org_slug = {ph} ORDER BY id DESC LIMIT {ph}", (org_slug, limit))
         rows = c.fetchall()
         cols = [d[0] for d in c.description]
     return [dict(zip(cols, r)) for r in rows]
@@ -1296,3 +1322,96 @@ def resolve_human_approval(approval_id: int, decision: str, now_iso: str) -> Opt
         item["status"] = new_status
         item["decided_at"] = now_iso
         return item
+
+
+# Candidatures de plateforme : ne confèrent pas encore d'accès à une sonde.
+def save_application(row: dict) -> dict:
+    if get_backend_mode() == "supabase":
+        result = _sb().request("POST", "platform_applications", "", row)
+        return result[0]
+    columns = list(row)
+    with _sql_cursor() as (_, c, ph):
+        c.execute("INSERT INTO platform_applications (" + ",".join(columns) + ") VALUES (" + ",".join([ph] * len(columns)) + ")", tuple(row[k] for k in columns))
+    return row
+
+
+def find_application(identity_id: str) -> Optional[dict]:
+    if get_backend_mode() == "supabase":
+        rows = _sb().request("GET", "platform_applications", "identity_id=eq." + urllib.parse.quote(identity_id, safe="") + "&limit=1") or []
+        return rows[0] if rows else None
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"SELECT * FROM platform_applications WHERE identity_id = {ph}", (identity_id,))
+        row = c.fetchone()
+        return dict(zip([d[0] for d in c.description], row)) if row else None
+
+
+def list_platform_applications() -> List[dict]:
+    if get_backend_mode() == "supabase":
+        return _sb().request("GET", "platform_applications", "order=created_at.desc&limit=200") or []
+    with _sql_cursor() as (_, c, ph):
+        c.execute("SELECT * FROM platform_applications ORDER BY created_at DESC LIMIT 200")
+        cols = [d[0] for d in c.description]
+        return [dict(zip(cols, row)) for row in c.fetchall()]
+
+
+def get_application_by_id(app_id: str) -> Optional[dict]:
+    if get_backend_mode() == "supabase":
+        rows = _sb().request("GET", "platform_applications", "id=eq." + urllib.parse.quote(app_id, safe="") + "&limit=1") or []
+        return rows[0] if rows else None
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"SELECT * FROM platform_applications WHERE id = {ph}", (app_id,))
+        row = c.fetchone()
+        return dict(zip([d[0] for d in c.description], row)) if row else None
+
+
+def decide_application(app_id: str, status: str, payment_status: str, actor: str, timestamp: str, subscription_end: Optional[str] = None) -> Optional[dict]:
+    # Supabase utilise une fonction transactionnelle : statut et trace sont indivisibles.
+    if get_backend_mode() == "supabase":
+        result = _sb().request("POST", "rpc/decide_platform_application", "", {"p_id": app_id, "p_status": status, "p_payment": payment_status, "p_actor": actor, "p_ts": timestamp, "p_subscription_end": subscription_end})
+        return result[0] if result else None
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"UPDATE platform_applications SET status={ph}, payment_status={ph}, updated_at={ph}, subscription_end={ph} WHERE id={ph}", (status, payment_status, timestamp, subscription_end, app_id))
+        if not c.rowcount:
+            return None
+        c.execute(f"INSERT INTO platform_admin_events (ts, actor, application_id, action, details) VALUES ({ph},{ph},{ph},{ph},{ph})", (timestamp, actor, app_id, "decision", json.dumps({"status":status,"payment_status":payment_status,"subscription_end":subscription_end})))
+    return get_application_by_id(app_id)
+
+
+def find_platform_application_by_probe_key(probe_key: str) -> Optional[dict]:
+    if get_backend_mode() == "supabase":
+        rows = _sb().request("GET", "platform_applications", "probe_api_key=eq." + urllib.parse.quote(probe_key, safe="") + "&limit=1") or []
+        return rows[0] if rows else None
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"SELECT * FROM platform_applications WHERE probe_api_key = {ph}", (probe_key,))
+        row = c.fetchone()
+        return dict(zip([d[0] for d in c.description], row)) if row else None
+
+
+def list_platform_admin_events(limit: int = 100) -> List[dict]:
+    if get_backend_mode() == "supabase":
+        return _sb().request("GET", "platform_admin_events", f"order=id.desc&limit={int(limit)}") or []
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"SELECT * FROM platform_admin_events ORDER BY id DESC LIMIT {ph}", (limit,))
+        cols = [d[0] for d in c.description]
+        return [dict(zip(cols, row)) for row in c.fetchall()]
+
+
+def claim_legacy_workspace(identity_id: str, legacy_org: str, actor: str, now_iso: str) -> Optional[dict]:
+    if get_backend_mode() == "supabase":
+        rows = _sb().request("POST", "rpc/claim_legacy_workspace", "", {"p_identity": identity_id, "p_legacy_org": legacy_org, "p_actor": actor, "p_ts": now_iso}) or []
+        return rows[0] if rows else None
+    with _sql_cursor() as (_, c, ph):
+        # Conditional UPDATE is atomic even when an admin decision is concurrent.
+        c.execute(f"UPDATE platform_applications SET org_slug={ph}, updated_at={ph} "
+                  f"WHERE identity_id={ph} AND status='pending' AND org_slug<>{ph} "
+                  "AND NOT EXISTS (SELECT 1 FROM platform_admin_events e WHERE e.application_id=platform_applications.id) "
+                  f"AND NOT EXISTS (SELECT 1 FROM platform_applications other WHERE other.org_slug={ph} AND other.id<>platform_applications.id) "
+                  "AND NOT EXISTS (SELECT 1 FROM agents a WHERE a.org_slug=platform_applications.org_slug)",
+                  (legacy_org, now_iso, identity_id, legacy_org, legacy_org))
+        if not c.rowcount:
+            return None
+        c.execute(f"SELECT id FROM platform_applications WHERE identity_id={ph}", (identity_id,))
+        app_id = c.fetchone()[0]
+        c.execute(f"INSERT INTO platform_admin_events(ts,actor,application_id,action,details) VALUES ({ph},{ph},{ph},{ph},{ph})",
+                  (now_iso, actor, app_id, "legacy_claim", json.dumps({"org_slug":legacy_org})))
+    return find_application(identity_id)

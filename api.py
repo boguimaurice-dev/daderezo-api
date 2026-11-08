@@ -1360,6 +1360,19 @@ def claim_legacy_account(req: LegacyClaimRequest, identity: dict = Depends(requi
     return {"application": linked, "access_granted": False}
 
 
+@app.get("/platform/admin/overview")
+def admin_platform_overview(admin: dict = Depends(require_platform_admin)):
+    # A successful count verifies a real database read, not historical uptime.
+    try:
+        init_db()
+        counts = storage.platform_overview_counts()
+    except Exception:
+        return {"checked_at": datetime.now(timezone.utc).isoformat(),
+                "api": "ok", "database": "unavailable", "counts": None}
+    return {"checked_at": datetime.now(timezone.utc).isoformat(),
+            "api": "ok", "database": "ok", "counts": counts}
+
+
 @app.get("/platform/admin/applications")
 def admin_list_applications(admin: dict = Depends(require_platform_admin)):
     init_db()

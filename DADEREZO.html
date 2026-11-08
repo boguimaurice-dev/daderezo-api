@@ -1684,7 +1684,7 @@ tr[data-inspect]:hover td{
         </div>
         <button class="btn secondary hidden" id="legacyClaimBtn" type="button">Rattacher mon ancien site à cette candidature</button>
         <p id="legacyClaimInfo" class="hidden" style="font-size:12px;color:var(--muted)">Utilisez le même navigateur que votre ancienne connexion. Votre ancienne session doit être encore valide. La sonde devra être reconfigurée avec une nouvelle clé après approbation.</p>
-        <div id="platformAdminBox" class="hidden"><h3>Candidatures · Super admin</h3><div id="platformApplications"></div><h3>Journal des décisions</h3><div id="platformEvents"></div></div>
+        <div id="platformAdminBox" class="hidden"><h3>Tableau de bord · Super admin</h3><p id="platformOverview">Chargement des indicateurs…</p><p style="font-size:12px">Comptes historiques et candidatures Google sont comptés séparément : une personne peut figurer dans les deux. Santé vérifiée au chargement, pas un suivi continu.</p><button class="btn secondary" type="button" id="platformRefreshBtn">Actualiser les indicateurs</button><h3>Candidatures · Super admin</h3><div id="platformApplications"></div><h3>Journal des décisions</h3><div id="platformEvents"></div></div>
         <button class="btn secondary" type="button" id="googleSignOutBtn">Se déconnecter de DADEREZO</button>
       </div>
     <div id="authFormsBox">
@@ -4333,6 +4333,9 @@ async function loadPlatform() {
     if (data.application) document.getElementById('googleIdentityStatus').textContent += ` · candidature : ${data.application.status} · paiement : ${data.application.payment_status}`;
     document.getElementById('platformAdminBox').classList.toggle('hidden', !data.is_admin);
     if (data.is_admin) {
+      const overview = await platformFetch('/platform/admin/overview');
+      const c = overview.counts;
+      document.getElementById('platformOverview').textContent = `API : ${overview.api === 'ok' ? 'accessible' : 'indisponible'} · Base : ${overview.database === 'ok' ? 'accessible' : 'indisponible'} · Vérifié : ${new Date(overview.checked_at).toLocaleString()}${c ? ` · Candidatures Google : ${c.applications} · En attente : ${c.pending} · Suspendues : ${c.suspended} · Comptes historiques : ${c.legacy_accounts}` : ' · Comptages indisponibles'}`;
       const list = (await platformFetch('/platform/admin/applications')).applications;
       const container = document.getElementById('platformApplications');
       container.replaceChildren();
@@ -4358,6 +4361,7 @@ async function loadPlatform() {
     }
   } catch (e) { document.getElementById('authFeedbackMsg').textContent = e.message; }
 }
+document.getElementById('platformRefreshBtn').addEventListener('click', loadPlatform);
 document.getElementById('legacyClaimBtn').addEventListener('click', async () => {
   try {
     const legacy_token = localStorage.getItem('daderezo_saas_token');

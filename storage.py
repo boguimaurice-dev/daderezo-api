@@ -1415,3 +1415,32 @@ def claim_legacy_workspace(identity_id: str, legacy_org: str, actor: str, now_is
         c.execute(f"INSERT INTO platform_admin_events(ts,actor,application_id,action,details) VALUES ({ph},{ph},{ph},{ph},{ph})",
                   (now_iso, actor, app_id, "legacy_claim", json.dumps({"org_slug":legacy_org})))
     return find_application(identity_id)
+
+
+def platform_overview_counts() -> dict:
+    """Exact counts of DADEREZO records, not Supabase Auth users or visitors."""
+    if get_backend_mode() == "supabase":
+        sb = _sb()
+        def count(table: str, query: str = "") -> int:
+            url = f"{sb.base}/{table}?select=id" + ("&" + query if query else "")
+            request = urllib.request.Request(url, method="HEAD", headers={
+                "apikey": sb.key, "Authorization": f"Bearer {sb.key}",
+                "Prefer": "count=exact", "Range": "0-0",
+            })
+            with urllib.request.urlopen(request, timeout=15) as response:
+                total = response.headers.get("Content-Range", "").split("/")[-1]
+                if not total.isdigit():
+                    raise ValueError("Missing exact count")
+                return int(total)
+        return {"applications": count("platform_applications"),
+                "pending": count("platform_applications", "status=eq.pending"),
+                "suspended": count("platform_applications", "status=eq.suspended"),
+                "legacy_accounts": count("saas_users")}
+    with _sql_cursor() as (_, c, _):
+        c.execute("SELECT COUNT(*), SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END), "
+                  "SUM(CASE WHEN status='suspended' THEN 1 ELSE 0 END) FROM platform_applications")
+        total, pending, suspended = c.fetchone()
+        c.execute("SELECT COUNT(*) FROM saas_users")
+        legacy = c.fetchone()[0]
+        return {"applications": total, "pending": pending or 0, "suspended": suspended or 0,
+                "legacy_accounts": legacy}

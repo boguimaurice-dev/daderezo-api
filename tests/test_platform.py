@@ -110,3 +110,15 @@ class RealAccessTests(unittest.TestCase):
         self.assertTrue(api._application_active(app))
         app['status'] = 'suspended'
         self.assertFalse(api._application_active(app))
+
+class AdminOverviewTests(PlatformTests):
+    def test_overview_restricted_and_reports_database_failure(self):
+        self.assertEqual(self.client.get('/platform/admin/overview').status_code, 403)
+        self.identity = {'id': 'admin', 'email': 'admin@example.com'}
+        result = self.client.get('/platform/admin/overview').json()
+        self.assertEqual(result['database'], 'ok')
+        self.assertEqual(result['counts'], {'applications': 0, 'pending': 0, 'suspended': 0, 'legacy_accounts': 0})
+        with patch.object(storage, 'platform_overview_counts', side_effect=OSError('offline')):
+            result = self.client.get('/platform/admin/overview').json()
+        self.assertEqual(result['database'], 'unavailable')
+        self.assertIsNone(result['counts'])

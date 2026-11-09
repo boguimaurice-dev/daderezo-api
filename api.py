@@ -176,6 +176,34 @@ def _legacy_auth_enabled() -> bool:
     return os.environ.get("DADEREZO_LEGACY_AUTH", "0") == "1"
 
 
+def _legacy_transition_allowed(user: Optional[dict]) -> bool:
+    """Narrow, expiring bridge for a specifically configured pre-existing account.
+
+    A linked workspace must pass the same approval/payment checks as Google.
+    This never enables legacy signup or the permissive legacy compatibility mode.
+    """
+    if not user or len(os.environ.get("DADEREZO_AUTH_SECRET", "").strip()) < 32:
+        return False
+    org = user.get("org_slug")
+    if not org or org == "public-demo":
+        return False
+    application = storage.find_application_by_org(org)
+    if application is not None:
+        email_matches = hmac.compare_digest((application.get("email") or "").strip().lower(),
+                                            (user.get("email") or "").strip().lower())
+        return email_matches and _application_active(application)
+    allowed_email = os.environ.get("DADEREZO_TRANSITION_EMAIL", "").strip().lower()
+    if not allowed_email or not hmac.compare_digest(allowed_email, (user.get("email") or "").strip().lower()):
+        return False
+    try:
+        until = datetime.fromisoformat(os.environ.get("DADEREZO_TRANSITION_UNTIL", "").replace("Z", "+00:00"))
+        if until.tzinfo is None or until <= datetime.now(timezone.utc):
+            return False
+    except (ValueError, TypeError):
+        return False
+    return True
+
+
 def _application_active(app: Optional[dict]) -> bool:
     if not app or app.get("status") != "approved" or not app.get("org_slug") or not app.get("probe_api_key"):
         return False
@@ -219,9 +247,15 @@ def resolve_tenant_context(
         return _application_context(application, "private_org")
 
     if bearer.startswith("dzt_"):
-        if not _legacy_auth_enabled():
-            raise HTTPException(status_code=403, detail="Ancien compte désactivé : une candidature Google est nécessaire.")
         claims = _verify_saas_token(bearer)
+        if not _legacy_auth_enabled():
+            old_user = storage.get_saas_user_by_email(claims.get("email", "")) if claims else None
+            if not old_user or old_user.get("org_slug") != claims.get("org_slug") or not _legacy_transition_allowed(old_user):
+                raise HTTPException(status_code=403, detail="Ancien compte désactivé : une candidature Google est nécessaire.")
+            return {"authenticated": True, "can_write": True, "mode": "private_org",
+                    "org_slug": old_user["org_slug"], "org_name": old_user["org_name"],
+                    "actor": old_user.get("full_name") or old_user["email"], "email": old_user["email"],
+                    "probe_api_key": old_user["probe_api_key"]}
         if claims:
             return {
                 "authenticated": True,
@@ -240,8 +274,8 @@ def resolve_tenant_context(
             if not _application_active(application):
                 raise HTTPException(status_code=403, detail="Sonde suspendue ou abonnement expiré.")
             return _application_context(application, "private_probe")
-        u = storage.get_saas_user_by_probe_key(probe_candidate) if _legacy_auth_enabled() else None
-        if u:
+        u = storage.get_saas_user_by_probe_key(probe_candidate)
+        if u and (_legacy_auth_enabled() or _legacy_transition_allowed(u)):
             return {
                 "authenticated": True,
                 "can_write": True,
@@ -250,6 +284,7 @@ def resolve_tenant_context(
                 "org_name": u.get("org_name") or u["org_slug"],
                 "actor": f"Sonde ({u['org_name']})",
                 "email": u["email"],
+                "probe_api_key": u["probe_api_key"],
             }
         raise HTTPException(status_code=401, detail="Clé sonde privée (dzk_...) invalide.")
 
@@ -1360,6 +1395,16 @@ def claim_legacy_account(req: LegacyClaimRequest, identity: dict = Depends(requi
     return {"application": linked, "access_granted": False}
 
 
+@app.get("/platform/admin/migration-readiness")
+def admin_migration_readiness(admin: dict = Depends(require_platform_admin)):
+    # Report configuration health, never the signing secret or probe key.
+    init_db()
+    user = storage.get_saas_user_by_email(admin["email"])
+    return {"signing_secret_strong": len(os.environ.get("DADEREZO_AUTH_SECRET", "").strip()) >= 32,
+            "legacy_account_found": bool(user and user.get("org_slug") and user.get("org_slug") != "public-demo"),
+            "transition_enabled": _legacy_transition_allowed(user) if user else False}
+
+
 @app.get("/platform/admin/overview")
 def admin_platform_overview(admin: dict = Depends(require_platform_admin)):
     # A successful count verifies a real database read, not historical uptime.
@@ -1466,12 +1511,21 @@ def auth_signup(req: SignupRequest):
 
 @app.post("/auth/login")
 def auth_login(req: LoginRequest):
-    if not _legacy_auth_enabled():
-        raise HTTPException(status_code=403, detail="Connexion historique désactivée. Connectez-vous avec Google.")
     init_db()
     user = storage.get_saas_user_by_email(req.email)
+    # Only persist rate-limit entries for existing accounts, preventing arbitrary
+    # usernames from creating unbounded database rows.
+    if not _legacy_auth_enabled() and user:
+        try:
+            permitted = storage.consume_legacy_login_attempt(hashlib.sha256(req.email.strip().lower().encode("utf-8")).hexdigest(), int(time.time()))
+        except Exception:
+            raise HTTPException(status_code=503, detail="Connexion historique temporairement indisponible.")
+        if not permitted:
+            raise HTTPException(status_code=429, detail="Trop de tentatives. Réessayez plus tard.")
     if not user or not _verify_password(req.password, user.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Identifiants incorrects.")
+    if not _legacy_auth_enabled() and not _legacy_transition_allowed(user):
+        raise HTTPException(status_code=403, detail="Compte historique non autorisé ou candidature inactive.")
     token = _sign_saas_token(user)
     return {
         "status": "ok",

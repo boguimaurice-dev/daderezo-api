@@ -25,7 +25,7 @@ class LegacyMigrationTests(unittest.TestCase):
         self.application=result.json()['application']
         self.token=api._sign_saas_token(self.old)
 
-    def test_verified_claim_preserves_agent_and_requires_new_key(self):
+    def test_verified_claim_preserves_agent_and_old_key_after_approval(self):
         r=self.client.post('/platform/claim-legacy',json={'legacy_token':self.token})
         self.assertEqual(r.status_code,200)
         self.assertEqual(r.json()['application']['org_slug'],'old-org-1234')
@@ -42,7 +42,7 @@ class LegacyMigrationTests(unittest.TestCase):
         headers={'X-API-Key':me['user']['probe_api_key']}
         self.assertEqual(self.client.post('/register',headers=headers,json={'agent_id':'historic-site','nom':'Mon réseau'}).status_code,200)
         self.assertEqual(self.client.get('/dashboard/historic-site',headers=headers).status_code,200)
-        self.assertEqual(self.client.post('/register',headers={'X-API-Key':'dzk_old'},json={'agent_id':'historic-site','nom':'Mon réseau'}).status_code,401)
+        self.assertEqual(self.client.post('/register',headers={'X-API-Key':'dzk_old'},json={'agent_id':'historic-site','nom':'Mon réseau'}).status_code,200)
         self.assertNotIn('old private entry',self.client.get('/supervisor/audit',headers=headers).text)
 
     def test_old_token_must_be_valid_for_same_google_email_and_org(self):

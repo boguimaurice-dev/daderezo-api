@@ -224,6 +224,10 @@ def init_db() -> None:
             f"probe_api_key TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL)"
         )
         c.execute(
+            "CREATE TABLE IF NOT EXISTS legacy_login_limits ("
+            "subject_hash TEXT PRIMARY KEY, window_start INTEGER NOT NULL, attempts INTEGER NOT NULL)"
+        )
+        c.execute(
             "CREATE TABLE IF NOT EXISTS platform_applications ("
             "id TEXT PRIMARY KEY, identity_id TEXT NOT NULL UNIQUE, email TEXT NOT NULL, "
             "org_name TEXT NOT NULL, contact_name TEXT NOT NULL, site_description TEXT NOT NULL, "
@@ -1341,6 +1345,31 @@ def find_application(identity_id: str) -> Optional[dict]:
         return rows[0] if rows else None
     with _sql_cursor() as (_, c, ph):
         c.execute(f"SELECT * FROM platform_applications WHERE identity_id = {ph}", (identity_id,))
+        row = c.fetchone()
+        return dict(zip([d[0] for d in c.description], row)) if row else None
+
+
+def consume_legacy_login_attempt(subject_hash: str, now: int) -> bool:
+    """Atomic per-account fixed-window limit, shared across serverless instances."""
+    if get_backend_mode() == "supabase":
+        return _sb().request("POST", "rpc/consume_legacy_login_attempt", "", {"p_subject": subject_hash, "p_now": now}) is True
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"INSERT INTO legacy_login_limits(subject_hash,window_start,attempts) VALUES ({ph},{ph},1) "
+                  "ON CONFLICT(subject_hash) DO UPDATE SET "
+                  f"window_start=CASE WHEN legacy_login_limits.window_start <= {ph} THEN excluded.window_start ELSE legacy_login_limits.window_start END, "
+                  f"attempts=CASE WHEN legacy_login_limits.window_start <= {ph} THEN 1 ELSE legacy_login_limits.attempts+1 END "
+                  "RETURNING attempts", (subject_hash, now, now - 900, now - 900))
+        return c.fetchone()[0] <= 5
+
+
+def find_application_by_org(org_slug: str) -> Optional[dict]:
+    if not org_slug or org_slug == "public-demo":
+        return None
+    if get_backend_mode() == "supabase":
+        rows = _sb().request("GET", "platform_applications", "org_slug=eq." + urllib.parse.quote(org_slug, safe="") + "&limit=1") or []
+        return rows[0] if rows else None
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"SELECT * FROM platform_applications WHERE org_slug = {ph}", (org_slug,))
         row = c.fetchone()
         return dict(zip([d[0] for d in c.description], row)) if row else None
 

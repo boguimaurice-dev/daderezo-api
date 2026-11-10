@@ -64,3 +64,22 @@ class LegacyMigrationTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             storage.upsert_agent('historic-site','Imposter',None,None,'now',org_slug='another-organization')
         self.assertEqual(storage.get_agent_raw('historic-site')['org_slug'],'old-org-1234')
+
+    def test_approved_active_claim_preserves_approval_and_legacy_key(self):
+        endpoint = f"/platform/admin/applications/{self.application['id']}/decision"
+        self.identity={'id':'admin','email':'admin@example.com'}
+        self.assertEqual(self.client.post(endpoint,json={'status':'approved','payment_status':'pilot'}).status_code,200)
+        self.identity={'id':'google-id','email':'owner@example.com'}
+        result = self.client.post('/platform/claim-legacy',json={'legacy_token':self.token})
+        self.assertEqual(result.status_code, 200)
+        self.assertTrue(result.json()['access_granted'])
+        self.assertEqual(result.json()['application']['payment_status'], 'pilot')
+        self.assertEqual(self.client.get('/dashboard/historic-site',headers={'X-API-Key':'dzk_old'}).status_code, 200)
+
+    def test_approved_expired_claim_is_refused(self):
+        with storage._sql_cursor() as (_, c, ph):
+            c.execute('UPDATE platform_applications SET status=?, payment_status=?, subscription_end=? WHERE id=?',
+                      ('approved','paid','2000-01-01',self.application['id']))
+        result = self.client.post('/platform/claim-legacy',json={'legacy_token':self.token})
+        self.assertEqual(result.status_code,409)
+        self.assertEqual(storage.get_agent_raw('historic-site')['org_slug'], 'old-org-1234')

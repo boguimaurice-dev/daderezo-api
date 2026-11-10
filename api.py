@@ -1384,6 +1384,8 @@ def claim_legacy_account(req: LegacyClaimRequest, identity: dict = Depends(requi
     application = storage.find_application(identity["id"])
     if not application:
         raise HTTPException(status_code=409, detail="Déposez d'abord une candidature pour votre organisation.")
+    if application.get("status") == "approved" and not _application_active(application):
+        raise HTTPException(status_code=409, detail="Candidature approuvée mais abonnement inactif : faites vérifier la date ou le statut pilote avant le rattachement.")
     try:
         linked = storage.claim_legacy_workspace(identity["id"], legacy_org, identity["email"], datetime.now(timezone.utc).isoformat())
     except Exception:
@@ -1391,8 +1393,9 @@ def claim_legacy_account(req: LegacyClaimRequest, identity: dict = Depends(requi
         raise HTTPException(status_code=409, detail="Rattachement impossible : contactez l'administrateur.")
     if not linked:
         raise HTTPException(status_code=409, detail="Rattachement impossible : candidature déjà traitée, espace déjà associé ou activité existante.")
+    active = _application_active(linked)
     linked.pop("probe_api_key", None)
-    return {"application": linked, "access_granted": False}
+    return {"application": linked, "access_granted": active}
 
 
 @app.get("/platform/admin/migration-readiness")

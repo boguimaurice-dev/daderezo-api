@@ -1432,11 +1432,12 @@ def claim_legacy_workspace(identity_id: str, legacy_org: str, actor: str, now_is
     with _sql_cursor() as (_, c, ph):
         # Conditional UPDATE is atomic even when an admin decision is concurrent.
         c.execute(f"UPDATE platform_applications SET org_slug={ph}, updated_at={ph} "
-                  f"WHERE identity_id={ph} AND status='pending' AND org_slug<>{ph} "
-                  "AND NOT EXISTS (SELECT 1 FROM platform_admin_events e WHERE e.application_id=platform_applications.id) "
+                  f"WHERE identity_id={ph} AND org_slug<>{ph} "
+                  "AND ((status='pending' AND NOT EXISTS (SELECT 1 FROM platform_admin_events e WHERE e.application_id=platform_applications.id)) "
+                  f"OR (status='approved' AND probe_api_key IS NOT NULL AND (payment_status='pilot' OR (payment_status='paid' AND subscription_end >= {ph})))) "
                   f"AND NOT EXISTS (SELECT 1 FROM platform_applications other WHERE other.org_slug={ph} AND other.id<>platform_applications.id) "
                   "AND NOT EXISTS (SELECT 1 FROM agents a WHERE a.org_slug=platform_applications.org_slug)",
-                  (legacy_org, now_iso, identity_id, legacy_org, legacy_org))
+                  (legacy_org, now_iso, identity_id, legacy_org, now_iso[:10], legacy_org))
         if not c.rowcount:
             return None
         c.execute(f"SELECT id FROM platform_applications WHERE identity_id={ph}", (identity_id,))

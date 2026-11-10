@@ -1683,7 +1683,7 @@ tr[data-inspect]:hover td{
           <button class="btn" type="button" id="platformApplyBtn">Envoyer ma candidature</button>
         </div>
         <button class="btn secondary hidden" id="legacyClaimBtn" type="button">Rattacher mon ancien site à cette candidature</button>
-        <p id="legacyClaimInfo" class="hidden" style="font-size:12px;color:var(--muted)">Utilisez le même navigateur que votre ancienne connexion. Votre ancienne session doit être encore valide. La sonde existante ne fonctionnera pas entre le rattachement et l’approbation.</p>
+        <p id="legacyClaimInfo" class="hidden" style="font-size:12px;color:var(--muted)">Utilisez le même navigateur que votre ancienne connexion. Votre ancienne session doit être encore valide. Si la candidature est en attente, la sonde sera interrompue jusqu’à son activation.</p>
         <div id="platformAdminBox" class="hidden"><h3>Tableau de bord · Super admin</h3><p id="platformOverview">Chargement des indicateurs…</p><p id="migrationReadiness">Vérification de la transition…</p><p style="font-size:12px">Comptes historiques et candidatures Google sont comptés séparément : une personne peut figurer dans les deux. Santé vérifiée au chargement, pas un suivi continu.</p><button class="btn secondary" type="button" id="platformRefreshBtn">Actualiser les indicateurs</button><h3>Candidatures · Super admin</h3><div id="platformApplications"></div><h3>Journal des décisions</h3><div id="platformEvents"></div></div>
         <button class="btn secondary" type="button" id="googleSignOutBtn">Se déconnecter de DADEREZO</button>
       </div>
@@ -4330,10 +4330,10 @@ async function loadPlatform() {
     if (data.access_granted) { await checkAuthSession(); await refreshAll(); }
     else if (currentAuthUser) { applyAuthUserUI(null); await refreshAll(); }
     document.getElementById('platformApplicationForm').classList.toggle('hidden', !!data.application);
-    const mayClaim = !!data.application && data.application.status === 'pending' && !!localStorage.getItem('daderezo_saas_token');
+    const mayClaim = !!data.application && (data.application.status === 'pending' || data.access_granted) && !!localStorage.getItem('daderezo_saas_token');
     document.getElementById('legacyClaimBtn').classList.toggle('hidden', !mayClaim);
     document.getElementById('legacyClaimInfo').classList.toggle('hidden', !mayClaim);
-    if (data.application) document.getElementById('googleIdentityStatus').textContent += ` · candidature : ${data.application.status} · paiement : ${data.application.payment_status}`;
+    if (data.application) document.getElementById('googleIdentityStatus').textContent += ` · candidature : ${data.application.status} · paiement : ${data.application.payment_status}${data.application.subscription_end ? ` · fin : ${data.application.subscription_end} (UTC)` : ''}`;
     document.getElementById('platformAdminBox').classList.toggle('hidden', !data.is_admin);
     if (data.is_admin) {
       const readiness = await platformFetch('/platform/admin/migration-readiness');
@@ -4370,9 +4370,9 @@ document.getElementById('platformRefreshBtn').addEventListener('click', loadPlat
 document.getElementById('legacyClaimBtn').addEventListener('click', async () => {
   try {
     const legacy_token = localStorage.getItem('daderezo_saas_token');
-    await platformFetch('/platform/claim-legacy', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({legacy_token})});
+    const linked = await platformFetch('/platform/claim-legacy', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({legacy_token})});
     localStorage.removeItem('daderezo_saas_token');
-    document.getElementById('authFeedbackMsg').textContent = 'Ancien site rattaché. Il reste soumis à l’approbation et au paiement ou statut pilote.';
+    document.getElementById('authFeedbackMsg').textContent = linked.access_granted ? 'Ancien site rattaché et accès actif.' : 'Ancien site rattaché. Il reste soumis à l’approbation et au paiement ou statut pilote.';
     await loadPlatform();
   } catch (e) { document.getElementById('authFeedbackMsg').textContent = e.message; }
 });

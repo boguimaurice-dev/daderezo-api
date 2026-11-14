@@ -160,10 +160,14 @@ aside{
   padding:24px 16px;
   display:flex;
   flex-direction:column;
-  gap:22px;
+  gap:18px;
   position:sticky;
   top:0;
   height:100vh;
+  overflow-y:auto;
+  overflow-x:hidden;
+  z-index:100;
+  scrollbar-width:thin;
 }
 .brand{display:flex;align-items:center;gap:12px;padding:4px 8px}
 .brand-mark{
@@ -1453,7 +1457,7 @@ html, body {
   -webkit-text-size-adjust: 100%;
 }
 
-/* 1. LAYOUT RESPONSIVE & NAVIGATION MOBILE (< 840px) */
+/* 1. LAYOUT RESPONSIVE & NAVIGATION MOBILE STICKY (< 840px) */
 @media (max-width: 840px) {
   .app {
     display: flex;
@@ -1463,15 +1467,25 @@ html, body {
   }
 
   aside {
-    position: static;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
     height: auto;
     width: 100%;
-    padding: 12px 14px 10px;
+    padding: 10px 12px 8px;
     border-right: none;
     border-bottom: 1px solid var(--line);
-    gap: 8px;
+    gap: 6px;
     flex-direction: column;
     align-items: stretch;
+    background: rgba(3, 11, 34, 0.94);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  }
+
+  html[data-theme="light"] aside {
+    background: rgba(244, 248, 255, 0.96);
   }
 
   .brand {
@@ -1835,6 +1849,44 @@ html, body {
 
   .inspector-drawer {
     width: 100vw;
+  }
+}
+
+/* BOUTON FLOTTANT NAVIGATION RAPIDE & RETOUR HAUT DE PAGE */
+.scroll-to-top-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 22px;
+  z-index: 999;
+  min-height: 40px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  background: rgba(6, 20, 54, 0.90);
+  color: var(--ink-strong);
+  border: 1px solid rgba(0, 184, 255, 0.45);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 184, 255, 0.25);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+.scroll-to-top-btn:hover {
+  transform: translateY(-2px) scale(1.04);
+  border-color: #00e5ff;
+  box-shadow: 0 12px 35px rgba(0, 184, 255, 0.45);
+}
+@media (max-width: 640px) {
+  .scroll-to-top-btn {
+    bottom: 18px;
+    right: 14px;
+    min-height: 38px;
+    padding: 0 11px;
+    font-size: 11px;
   }
 }
 
@@ -3319,7 +3371,28 @@ html, body {
   <div class="inspector-body" id="deepInspectorBody"></div>
 </aside>
 
+<!-- BOUTON FLOTTANT NAVIGATION RAPIDE & HAUT DE PAGE -->
+<button class="btn scroll-to-top-btn hidden" id="scrollToTopBtn" type="button" title="Remonter en haut de la page (accès direct aux onglets)">
+  <span>⬆</span>
+  <span class="stt-label">Haut de page</span>
+</button>
+
 <script>
+const scrollToTopBtn = document.getElementById('scrollToTopBtn');
+if (scrollToTopBtn) {
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 180) {
+      scrollToTopBtn.classList.remove('hidden');
+    } else {
+      scrollToTopBtn.classList.add('hidden');
+    }
+  }, { passive: true });
+
+  scrollToTopBtn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 function applyTheme(theme) {
   const clean = theme === 'light' ? 'light' : 'dark';
@@ -3563,6 +3636,7 @@ async function setWorkspaceViewMode(nextMode) {
   currentAgentId = '';
   document.getElementById('supervisorReplyBox').classList.add('hidden');
   applyWorkspaceChrome();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   await refreshAll();
   loadMedia();
 }

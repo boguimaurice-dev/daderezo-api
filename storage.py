@@ -221,7 +221,9 @@ def init_db() -> None:
             f"CREATE TABLE IF NOT EXISTS saas_users ("
             f"id {serial_pk}, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, "
             f"full_name TEXT, org_slug TEXT NOT NULL, org_name TEXT NOT NULL, "
-            f"probe_api_key TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL)"
+            f"probe_api_key TEXT UNIQUE NOT NULL, auth_provider TEXT DEFAULT 'local', "
+            f"is_email_verified INTEGER DEFAULT 1, totp_secret TEXT, totp_enabled INTEGER DEFAULT 0, "
+            f"avatar_url TEXT, created_at TEXT NOT NULL)"
         )
         c.execute(
             f"CREATE TABLE IF NOT EXISTS internet_policies ("
@@ -257,6 +259,11 @@ def init_db() -> None:
             _ensure_sqlite_column(c, "probes", "name", "TEXT")
             _ensure_sqlite_column(c, "probes", "zone", "TEXT")
             _ensure_sqlite_column(c, "probes", "latency_ms", "REAL")
+            _ensure_sqlite_column(c, "saas_users", "auth_provider", "TEXT DEFAULT 'local'")
+            _ensure_sqlite_column(c, "saas_users", "is_email_verified", "INTEGER DEFAULT 1")
+            _ensure_sqlite_column(c, "saas_users", "totp_secret", "TEXT")
+            _ensure_sqlite_column(c, "saas_users", "totp_enabled", "INTEGER DEFAULT 0")
+            _ensure_sqlite_column(c, "saas_users", "avatar_url", "TEXT")
 
 
 def _as_bool(v: Any) -> bool:
@@ -278,6 +285,9 @@ def create_saas_user(
     org_name: str,
     probe_api_key: str,
     now_iso: str,
+    auth_provider: str = "local",
+    is_email_verified: bool = True,
+    avatar_url: Optional[str] = None,
 ) -> dict:
     row = {
         "email": email.lower().strip(),
@@ -286,6 +296,11 @@ def create_saas_user(
         "org_slug": org_slug,
         "org_name": org_name.strip(),
         "probe_api_key": probe_api_key,
+        "auth_provider": auth_provider,
+        "is_email_verified": 1 if is_email_verified else 0,
+        "totp_secret": None,
+        "totp_enabled": 0,
+        "avatar_url": avatar_url or "",
         "created_at": now_iso,
     }
     if get_backend_mode() == "supabase":
@@ -294,8 +309,8 @@ def create_saas_user(
 
     with _sql_cursor() as (_, c, ph):
         c.execute(
-            f"INSERT INTO saas_users (email, password_hash, full_name, org_slug, org_name, probe_api_key, created_at) "
-            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph})",
+            f"INSERT INTO saas_users (email, password_hash, full_name, org_slug, org_name, probe_api_key, auth_provider, is_email_verified, totp_secret, totp_enabled, avatar_url, created_at) "
+            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})",
             (
                 row["email"],
                 row["password_hash"],
@@ -303,10 +318,78 @@ def create_saas_user(
                 row["org_slug"],
                 row["org_name"],
                 row["probe_api_key"],
+                row["auth_provider"],
+                row["is_email_verified"],
+                row["totp_secret"],
+                row["totp_enabled"],
+                row["avatar_url"],
                 row["created_at"],
             ),
         )
     return get_saas_user_by_email(row["email"]) or row
+
+
+def update_saas_user_totp(
+    email: str,
+    totp_secret: Optional[str],
+    totp_enabled: bool,
+) -> Optional[dict]:
+    em = email.lower().strip()
+    enabled_val = 1 if totp_enabled else 0
+    if get_backend_mode() == "supabase":
+        _sb().request("PATCH", "saas_users", f"email=eq.{urllib.parse.quote(em)}", {"totp_secret": totp_secret, "totp_enabled": enabled_val})
+        return get_saas_user_by_email(em)
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"UPDATE saas_users SET totp_secret = {ph}, totp_enabled = {ph} WHERE email = {ph}", (totp_secret, enabled_val, em))
+    return get_saas_user_by_email(em)
+
+
+def update_saas_user_password(
+    email: str,
+    password_hash: str,
+) -> Optional[dict]:
+    em = email.lower().strip()
+    if get_backend_mode() == "supabase":
+        _sb().request("PATCH", "saas_users", f"email=eq.{urllib.parse.quote(em)}", {"password_hash": password_hash})
+        return get_saas_user_by_email(em)
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"UPDATE saas_users SET password_hash = {ph} WHERE email = {ph}", (password_hash, em))
+    return get_saas_user_by_email(em)
+
+
+def update_saas_user_email_verified(
+    email: str,
+    is_verified: bool = True,
+) -> Optional[dict]:
+    em = email.lower().strip()
+    ver_val = 1 if is_verified else 0
+    if get_backend_mode() == "supabase":
+        _sb().request("PATCH", "saas_users", f"email=eq.{urllib.parse.quote(em)}", {"is_email_verified": ver_val})
+        return get_saas_user_by_email(em)
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"UPDATE saas_users SET is_email_verified = {ph} WHERE email = {ph}", (ver_val, em))
+    return get_saas_user_by_email(em)
+
+
+def update_saas_user_profile(
+    email: str,
+    full_name: Optional[str] = None,
+    org_name: Optional[str] = None,
+    avatar_url: Optional[str] = None,
+) -> Optional[dict]:
+    em = email.lower().strip()
+    cur = get_saas_user_by_email(em)
+    if not cur:
+        return None
+    new_fn = full_name.strip() if full_name is not None else cur.get("full_name") or ""
+    new_on = org_name.strip() if org_name is not None else cur.get("org_name") or ""
+    new_av = avatar_url.strip() if avatar_url is not None else cur.get("avatar_url") or ""
+    if get_backend_mode() == "supabase":
+        _sb().request("PATCH", "saas_users", f"email=eq.{urllib.parse.quote(em)}", {"full_name": new_fn, "org_name": new_on, "avatar_url": new_av})
+        return get_saas_user_by_email(em)
+    with _sql_cursor() as (_, c, ph):
+        c.execute(f"UPDATE saas_users SET full_name = {ph}, org_name = {ph}, avatar_url = {ph} WHERE email = {ph}", (new_fn, new_on, new_av, em))
+    return get_saas_user_by_email(em)
 
 
 def get_saas_user_by_email(email: str) -> Optional[dict]:

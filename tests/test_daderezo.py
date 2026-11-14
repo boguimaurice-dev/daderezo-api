@@ -1375,6 +1375,55 @@ class TestApiEndpoints(unittest.TestCase):
             else:
                 os.environ["DEEPSEEK_API_KEY"] = old_ds
 
+    def test_27_neon_podiums_and_specialized_agent_cockpits(self):
+        """v4.8: 6 Neon AI Podiums stage, dedicated CyberSec SOC, Network NOC & Diagnostic Cockpits with Monastery PAX branding."""
+        # 1. Vérification des assets visuels servis
+        for asset_url in (
+            "/banner-neon-modules.png",
+            "/banner-cyber-dash.png",
+            "/banner-network-dash.png",
+            "/monastery-bouake.png",
+        ):
+            res = self.client.get(asset_url)
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.headers.get("content-type"), "image/png")
+
+        # 2. Vérification de l'intégration dans l'interface UI
+        ui_html = self.client.get("/ui").text
+
+        # Présence des 6 Podiums Néon
+        self.assertIn("neon-podiums-stage", ui_html)
+        self.assertIn("01 · SENTINEL-SEC", ui_html)
+        self.assertIn("02 · TOPO-SCAN", ui_html)
+        self.assertIn("03 · DIAG-NET", ui_html)
+        self.assertIn("04 · NET-CONTROL", ui_html)
+        self.assertIn("05 · MEDIA-HUB", ui_html)
+        self.assertIn("SUPERVISEUR", ui_html)
+
+        # Présence de la carte Monastère Sainte Marie de Bouaké + PAX
+        self.assertIn("monastery-badge-card", ui_html)
+        self.assertIn("Monastère Sainte Marie de Bouaké", ui_html)
+        self.assertIn("PAX", ui_html)
+
+        # Cockpit Réseau NOC
+        self.assertIn("nocTrafficCanvas", ui_html)
+        self.assertIn("nocLatencyVal", ui_html)
+        self.assertIn("nocApplyPoliciesBtn", ui_html)
+        self.assertIn("svcDnsStatus", ui_html)
+        self.assertIn("svcFirewallStatus", ui_html)
+
+        # Cockpit Cybersécurité SOC (SENTINEL-SEC)
+        self.assertIn('id="cybersec"', ui_html)
+        self.assertIn("socBlockedVal", ui_html)
+        self.assertIn("socIntrusionsVal", ui_html)
+        self.assertIn("socThreatsCanvas", ui_html)
+        self.assertIn("CRITIQUE", ui_html)
+
+        # Cockpit Diagnostic (DIAG-NET)
+        self.assertIn('id="diag"', ui_html)
+        self.assertIn("diagOscilloCanvas", ui_html)
+        self.assertIn("generateIspTicketBtn", ui_html)
+
 
 if __name__ == "__main__":
     unittest.main()

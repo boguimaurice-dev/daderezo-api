@@ -844,6 +844,603 @@ tr[data-inspect]:hover td{
   border:1px solid var(--line-strong);background:var(--bg-card);color:var(--ink-strong);
   font:500 12.5px var(--sans);
 }
+
+/* =====================================================================
+   NOUVEAUX STYLES NÉON & COCKPITS DADEREZO (V4.8)
+   ===================================================================== */
+
+/* 1. CARTE MONASTÈRE SAINTE MARIE DE BOUAKÉ (SIDEBAR) */
+.monastery-badge-card {
+  margin: 10px 4px 14px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(8, 22, 56, 0.95), rgba(4, 12, 36, 0.98));
+  border: 1px solid rgba(0, 180, 255, 0.38);
+  box-shadow: 0 8px 24px rgba(0, 100, 255, 0.16);
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.monastery-badge-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 220, 255, 0.7);
+  box-shadow: 0 12px 30px rgba(0, 150, 255, 0.28);
+}
+.monastery-img-wrap {
+  position: relative;
+  width: 100%;
+  height: 92px;
+  overflow: hidden;
+  background: #02091c;
+}
+.monastery-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.monastery-status-dot {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981, 0 0 16px #10b981;
+}
+.monastery-info {
+  padding: 9px 12px 11px;
+  text-align: center;
+}
+.monastery-tag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font: 700 10px var(--mono);
+  color: #10b981;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 2px;
+}
+.monastery-title {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.3;
+}
+.monastery-pax-ribbon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 5px;
+  padding: 2px 14px;
+  background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.22), transparent);
+  border-top: 1px solid rgba(245, 158, 11, 0.45);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fcd34d;
+  font-family: serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: .25em;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+}
+
+/* 2. PODIUMS NÉON DES 6 AGENTS DADEREZO */
+.neon-podiums-stage {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 22px;
+  padding: 16px 14px 18px;
+  border-radius: 18px;
+  background:
+    radial-gradient(800px 180px at 50% 0%, rgba(0, 140, 255, 0.22), transparent 70%),
+    linear-gradient(180deg, rgba(8, 24, 60, 0.94), rgba(3, 12, 34, 0.98));
+  border: 1px solid rgba(0, 184, 255, 0.38);
+  box-shadow: 0 15px 40px rgba(0, 80, 220, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+.neon-podiums-stage::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #00d2ff, #0066ff, #00d2ff, transparent);
+  box-shadow: 0 0 16px #00d2ff;
+}
+.podium-card {
+  position: relative;
+  padding: 14px 8px 12px;
+  border-radius: 14px;
+  background: rgba(10, 28, 70, 0.55);
+  border: 1px solid rgba(0, 160, 255, 0.32);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  text-align: center;
+  cursor: pointer;
+  transition: all .22s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 142px;
+}
+.podium-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  border-color: #00d2ff;
+  box-shadow: 0 12px 28px rgba(0, 180, 255, 0.35), 0 0 20px rgba(0, 210, 255, 0.25);
+  background: rgba(14, 38, 92, 0.85);
+}
+.podium-card.active {
+  border-color: #00e5ff;
+  background: linear-gradient(180deg, rgba(0, 150, 255, 0.28), rgba(6, 24, 64, 0.9));
+  box-shadow: 0 0 25px rgba(0, 220, 255, 0.45), inset 0 0 15px rgba(0, 180, 255, 0.2);
+}
+.podium-card.active::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 14px;
+  padding: 1px;
+  background: linear-gradient(180deg, #00f0ff, transparent 60%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.podium-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin-bottom: 6px;
+  position: relative;
+  background: radial-gradient(circle, rgba(0, 180, 255, 0.25), rgba(4, 16, 48, 0.85));
+  border: 1px solid rgba(0, 200, 255, 0.4);
+  box-shadow: 0 0 15px rgba(0, 150, 255, 0.3);
+}
+.podium-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: .02em;
+  margin-bottom: 2px;
+}
+.podium-sub {
+  font-size: 10.5px;
+  color: var(--muted);
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+.podium-agent-pill {
+  font: 700 9px var(--mono);
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(0, 160, 255, 0.15);
+  border: 1px solid rgba(0, 180, 255, 0.3);
+  color: var(--cyan-ink);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+@media(max-width:1100px){
+  .neon-podiums-stage{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:680px){
+  .neon-podiums-stage{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* 3. COCKPIT RÉSEAU & NOC (IMAGE 1) */
+.noc-grid-top {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+@media(max-width:760px){.noc-grid-top{grid-template-columns:1fr}}
+
+.noc-kpi-card {
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(8, 24, 60, 0.92), rgba(4, 14, 38, 0.96));
+  border: 1px solid rgba(0, 150, 255, 0.28);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+.noc-kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.noc-kpi-label {
+  font-size: 13.5px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.noc-kpi-icon {
+  font-size: 22px;
+}
+.noc-kpi-val-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 8px 0 4px;
+}
+.noc-kpi-val {
+  font-size: 30px;
+  font-weight: 800;
+  color: #ffffff;
+  font-family: var(--sans);
+  letter-spacing: -.02em;
+}
+.noc-kpi-badge {
+  font: 700 11.5px var(--mono);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.noc-kpi-badge.up {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+}
+.noc-kpi-badge.down {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+}
+.noc-kpi-sparkline {
+  width: 100%;
+  height: 28px;
+  margin-top: 4px;
+}
+
+.noc-grid-mid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+@media(max-width:980px){.noc-grid-mid{grid-template-columns:1fr}}
+
+.noc-chart-card {
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(8, 24, 60, 0.92), rgba(4, 14, 38, 0.96));
+  border: 1px solid rgba(0, 150, 255, 0.28);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+}
+.noc-chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.noc-chart-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #ffffff;
+}
+.noc-time-pills {
+  display: flex;
+  gap: 3px;
+  background: rgba(4, 14, 36, 0.85);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 150, 255, 0.2);
+}
+.noc-time-btn {
+  padding: 3px 9px;
+  border-radius: 6px;
+  font: 700 11px var(--mono);
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.noc-time-btn.active {
+  background: #0077ff;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(0, 119, 255, 0.5);
+}
+.noc-chart-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.legend-dot-dl { color: #00aaff; }
+.legend-dot-ul { color: #ff9100; }
+
+.noc-ctrl-panel {
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(8, 24, 60, 0.92), rgba(4, 14, 38, 0.96));
+  border: 1px solid rgba(0, 150, 255, 0.28);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.noc-ctrl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 12px;
+}
+.noc-toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.12);
+}
+.noc-toggle-info {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.noc-toggle-icon {
+  font-size: 17px;
+  color: var(--cyan);
+}
+.noc-toggle-text b {
+  display: block;
+  font-size: 13px;
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+.noc-toggle-text span {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.noc-switch-input {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.noc-switch-input input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.noc-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #334155;
+  border-radius: 24px;
+  transition: .3s;
+}
+.noc-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: .3s;
+}
+.noc-switch-input input:checked + .noc-slider {
+  background-color: #0088ff;
+  box-shadow: 0 0 12px rgba(0, 136, 255, 0.6);
+}
+.noc-switch-input input:checked + .noc-slider:before {
+  transform: translateX(20px);
+}
+
+.noc-grid-bot {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+@media(max-width:980px){.noc-grid-bot{grid-template-columns:1fr}}
+
+.noc-bot-card {
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(8, 24, 60, 0.92), rgba(4, 14, 38, 0.96));
+  border: 1px solid rgba(0, 150, 255, 0.28);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+}
+.service-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.08);
+  font-size: 13px;
+}
+.service-item:last-child { border-bottom: none; }
+.service-status-ok {
+  color: #10b981;
+  font: 700 12px var(--mono);
+}
+
+.donut-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.recent-log-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.08);
+  font-size: 12.5px;
+}
+.recent-log-row:last-child { border-bottom: none; }
+
+/* 4. COCKPIT CYBERSÉCURITÉ & SOC (IMAGE 2) */
+.soc-grid-top {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+@media(max-width:980px){.soc-grid-top{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.soc-grid-top{grid-template-columns:1fr}}
+
+.soc-kpi-card {
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(8, 24, 60, 0.92), rgba(4, 14, 38, 0.96));
+  border: 1px solid rgba(0, 150, 255, 0.28);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+.soc-kpi-card.threats { border-color: rgba(239, 68, 68, 0.38); }
+.soc-kpi-card.blocked { border-color: rgba(16, 185, 129, 0.38); }
+.soc-kpi-card.traffic { border-color: rgba(0, 184, 255, 0.38); }
+
+.soc-grid-mid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+@media(max-width:980px){.soc-grid-mid{grid-template-columns:1fr}}
+
+.soc-map-card {
+  padding: 20px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(8, 24, 60, 0.92), rgba(4, 14, 38, 0.96));
+  border: 1px solid rgba(0, 150, 255, 0.28);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  position: relative;
+  min-height: 290px;
+  display: flex;
+  flex-direction: column;
+}
+.soc-threats-card {
+  padding: 20px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(8, 24, 60, 0.92), rgba(4, 14, 38, 0.96));
+  border: 1px solid rgba(0, 150, 255, 0.28);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+}
+.soc-threat-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.1);
+  font-size: 12.5px;
+}
+.soc-threat-time {
+  font: 700 11px var(--mono);
+  color: var(--muted);
+  min-width: 55px;
+}
+.soc-threat-desc b {
+  display: block;
+  color: #ffffff;
+  font-size: 12.5px;
+}
+.soc-threat-desc span {
+  display: block;
+  font: 11px var(--mono);
+  color: var(--muted);
+}
+.soc-badge {
+  font: 800 10px var(--mono);
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  flex-shrink: 0;
+}
+.soc-badge.crit {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+.soc-badge.high {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+.soc-badge.med {
+  background: rgba(234, 179, 8, 0.2);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.4);
+}
+.soc-badge.info {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.soc-grid-bot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+@media(max-width:880px){.soc-grid-bot{grid-template-columns:1fr}}
+
+.soc-log-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.08);
+  font-size: 12.5px;
+}
+
 </style>
 </head>
 <body>
@@ -857,6 +1454,20 @@ tr[data-inspect]:hover td{
     </div>
   </div>
 
+    <!-- WIDGET MONASTÈRE SAINTE MARIE DE BOUAKÉ (PAX) -->
+  <div class="monastery-badge-card" data-inspect="site-radiography" role="button" tabindex="0" title="Cliquer pour inspecter la radiographie du site">
+    <div class="monastery-img-wrap">
+      <img src="/monastery-bouake.png" alt="Monastère Sainte Marie de Bouaké" onerror="this.src='/logo-orbit.png'">
+      <div class="monastery-status-dot" title="Système opérationnel"></div>
+    </div>
+    <div class="monastery-info">
+      <span class="monastery-tag"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#10b981"></span> Système actif</span>
+      <b class="monastery-title" id="monasterySiteTitle">Monastère Sainte Marie de Bouaké</b>
+      <div class="monastery-pax-ribbon">
+        <span class="pax-star">✦</span> PAX <span class="pax-star">✦</span>
+      </div>
+    </div>
+  </div>
   <div class="site-card" data-inspect="site-radiography" role="button" tabindex="0" title="Cliquer pour ouvrir la radiographie approfondie du site">
     <div class="site-card-eyebrow" id="sidebarEyebrow">BANC DE SIMULATION</div>
     <b id="sidebarSite">Sainte Marie de Bouaké</b>
@@ -869,32 +1480,39 @@ tr[data-inspect]:hover td{
       <span class="nav-left"><span class="nav-idx">←</span><span class="nav-label">Accueil SaaS & Démo</span></span>
     </a>
     <button class="active" data-view="overview" type="button">
-      <span class="nav-left"><span class="nav-idx">01</span><span class="nav-label">Commandement IA</span></span>
+      <span class="nav-left"><span class="nav-idx">🏠</span><span class="nav-label">Tableau de bord</span></span>
     </button>
-    <button id="navSupervisorBtn" type="button" data-focus-supervisor="1">
-      <span class="nav-left"><span class="nav-idx">🎙</span><span class="nav-label">Parler à l’Agent</span></span>
+    <button data-view="cybersec" type="button">
+      <span class="nav-left"><span class="nav-idx">🛡️</span><span class="nav-label">Sécurité (SENTINEL)</span></span>
+      <span class="nav-badge" id="navSecBadge" style="background:rgba(239,68,68,.2);color:#ef4444;border:1px solid rgba(239,68,68,.4)">SOC</span>
     </button>
     <button data-view="equipment" type="button">
-      <span class="nav-left"><span class="nav-idx">02</span><span class="nav-label">Contrôle Internet & LAN</span></span>
+      <span class="nav-left"><span class="nav-idx">🎛️</span><span class="nav-label">Contrôle Accès (NET)</span></span>
       <span class="nav-badge" id="navEquipCount">0</span>
     </button>
+    <button data-view="diag" type="button">
+      <span class="nav-left"><span class="nav-idx">🔍</span><span class="nav-label">Diagnostic & FAI</span></span>
+    </button>
     <button data-view="boxes" type="button">
-      <span class="nav-left"><span class="nav-idx">03</span><span class="nav-label">Box & Optimisation</span></span>
+      <span class="nav-left"><span class="nav-idx">⚡</span><span class="nav-label">Multi-Box & Wi-Fi</span></span>
       <span class="nav-badge" id="navBoxCount">0</span>
     </button>
     <button data-view="media" type="button">
-      <span class="nav-left"><span class="nav-idx">04</span><span class="nav-label">Fichiers & Multimédias</span></span>
+      <span class="nav-left"><span class="nav-idx">🎬</span><span class="nav-label">Média-Hub (Local)</span></span>
       <span class="nav-badge" id="navMediaCount">0</span>
     </button>
     <button data-view="alerts" type="button">
-      <span class="nav-left"><span class="nav-idx">05</span><span class="nav-label">Preuves & Audit IA</span></span>
+      <span class="nav-left"><span class="nav-idx">📋</span><span class="nav-label">Journaux & Preuves</span></span>
       <span class="nav-badge" id="navAlertCount">0</span>
     </button>
+    <button id="navSupervisorBtn" type="button" data-focus-supervisor="1">
+      <span class="nav-left"><span class="nav-idx">🎙</span><span class="nav-label">Orchestrateur Vocal</span></span>
+    </button>
     <button data-view="testlab" type="button" data-sim-only>
-      <span class="nav-left"><span class="nav-idx">06</span><span class="nav-label">Red Team & Lab (Démo)</span></span>
+      <span class="nav-left"><span class="nav-idx">🧪</span><span class="nav-label">Red Team Lab</span></span>
     </button>
     <button data-view="config" type="button">
-      <span class="nav-left"><span class="nav-idx" id="navConfigIdx">07</span><span class="nav-label">Ma Sonde &amp; IA DeepSeek</span></span>
+      <span class="nav-left"><span class="nav-idx" id="navConfigIdx">⚙️</span><span class="nav-label">Paramètres & Sonde</span></span>
     </button>
   </nav>
 
@@ -944,6 +1562,48 @@ tr[data-inspect]:hover td{
   <!-- =====================================================================
        01 · COMMANDEMENT IA & VUE D'ENSEMBLE
        ===================================================================== -->
+    <!-- =====================================================================
+       PODIUMS NÉON HOLOGRAPHIQUES DES 6 AGENTS DADEREZO (MODULES STAGE)
+       ===================================================================== -->
+  <div class="neon-podiums-stage" aria-label="Les 6 Agents et Modules Spécialisés Daderezo">
+    <div class="podium-card active" data-view="overview" data-agent="TOPO-SCAN" role="button" tabindex="0" title="Cockpit Réseau & Superviseur">
+      <div class="podium-icon" style="color:#00b8ff">🌐</div>
+      <div class="podium-title">Réseau</div>
+      <div class="podium-sub">Connecter et optimiser</div>
+      <div class="podium-agent-pill">02 · TOPO-SCAN</div>
+    </div>
+    <div class="podium-card" data-view="cybersec" data-agent="SENTINEL-SEC" role="button" tabindex="0" title="Cockpit Cybersécurité & SOC">
+      <div class="podium-icon" style="color:#10b981">🛡️</div>
+      <div class="podium-title">Sécurité</div>
+      <div class="podium-sub">Protéger vos systèmes</div>
+      <div class="podium-agent-pill">01 · SENTINEL-SEC</div>
+    </div>
+    <div class="podium-card" data-view="diag" data-agent="DIAG-NET" role="button" tabindex="0" title="Cockpit Diagnostic & FAI">
+      <div class="podium-icon" style="color:#38bdf8">🔍</div>
+      <div class="podium-title">Diagnostic</div>
+      <div class="podium-sub">Analyser et résoudre</div>
+      <div class="podium-agent-pill">03 · DIAG-NET</div>
+    </div>
+    <div class="podium-card" data-view="equipment" data-agent="NET-CONTROL" role="button" tabindex="0" title="Cockpit Contrôle Internet 3 Niveaux">
+      <div class="podium-icon" style="color:#a855f7">🎛️</div>
+      <div class="podium-title">Contrôle</div>
+      <div class="podium-sub">Piloter et automatiser</div>
+      <div class="podium-agent-pill">04 · NET-CONTROL</div>
+    </div>
+    <div class="podium-card" data-view="media" data-agent="MEDIA-HUB" role="button" tabindex="0" title="Cockpit Média-Hub LAN & Cloud">
+      <div class="podium-icon" style="color:#f59e0b">🎬</div>
+      <div class="podium-title">Média-Hub</div>
+      <div class="podium-sub">Partager et diffuser</div>
+      <div class="podium-agent-pill">05 · MEDIA-HUB</div>
+    </div>
+    <div class="podium-card" data-view="overview" data-focus-supervisor="1" data-agent="SUPERVISEUR" role="button" tabindex="0" title="Superviseur Général IA Vocal & Écrit">
+      <div class="podium-icon" style="color:#00e5ff">🤖</div>
+      <div class="podium-title">Agent IA</div>
+      <div class="podium-sub">Assister intelligemment</div>
+      <div class="podium-agent-pill">SUPERVISEUR</div>
+    </div>
+  </div>
+
   <section class="view active" id="overview">
     <div class="heading">
       <div>
@@ -952,6 +1612,204 @@ tr[data-inspect]:hover td{
         <p id="overviewSub">Orchestration multi-agents en temps réel : inventaire LAN, accès Internet effectif, sécurité MAC et diagnostic FAI.</p>
       </div>
       <div class="date" id="lastSeenLabel" data-inspect="probe-health" role="button" tabindex="0" title="Cliquer pour inspecter la fraîcheur de collecte et le cycle de la sonde">En attente de collecte</div>
+    </div>
+
+        <!-- =====================================================================
+         COCKPIT RÉSEAU TEMPS RÉEL · NOC DADEREZO (IMAGE 1)
+         ===================================================================== -->
+    <div class="noc-grid-top">
+      <div class="noc-kpi-card" data-inspect="probe-health" role="button" tabindex="0" title="Cliquer pour inspecter la latence locale et WAN">
+        <div class="noc-kpi-head">
+          <span class="noc-kpi-label">Latence Moyenne</span>
+          <span class="noc-kpi-icon" style="color:var(--cyan)">⏱️</span>
+        </div>
+        <div class="noc-kpi-val-row">
+          <span class="noc-kpi-val" id="nocLatencyVal">1.0 ms</span>
+          <span class="noc-kpi-badge down">▼ -20%</span>
+        </div>
+        <svg class="noc-kpi-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
+          <path d="M0,18 Q20,10 40,16 T80,8 T100,6" fill="none" stroke="#00d2ff" stroke-width="2.5" />
+        </svg>
+      </div>
+
+      <div class="noc-kpi-card" data-inspect="kpi-health" role="button" tabindex="0" title="Cliquer pour inspecter la disponibilité">
+        <div class="noc-kpi-head">
+          <span class="noc-kpi-label">Disponibilité</span>
+          <span class="noc-kpi-icon" style="color:#10b981">✓</span>
+        </div>
+        <div class="noc-kpi-val-row">
+          <span class="noc-kpi-val" id="nocUptimeVal">99.9%</span>
+          <span class="noc-kpi-badge up">▲ +0.1%</span>
+        </div>
+        <svg class="noc-kpi-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
+          <path d="M0,20 Q25,12 50,15 T85,8 T100,5" fill="none" stroke="#10b981" stroke-width="2.5" />
+        </svg>
+      </div>
+
+      <div class="noc-kpi-card" data-inspect="kpi-matrix" role="button" tabindex="0" title="Cliquer pour voir tous les utilisateurs et équipements">
+        <div class="noc-kpi-head">
+          <span class="noc-kpi-label">Utilisateurs Connectés</span>
+          <span class="noc-kpi-icon" style="color:#0088ff">👥</span>
+        </div>
+        <div class="noc-kpi-val-row">
+          <span class="noc-kpi-val" id="nocUsersVal">243</span>
+          <span class="noc-kpi-badge up">▲ +12%</span>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:24px;margin-top:4px">
+          <div style="flex:1;background:rgba(0,136,255,.3);height:30%;border-radius:2px"></div>
+          <div style="flex:1;background:rgba(0,136,255,.45);height:55%;border-radius:2px"></div>
+          <div style="flex:1;background:rgba(0,136,255,.6);height:40%;border-radius:2px"></div>
+          <div style="flex:1;background:rgba(0,136,255,.75);height:75%;border-radius:2px"></div>
+          <div style="flex:1;background:rgba(0,136,255,.9);height:60%;border-radius:2px"></div>
+          <div style="flex:1;background:#00d2ff;height:95%;border-radius:2px"></div>
+          <div style="flex:1;background:#00e5ff;height:100%;border-radius:2px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION CENTRALE : TRAFIC RÉSEAU LIVE + CONTRÔLE INTERNET -->
+    <div class="noc-grid-mid">
+      <div class="noc-chart-card">
+        <div class="noc-chart-head">
+          <div class="noc-chart-title">
+            <span style="color:#00aaff">📊</span>
+            <span>Trafic Réseau en Temps Réel</span>
+          </div>
+          <div class="noc-time-pills">
+            <button class="noc-time-btn active" type="button" data-noc-range="1h">1h</button>
+            <button class="noc-time-btn" type="button" data-noc-range="6h">6h</button>
+            <button class="noc-time-btn" type="button" data-noc-range="24h">24h</button>
+            <button class="noc-time-btn" type="button" data-noc-range="7j">7j</button>
+          </div>
+        </div>
+        <div class="noc-chart-legend">
+          <span class="legend-dot-dl">● Téléchargement (Download)</span>
+          <span class="legend-dot-ul">● Téléversement (Upload)</span>
+        </div>
+        <div style="position:relative;width:100%;height:180px">
+          <canvas id="nocTrafficCanvas" width="600" height="180" style="width:100%;height:100%;display:block"></canvas>
+        </div>
+      </div>
+
+      <div class="noc-ctrl-panel">
+        <div>
+          <div class="noc-ctrl-head">
+            <span style="color:var(--cyan)">🛡️</span>
+            <span>Contrôle Internet</span>
+          </div>
+
+          <div class="noc-toggle-item">
+            <div class="noc-toggle-info">
+              <span class="noc-toggle-icon">🌐</span>
+              <div class="noc-toggle-text">
+                <b>Restriction Internet</b>
+                <span>Bloquer ou autoriser l’accès à Internet selon vos règles.</span>
+              </div>
+            </div>
+            <label class="noc-switch-input">
+              <input type="checkbox" id="nocToggleRestriction" checked>
+              <span class="noc-slider"></span>
+            </label>
+          </div>
+
+          <div class="noc-toggle-item">
+            <div class="noc-toggle-info">
+              <span class="noc-toggle-icon">🌪️</span>
+              <div class="noc-toggle-text">
+                <b>Filtrage par catégorie</b>
+                <span>Bloquer les sites inappropriés (adultes, jeux, réseaux).</span>
+              </div>
+            </div>
+            <label class="noc-switch-input">
+              <input type="checkbox" id="nocToggleCategory">
+              <span class="noc-slider"></span>
+            </label>
+          </div>
+
+          <div class="noc-toggle-item">
+            <div class="noc-toggle-info">
+              <span class="noc-toggle-icon">🕒</span>
+              <div class="noc-toggle-text">
+                <b>Planification</b>
+                <span>Activer les règles selon un horaire défini.</span>
+              </div>
+            </div>
+            <label class="noc-switch-input">
+              <input type="checkbox" id="nocToggleSchedule" checked>
+              <span class="noc-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <button class="btn" id="nocApplyPoliciesBtn" type="button" style="margin-top:14px;width:100%;min-height:38px;background:#0077ff">
+          ✓ Appliquer les paramètres
+        </button>
+      </div>
+    </div>
+
+    <!-- SECTION INFÉRIEURE : ÉTAT DES SERVICES + APPAREILS + JOURNAUX -->
+    <div class="noc-grid-bot">
+      <div class="noc-bot-card">
+        <h3 style="margin:0 0 12px;font-size:14.5px;color:#ffffff;display:flex;align-items:center;gap:8px">
+          <span style="color:var(--cyan)">🖧</span> État des Services
+        </h3>
+        <div class="service-item">
+          <span>🟢 DNS</span>
+          <span class="service-status-ok" id="svcDnsStatus">Opérationnel</span>
+        </div>
+        <div class="service-item">
+          <span>🟢 DHCP</span>
+          <span class="service-status-ok" id="svcDhcpStatus">Opérationnel</span>
+        </div>
+        <div class="service-item">
+          <span>🟢 Pare-feu</span>
+          <span class="service-status-ok" id="svcFirewallStatus">Opérationnel</span>
+        </div>
+        <div class="service-item">
+          <span>🟢 VPN</span>
+          <span class="service-status-ok" id="svcVpnStatus">Opérationnel</span>
+        </div>
+      </div>
+
+      <div class="noc-bot-card">
+        <h3 style="margin:0 0 8px;font-size:14.5px;color:#ffffff;display:flex;align-items:center;gap:8px">
+          <span style="color:#00d2ff">💻</span> Appareils Connectés
+        </h3>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px"><b style="color:#ffffff;font-size:16px" id="nocDevicesOnlineCount">243</b> en ligne</div>
+        <div class="donut-container">
+          <svg width="84" height="84" viewBox="0 0 36 36">
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#0077ff" stroke-width="4.5" stroke-dasharray="45, 100" />
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#00d2ff" stroke-width="4.5" stroke-dasharray="40, 100" stroke-dashoffset="-45" />
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" stroke-width="4.5" stroke-dasharray="15, 100" stroke-dashoffset="-85" />
+          </svg>
+          <div class="donut-legend">
+            <div class="donut-legend-item"><span style="color:#0077ff">●</span> PC <b style="margin-left:auto;color:#fff">45%</b></div>
+            <div class="donut-legend-item"><span style="color:#00d2ff">●</span> Mobiles <b style="margin-left:auto;color:#fff">40%</b></div>
+            <div class="donut-legend-item"><span style="color:#10b981">●</span> Autres <b style="margin-left:auto;color:#fff">15%</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="noc-bot-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14.5px;color:#ffffff;display:flex;align-items:center;gap:8px">
+            <span style="color:var(--cyan)">📄</span> Journaux Récents
+          </h3>
+          <button class="btn secondary" type="button" style="padding:2px 8px;font-size:11px" onclick="document.querySelector('[data-view=\'alerts\']').click()">Voir tout →</button>
+        </div>
+        <div class="recent-log-row">
+          <span>🟢 Accès autorisé – Bureau</span>
+          <span style="font:600 11px var(--mono);color:var(--muted)">16:44</span>
+        </div>
+        <div class="recent-log-row">
+          <span>🔴 Tentative bloquée – Site adulte</span>
+          <span style="font:600 11px var(--mono);color:var(--muted)">16:42</span>
+        </div>
+        <div class="recent-log-row">
+          <span>🔵 Connexion VPN établie</span>
+          <span style="font:600 11px var(--mono);color:var(--muted)">16:40</span>
+        </div>
+      </div>
     </div>
 
     <!-- ASSISTANT DE MISE EN SERVICE RÉELLE (AFFICHÉ UNIQUEMENT EN MODE TRAVAIL QUAND 0 SONDE CONNECTÉE) -->
@@ -1291,6 +2149,229 @@ tr[data-inspect]:hover td{
   <!-- =====================================================================
        02 · CONTRÔLE INTERNET GRANULAIRE (3 NIVEAUX) & MATRICE LAN/WAN
        ===================================================================== -->
+    <!-- =====================================================================
+       COCKPIT CYBERSÉCURITÉ & SOC · AGENT 01 SENTINEL-SEC (IMAGE 2)
+       ===================================================================== -->
+  <section class="view" id="cybersec">
+    <div class="heading">
+      <div>
+        <div class="eyebrow" style="color:#10b981">01 · CYBERSÉCURITÉ · SOC DADEREZO · SENTINEL-SEC</div>
+        <h1>Tableau de Sécurité & Défense Active</h1>
+        <p>Surveillance des menaces en temps réel, cartographie des flux chiffrés AES-256 et isolation SaaS stricte.</p>
+      </div>
+      <div class="date" style="color:var(--cyan-ink)">🟢 SOC En Veille Active · AES-256 / TLS 1.3</div>
+    </div>
+
+    <!-- 4 KPIS CYBERSÉCURITÉ DU HAUT -->
+    <div class="soc-grid-top">
+      <div class="soc-kpi-card blocked" data-inspect="security-mac-audit" role="button" tabindex="0">
+        <div class="noc-kpi-head">
+          <span class="noc-kpi-label">Menaces Bloquées</span>
+          <span class="noc-kpi-icon" style="color:#10b981">🛡️</span>
+        </div>
+        <div class="noc-kpi-val-row">
+          <span class="noc-kpi-val" id="socBlockedVal">8 742</span>
+          <span class="noc-kpi-badge up">▲ +12%</span>
+        </div>
+        <svg class="noc-kpi-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
+          <path d="M0,18 Q20,12 45,15 T80,6 T100,4" fill="none" stroke="#10b981" stroke-width="2.5" />
+        </svg>
+      </div>
+
+      <div class="soc-kpi-card threats" data-inspect="security-mac-audit" role="button" tabindex="0">
+        <div class="noc-kpi-head">
+          <span class="noc-kpi-label">Tentatives d’Intrusion</span>
+          <span class="noc-kpi-icon" style="color:#ef4444">☣️</span>
+        </div>
+        <div class="noc-kpi-val-row">
+          <span class="noc-kpi-val" id="socIntrusionsVal" style="color:#ef4444">237</span>
+          <span class="noc-kpi-badge" style="background:rgba(239,68,68,.18);color:#ef4444">▲ +8%</span>
+        </div>
+        <svg class="noc-kpi-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
+          <path d="M0,14 Q25,20 50,10 T80,16 T100,12" fill="none" stroke="#ef4444" stroke-width="2.5" />
+        </svg>
+      </div>
+
+      <div class="soc-kpi-card traffic" data-inspect="kpi-wan" role="button" tabindex="0">
+        <div class="noc-kpi-head">
+          <span class="noc-kpi-label">Trafic Sécurisé</span>
+          <span class="noc-kpi-icon" style="color:#00d2ff">🌐</span>
+        </div>
+        <div class="noc-kpi-val-row">
+          <span class="noc-kpi-val" id="socTrafficVal">1.2 Tb</span>
+          <span class="noc-kpi-badge up">▲ +18%</span>
+        </div>
+        <svg class="noc-kpi-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
+          <path d="M0,19 Q30,8 60,14 T100,5" fill="none" stroke="#00d2ff" stroke-width="2.5" />
+        </svg>
+      </div>
+
+      <div class="soc-kpi-card" data-inspect="kpi-health" role="button" tabindex="0">
+        <div class="noc-kpi-head">
+          <span class="noc-kpi-label">Disponibilité</span>
+          <span class="noc-kpi-icon" style="color:#10b981">⏱️</span>
+        </div>
+        <div class="noc-kpi-val-row">
+          <span class="noc-kpi-val">99.9%</span>
+          <span class="noc-kpi-badge up">▲ +0.1%</span>
+        </div>
+        <svg class="noc-kpi-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
+          <path d="M0,20 Q30,12 60,16 T100,6" fill="none" stroke="#10b981" stroke-width="2.5" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- SECTION CENTRALE CYBER : CARTE MONDIALE DU FLUX CHIFFRÉ + MENACES TEMPS RÉEL -->
+    <div class="soc-grid-mid">
+      <div class="soc-map-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;color:#ffffff">
+            <span style="color:#00d2ff">🔒</span> Flux de Données Chiffrées
+          </div>
+          <span class="pill-status ok" style="font-size:11px;font-family:var(--mono)">🟢 AES-256 • TLS 1.3</span>
+        </div>
+        <div style="position:relative;flex:1;min-height:200px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(0,80,180,.2), transparent 70%)">
+          <!-- CARTE MONDIALE CYBER VECTEUR INTERACTIVE -->
+          <svg viewBox="0 0 800 360" style="width:100%;height:100%;max-height:240px">
+            <defs>
+              <linearGradient id="cyberArcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#0066ff" stop-opacity="0.2"/>
+                <stop offset="50%" stop-color="#00e5ff" stop-opacity="0.9"/>
+                <stop offset="100%" stop-color="#0066ff" stop-opacity="0.2"/>
+              </linearGradient>
+            </defs>
+            <!-- Lignes de continents simplifiées néon -->
+            <path d="M120,90 Q170,80 220,110 T250,180 T190,260 T140,220 Z" fill="rgba(0,119,255,0.06)" stroke="rgba(0,184,255,0.2)" stroke-width="1.2"/>
+            <path d="M380,70 Q460,60 520,100 T580,160 T500,240 T420,180 Z" fill="rgba(0,119,255,0.06)" stroke="rgba(0,184,255,0.2)" stroke-width="1.2"/>
+            <path d="M380,170 Q440,160 460,220 T440,320 T370,280 T360,200 Z" fill="rgba(0,119,255,0.06)" stroke="rgba(0,184,255,0.25)" stroke-width="1.2"/>
+            <!-- Arcs cyber animés -->
+            <path d="M180,120 Q380,40 400,220" fill="none" stroke="url(#cyberArcGrad)" stroke-width="2" stroke-dasharray="6,4"/>
+            <path d="M520,120 Q440,140 400,220" fill="none" stroke="url(#cyberArcGrad)" stroke-width="2" stroke-dasharray="6,4"/>
+            <path d="M620,200 Q480,210 400,220" fill="none" stroke="url(#cyberArcGrad)" stroke-width="2" stroke-dasharray="6,4"/>
+            <path d="M220,220 Q320,240 400,220" fill="none" stroke="url(#cyberArcGrad)" stroke-width="2" stroke-dasharray="6,4"/>
+            <!-- Bouclier Central Bouaké -->
+            <circle cx="400" cy="220" r="32" fill="rgba(0,24,60,0.85)" stroke="#10b981" stroke-width="2" />
+            <circle cx="400" cy="220" r="40" fill="none" stroke="rgba(16,185,129,0.35)" stroke-width="1" stroke-dasharray="4,4" />
+            <text x="400" y="226" font-size="20" text-anchor="middle" fill="#10b981">🛡️</text>
+            <text x="400" y="270" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle" fill="#00d2ff">BOUAKÉ NODE</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="soc-threats-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;color:#ffffff">
+            <span style="color:#ef4444">⚠️</span> Menaces en Temps Réel
+          </div>
+          <span style="background:#ef4444;color:#fff;font:800 11px var(--mono);padding:2px 7px;border-radius:12px">3</span>
+        </div>
+
+        <div class="soc-threat-item">
+          <span class="soc-threat-time">16:49:28</span>
+          <div class="soc-threat-desc">
+            <b>Tentative d’intrusion (Brute Force)</b>
+            <span>IP: 185.199.110.24 — Bloquée</span>
+          </div>
+          <span class="soc-badge crit">CRITIQUE</span>
+        </div>
+
+        <div class="soc-threat-item">
+          <span class="soc-threat-time">16:48:57</span>
+          <div class="soc-threat-desc">
+            <b>Malware détecté (Trojan.Win32)</b>
+            <span>Fichier: setup.exe — Quarantaine</span>
+          </div>
+          <span class="soc-badge high">ÉLEVÉ</span>
+        </div>
+
+        <div class="soc-threat-item">
+          <span class="soc-threat-time">16:47:22</span>
+          <div class="soc-threat-desc">
+            <b>Scan de ports suspect</b>
+            <span>IP: 203.0.113.45 — Bloquée</span>
+          </div>
+          <span class="soc-badge med">MOYEN</span>
+        </div>
+
+        <div class="soc-threat-item">
+          <span class="soc-threat-time">16:45:10</span>
+          <div class="soc-threat-desc">
+            <b>Accès non autorisé</b>
+            <span>Utilisateur: inconnu — Bloqué</span>
+          </div>
+          <span class="soc-badge info">INFO</span>
+        </div>
+
+        <div class="soc-threat-item">
+          <span class="soc-threat-time">16:43:35</span>
+          <div class="soc-threat-desc">
+            <b>Détection d’anomalie réseau</b>
+            <span>Source: 10.0.0.98 — Analysée</span>
+          </div>
+          <span class="soc-badge info">INFO</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION INFÉRIEURE SOC : JOURNAUX D'ACTIVITÉ + ANALYSE MENACES (GRAPHE) -->
+    <div class="soc-grid-bot">
+      <div class="noc-bot-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <h3 style="margin:0;font-size:15px;color:#ffffff;display:flex;align-items:center;gap:8px">
+            <span style="color:var(--cyan)">📄</span> Journaux d’Activité Sécurisée
+          </h3>
+          <button class="btn secondary" type="button" style="padding:2px 8px;font-size:11px" onclick="document.querySelector('[data-view=\'alerts\']').click()">Voir tout →</button>
+        </div>
+        <div class="soc-log-item">
+          <span style="font:600 11px var(--mono);color:var(--muted)">16:50:12</span>
+          <span>Connexion VPN établie – Utilisateur: admin</span>
+          <span class="soc-badge info">INFO</span>
+        </div>
+        <div class="soc-log-item">
+          <span style="font:600 11px var(--mono);color:var(--muted)">16:49:55</span>
+          <span>Règle pare-feu appliquée: Blocage pays à risque</span>
+          <span class="soc-badge info">INFO</span>
+        </div>
+        <div class="soc-log-item">
+          <span style="font:600 11px var(--mono);color:var(--muted)">16:49:28</span>
+          <span>Adresse malveillante bloquée: 185.199.110.24</span>
+          <span class="soc-badge crit">ALERTE</span>
+        </div>
+        <div class="soc-log-item">
+          <span style="font:600 11px var(--mono);color:var(--muted)">16:48:51</span>
+          <span>Sauvegarde des logs effectuée</span>
+          <span class="soc-badge info">INFO</span>
+        </div>
+        <div class="soc-log-item">
+          <span style="font:600 11px var(--mono);color:var(--muted)">16:47:22</span>
+          <span>Tentative d’accès SSH bloquée</span>
+          <span class="soc-badge crit">ALERTE</span>
+        </div>
+        <div class="soc-log-item">
+          <span style="font:600 11px var(--mono);color:var(--muted)">16:45:10</span>
+          <span>Mise à jour des signatures de sécurité</span>
+          <span class="soc-badge info">INFO</span>
+        </div>
+      </div>
+
+      <div class="noc-bot-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <h3 style="margin:0;font-size:15px;color:#ffffff;display:flex;align-items:center;gap:8px">
+            <span style="color:#00d2ff">📊</span> Analyse des Menaces
+          </h3>
+          <span style="font:600 11px var(--mono);color:var(--muted)">Dernière 1 heure ▾</span>
+        </div>
+        <div style="display:flex;gap:16px;font-size:12px;margin-bottom:8px">
+          <span style="color:#00aaff">● Tentatives</span>
+          <span style="color:#10b981">● Bloquées</span>
+        </div>
+        <div style="position:relative;width:100%;height:180px">
+          <canvas id="socThreatsCanvas" width="500" height="180" style="width:100%;height:100%;display:block"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="view" id="equipment">
     <div class="heading">
       <div>
@@ -1365,7 +2446,51 @@ tr[data-inspect]:hover td{
         </table>
       </div>
     </div>
+    <!-- =====================================================================
+       COCKPIT DIAGNOSTIC & CORRÉLATION FAI · AGENT 03 DIAG-NET
+       ===================================================================== -->
+  <section class="view" id="diag">
+    <div class="heading">
+      <div>
+        <div class="eyebrow" style="color:var(--cyan-ink)">03 · CORRÉLATION &amp; MESURES · DIAG-NET</div>
+        <h1>Diagnostic Réseau, FAI &amp; Oscillogramme</h1>
+        <p>Analyse de la latence WAN vs LAN, localisation instantanée des goulets d'étranglement et génération de tickets SAV opérateur.</p>
+      </div>
+      <button class="btn" id="generateIspTicketBtn" type="button">📋 Rédiger le Ticket Opérateur FAI</button>
+    </div>
+
+    <div class="noc-grid-top">
+      <div class="noc-kpi-card" data-inspect="kpi-wan" role="button" tabindex="0">
+        <div class="noc-kpi-head"><span class="noc-kpi-label">Latence WAN (Internet 1.1.1.1)</span><span class="noc-kpi-icon">⚡</span></div>
+        <div class="noc-kpi-val-row"><span class="noc-kpi-val" id="diagWanLat">18.4 ms</span><span class="noc-kpi-badge up">Stable</span></div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:4px">Temps d'aller-retour vers le premier saut opérateur.</div>
+      </div>
+      <div class="noc-kpi-card" data-inspect="gateway-box" role="button" tabindex="0">
+        <div class="noc-kpi-head"><span class="noc-kpi-label">Latence LAN (Box Locale)</span><span class="noc-kpi-icon">🏠</span></div>
+        <div class="noc-kpi-val-row"><span class="noc-kpi-val" id="diagLanLat">1.0 ms</span><span class="noc-kpi-badge up">Optimal</span></div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:4px">Liaison Wi-Fi / Ethernet vers la passerelle.</div>
+      </div>
+      <div class="noc-kpi-card" data-inspect="kpi-health" role="button" tabindex="0">
+        <div class="noc-kpi-head"><span class="noc-kpi-label">Gigue &amp; Perte de Paquets</span><span class="noc-kpi-icon">📈</span></div>
+        <div class="noc-kpi-val-row"><span class="noc-kpi-val">0.0 %</span><span class="noc-kpi-badge up">0 ms gigue</span></div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:4px">Zéro paquet perdu sur les 100 dernières sondes.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Oscillogramme Comparatif Temps Réel (LAN vs WAN)</h2>
+          <p>Distingue instantanément une panne de votre opérateur FAI d'une perturbation Wi-Fi locale.</p>
+        </div>
+      </div>
+      <div style="position:relative;width:100%;height:220px;padding:12px;background:var(--bg-well);border-radius:12px">
+        <canvas id="diagOscilloCanvas" width="800" height="200" style="width:100%;height:100%;display:block"></canvas>
+      </div>
+    </div>
   </section>
+
+</section>
 
   <!-- =====================================================================
        03 · CONFIGURATION & OPTIMISATION DE TOUTES LES BOX DE CONNEXION
@@ -5170,6 +6295,241 @@ document.addEventListener('keydown', (e) => {
     trigger.getAttribute('data-inspect-target') || ''
   );
 });
+
+// =====================================================================
+// CANVAS RENDERING & INTERACTIVE CHARTS FOR COCKPITS (v4.8)
+// =====================================================================
+function drawNocTrafficChart() {
+  const cvs = document.getElementById('nocTrafficCanvas');
+  if (!cvs) return;
+  const ctx = cvs.getContext('2d');
+  const w = cvs.width;
+  const h = cvs.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(96, 165, 250, 0.12)';
+  ctx.lineWidth = 1;
+  for (let y = 30; y < h; y += 45) {
+    ctx.beginPath();
+    ctx.moveTo(40, y);
+    ctx.lineTo(w - 10, y);
+    ctx.stroke();
+  }
+
+  // Y Axis Labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px monospace';
+  ctx.fillText('150 Mb/s', 0, 34);
+  ctx.fillText('100 Mb/s', 0, 79);
+  ctx.fillText('50 Mb/s', 5, 124);
+  ctx.fillText('0 Mb/s', 12, 169);
+
+  // Draw Download wave (Blue #00aaff)
+  const dlPoints = [75, 95, 70, 115, 80, 100, 75, 110, 85, 70, 95, 105];
+  const step = (w - 60) / (dlPoints.length - 1);
+
+  ctx.beginPath();
+  ctx.moveTo(50, h - (dlPoints[0] * 1.05));
+  for (let i = 1; i < dlPoints.length; i++) {
+    const x = 50 + i * step;
+    const y = h - (dlPoints[i] * 1.05);
+    ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = '#00aaff';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Gradient fill for Download
+  ctx.lineTo(50 + (dlPoints.length - 1) * step, h - 15);
+  ctx.lineTo(50, h - 15);
+  ctx.closePath();
+  const dlGrad = ctx.createLinearGradient(0, 0, 0, h);
+  dlGrad.addColorStop(0, 'rgba(0, 170, 255, 0.28)');
+  dlGrad.addColorStop(1, 'rgba(0, 170, 255, 0.0)');
+  ctx.fillStyle = dlGrad;
+  ctx.fill();
+
+  // Draw Upload wave (Orange #ff9100)
+  const ulPoints = [25, 35, 28, 42, 22, 38, 30, 25, 36, 22, 32, 40];
+  ctx.beginPath();
+  ctx.moveTo(50, h - (ulPoints[0] * 1.05));
+  for (let i = 1; i < ulPoints.length; i++) {
+    const x = 50 + i * step;
+    const y = h - (ulPoints[i] * 1.05);
+    ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = '#ff9100';
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+
+  // Gradient fill for Upload
+  ctx.lineTo(50 + (ulPoints.length - 1) * step, h - 15);
+  ctx.lineTo(50, h - 15);
+  ctx.closePath();
+  const ulGrad = ctx.createLinearGradient(0, 0, 0, h);
+  ulGrad.addColorStop(0, 'rgba(255, 145, 0, 0.22)');
+  ulGrad.addColorStop(1, 'rgba(255, 145, 0, 0.0)');
+  ctx.fillStyle = ulGrad;
+  ctx.fill();
+}
+
+function drawSocThreatsChart() {
+  const cvs = document.getElementById('socThreatsCanvas');
+  if (!cvs) return;
+  const ctx = cvs.getContext('2d');
+  const w = cvs.width;
+  const h = cvs.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(96, 165, 250, 0.1)';
+  ctx.lineWidth = 1;
+  for (let y = 30; y < h; y += 45) {
+    ctx.beginPath();
+    ctx.moveTo(35, y);
+    ctx.lineTo(w - 10, y);
+    ctx.stroke();
+  }
+
+  // Y Labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px monospace';
+  ctx.fillText('300', 5, 34);
+  ctx.fillText('200', 5, 79);
+  ctx.fillText('100', 5, 124);
+  ctx.fillText('0', 15, 169);
+
+  const attempts = [80, 140, 110, 180, 240, 160, 200, 237];
+  const blocked = [78, 136, 105, 175, 235, 158, 195, 235];
+  const step = (w - 60) / (attempts.length - 1);
+
+  // Attempts line (Blue)
+  ctx.beginPath();
+  ctx.moveTo(45, h - (attempts[0] * 0.55));
+  for (let i = 1; i < attempts.length; i++) {
+    ctx.lineTo(45 + i * step, h - (attempts[i] * 0.55));
+  }
+  ctx.strokeStyle = '#00aaff';
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+
+  // Blocked line (Green)
+  ctx.beginPath();
+  ctx.moveTo(45, h - (blocked[0] * 0.55));
+  for (let i = 1; i < blocked.length; i++) {
+    ctx.lineTo(45 + i * step, h - (blocked[i] * 0.55));
+  }
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+}
+
+function drawDiagOscilloChart() {
+  const cvs = document.getElementById('diagOscilloCanvas');
+  if (!cvs) return;
+  const ctx = cvs.getContext('2d');
+  const w = cvs.width;
+  const h = cvs.height;
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.15)';
+  for (let x = 40; x < w; x += 60) {
+    ctx.beginPath();
+    ctx.moveTo(x, 10);
+    ctx.lineTo(x, h - 20);
+    ctx.stroke();
+  }
+  for (let y = 30; y < h; y += 40) {
+    ctx.beginPath();
+    ctx.moveTo(40, y);
+    ctx.lineTo(w - 10, y);
+    ctx.stroke();
+  }
+
+  // Draw WAN curve (18ms)
+  ctx.beginPath();
+  ctx.moveTo(40, 110);
+  for (let x = 40; x < w - 10; x += 30) {
+    const jitter = Math.sin(x * 0.1) * 8 + (Math.random() * 4 - 2);
+    ctx.lineTo(x, 110 + jitter);
+  }
+  ctx.strokeStyle = '#00e5ff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Draw LAN curve (1ms)
+  ctx.beginPath();
+  ctx.moveTo(40, 160);
+  for (let x = 40; x < w - 10; x += 30) {
+    const jitter = Math.sin(x * 0.05) * 2;
+    ctx.lineTo(x, 160 + jitter);
+  }
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+// Sync podium clicks with view navigation
+document.querySelectorAll('.podium-card[data-view]').forEach(p => {
+  p.addEventListener('click', () => {
+    const vId = p.dataset.view;
+    const btn = document.querySelector(`.nav button[data-view="${vId}"]`);
+    if (btn) btn.click();
+    document.querySelectorAll('.podium-card').forEach(c => c.classList.toggle('active', c === p));
+    if (p.dataset.focusSupervisor) {
+      document.getElementById('supervisorCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+});
+
+// Sync nav buttons click to podiums
+document.querySelectorAll('.nav button[data-view]').forEach(b => {
+  b.addEventListener('click', () => {
+    const vId = b.dataset.view;
+    document.querySelectorAll('.podium-card').forEach(p => p.classList.toggle('active', p.dataset.view === vId));
+    if (vId === 'cybersec') {
+      setTimeout(drawSocThreatsChart, 100);
+    } else if (vId === 'overview') {
+      setTimeout(drawNocTrafficChart, 100);
+    } else if (vId === 'diag') {
+      setTimeout(drawDiagOscilloChart, 100);
+    }
+  });
+});
+
+// Initialize charts on load
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    drawNocTrafficChart();
+    drawSocThreatsChart();
+    drawDiagOscilloChart();
+  }, 200);
+});
+
+// Internet Control Quick-Apply button
+document.getElementById('nocApplyPoliciesBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('nocApplyPoliciesBtn');
+  if (btn) btn.textContent = '⏳ Application en cours…';
+  try {
+    const restr = document.getElementById('nocToggleRestriction')?.checked;
+    await applyInternetPolicy('zone', 'Visiteurs', !restr);
+    if (btn) {
+      btn.textContent = '✓ Paramètres appliqués avec succès !';
+      setTimeout(() => { btn.textContent = '✓ Appliquer les paramètres'; }, 2500);
+    }
+  } catch (_) {
+    if (btn) btn.textContent = '✓ Paramètres simulés enregistrés';
+  }
+});
+
+// Generate ISP Ticket button
+document.getElementById('generateIspTicketBtn')?.addEventListener('click', () => {
+  askSupervisor("Rédige un ticket technique complet pour l'opérateur FAI avec toutes les preuves réseau", false);
+  document.querySelector('.nav button[data-view="overview"]')?.click();
+  document.getElementById('supervisorCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
 </script>
 </body>
 </html>

@@ -492,6 +492,10 @@ BRAND_ASSETS = {
     "og-image.png": ("og-image.png", "image/png"),
     "banner-network.jpg": ("banner-network.jpg", "image/jpeg"),
     "banner-partner.jpg": ("banner-partner.jpg", "image/jpeg"),
+    "banner-neon-modules.png": ("banner-neon-modules.png", "image/png"),
+    "banner-cyber-dash.png": ("banner-cyber-dash.png", "image/png"),
+    "banner-network-dash.png": ("banner-network-dash.png", "image/png"),
+    "monastery-bouake.png": ("monastery-bouake.png", "image/png"),
     "manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
     "sw.js": ("sw.js", "application/javascript"),
     "offline.html": ("offline.html", "text/html; charset=utf-8"),
@@ -601,6 +605,26 @@ def brand_banner_network(request: Request):
 @app.api_route("/banner-partner.jpg", methods=["GET", "HEAD"], include_in_schema=False)
 def brand_banner_partner(request: Request):
     return _serve_brand_asset("banner-partner.jpg", request)
+
+
+@app.api_route("/banner-neon-modules.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_banner_neon_modules(request: Request):
+    return _serve_brand_asset("banner-neon-modules.png", request)
+
+
+@app.api_route("/banner-cyber-dash.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_banner_cyber_dash(request: Request):
+    return _serve_brand_asset("banner-cyber-dash.png", request)
+
+
+@app.api_route("/banner-network-dash.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_banner_network_dash(request: Request):
+    return _serve_brand_asset("banner-network-dash.png", request)
+
+
+@app.api_route("/monastery-bouake.png", methods=["GET", "HEAD"], include_in_schema=False)
+def brand_monastery_bouake(request: Request):
+    return _serve_brand_asset("monastery-bouake.png", request)
 
 
 # ---------------------------------------------------------------------------

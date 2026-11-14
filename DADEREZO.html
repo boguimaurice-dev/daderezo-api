@@ -3713,7 +3713,30 @@ function updateUI(data) {
   document.getElementById('overviewAlerts').innerHTML = renderAlertsList(alerts, 5);
   document.getElementById('fullAlertsList').innerHTML = renderAlertsList(alerts, 50);
 
+  // Synchronisation dynamique avec les widgets NOC & SOC (v4.8)
+  const nocLat = document.getElementById('nocLatencyVal');
+  if (nocLat) nocLat.textContent = state.gw_latency_ms ? `${Number(state.gw_latency_ms).toFixed(1)} ms` : '1.0 ms';
+
+  const nocUsers = document.getElementById('nocUsersVal');
+  if (nocUsers) nocUsers.textContent = isSim ? '243' : String(devices.length);
+
+  const nocOnline = document.getElementById('nocDevicesOnlineCount');
+  if (nocOnline) nocOnline.textContent = isSim ? '243' : String(upCount);
+
+  const monasteryTitle = document.getElementById('monasterySiteTitle');
+  if (monasteryTitle) monasteryTitle.textContent = siteName;
+
+  const diagWan = document.getElementById('diagWanLat');
+  if (diagWan) diagWan.textContent = state.wan_latency_ms ? `${Number(state.wan_latency_ms).toFixed(1)} ms` : '18.4 ms';
+
+  const diagLan = document.getElementById('diagLanLat');
+  if (diagLan) diagLan.textContent = state.gw_latency_ms ? `${Number(state.gw_latency_ms).toFixed(1)} ms` : '1.0 ms';
+
+  const socBlocked = document.getElementById('socBlockedVal');
+  if (socBlocked && !isSim) socBlocked.textContent = String(Math.max(alerts.length * 12, 42));
+
   renderEquipmentTable();
+  drawNocTrafficChart(currentNocRange);
 }
 
 async function loadAuditLogs() {
@@ -6297,66 +6320,118 @@ document.addEventListener('keydown', (e) => {
 });
 
 // =====================================================================
-// CANVAS RENDERING & INTERACTIVE CHARTS FOR COCKPITS (v4.8)
+// CANVAS RENDERING & INTERACTIVE CHARTS FOR COCKPITS (v4.8 HiDPI Optimized)
 // =====================================================================
-function drawNocTrafficChart() {
+let currentNocRange = '1h';
+
+const TRAFFIC_DATASETS = {
+  '1h': {
+    dl: [72, 95, 68, 118, 82, 105, 78, 112, 88, 74, 98, 108],
+    ul: [24, 36, 26, 44, 21, 39, 31, 26, 38, 23, 33, 42],
+    labels: ['16:00', '16:10', '16:20', '16:30', '16:40', '16:50']
+  },
+  '6h': {
+    dl: [60, 85, 110, 130, 95, 70, 88, 115, 125, 90, 80, 102],
+    ul: [20, 30, 38, 45, 32, 24, 30, 40, 42, 28, 26, 35],
+    labels: ['11:00', '12:00', '13:00', '14:00', '15:00', '16:00']
+  },
+  '24h': {
+    dl: [30, 20, 15, 18, 45, 95, 120, 140, 110, 85, 95, 110],
+    ul: [10, 8, 5, 7, 18, 35, 45, 50, 38, 28, 32, 38],
+    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00']
+  },
+  '7j': {
+    dl: [85, 92, 105, 98, 115, 130, 110, 95, 105, 120, 125, 115],
+    ul: [28, 32, 36, 34, 40, 46, 38, 32, 36, 42, 44, 40],
+    labels: ['J-6', 'J-5', 'J-4', 'J-3', 'J-2', 'J-1', 'Auj.']
+  }
+};
+
+function setupCanvasDpi(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = rect.width || canvas.width || 600;
+  const h = rect.height || canvas.height || 180;
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.resetTransform();
+  ctx.scale(dpr, dpr);
+  return { ctx, w, h };
+}
+
+function drawNocTrafficChart(range = currentNocRange) {
   const cvs = document.getElementById('nocTrafficCanvas');
   if (!cvs) return;
-  const ctx = cvs.getContext('2d');
-  const w = cvs.width;
-  const h = cvs.height;
+  currentNocRange = range;
+  const { ctx, w, h } = setupCanvasDpi(cvs);
   ctx.clearRect(0, 0, w, h);
+
+  const ds = TRAFFIC_DATASETS[range] || TRAFFIC_DATASETS['1h'];
+  const dlPoints = ds.dl;
+  const ulPoints = ds.ul;
 
   // Grid lines
   ctx.strokeStyle = 'rgba(96, 165, 250, 0.12)';
   ctx.lineWidth = 1;
-  for (let y = 30; y < h; y += 45) {
+  const ySteps = [30, 70, 110, 150];
+  ySteps.forEach(y => {
     ctx.beginPath();
-    ctx.moveTo(40, y);
+    ctx.moveTo(42, y);
     ctx.lineTo(w - 10, y);
     ctx.stroke();
-  }
+  });
 
-  // Y Axis Labels
+  // Y Labels
   ctx.fillStyle = '#64748b';
-  ctx.font = '10px monospace';
+  ctx.font = '500 10.5px monospace';
   ctx.fillText('150 Mb/s', 0, 34);
-  ctx.fillText('100 Mb/s', 0, 79);
-  ctx.fillText('50 Mb/s', 5, 124);
-  ctx.fillText('0 Mb/s', 12, 169);
+  ctx.fillText('100 Mb/s', 0, 74);
+  ctx.fillText('50 Mb/s', 6, 114);
+  ctx.fillText('0 Mb/s', 12, 154);
+
+  // X Labels
+  const xLabels = ds.labels;
+  const xStep = (w - 70) / (xLabels.length - 1);
+  ctx.fillStyle = '#64748b';
+  xLabels.forEach((lbl, idx) => {
+    ctx.fillText(lbl, 45 + idx * xStep - 12, h - 6);
+  });
+
+  const step = (w - 65) / (dlPoints.length - 1);
+  const chartHeight = 120;
+  const chartBottom = 150;
 
   // Draw Download wave (Blue #00aaff)
-  const dlPoints = [75, 95, 70, 115, 80, 100, 75, 110, 85, 70, 95, 105];
-  const step = (w - 60) / (dlPoints.length - 1);
-
   ctx.beginPath();
-  ctx.moveTo(50, h - (dlPoints[0] * 1.05));
+  ctx.moveTo(45, chartBottom - (dlPoints[0] / 150) * chartHeight);
   for (let i = 1; i < dlPoints.length; i++) {
-    const x = 50 + i * step;
-    const y = h - (dlPoints[i] * 1.05);
+    const x = 45 + i * step;
+    const y = chartBottom - (dlPoints[i] / 150) * chartHeight;
     ctx.lineTo(x, y);
   }
   ctx.strokeStyle = '#00aaff';
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 2.6;
   ctx.stroke();
 
   // Gradient fill for Download
-  ctx.lineTo(50 + (dlPoints.length - 1) * step, h - 15);
-  ctx.lineTo(50, h - 15);
+  ctx.lineTo(45 + (dlPoints.length - 1) * step, chartBottom);
+  ctx.lineTo(45, chartBottom);
   ctx.closePath();
-  const dlGrad = ctx.createLinearGradient(0, 0, 0, h);
-  dlGrad.addColorStop(0, 'rgba(0, 170, 255, 0.28)');
+  const dlGrad = ctx.createLinearGradient(0, 30, 0, chartBottom);
+  dlGrad.addColorStop(0, 'rgba(0, 170, 255, 0.32)');
   dlGrad.addColorStop(1, 'rgba(0, 170, 255, 0.0)');
   ctx.fillStyle = dlGrad;
   ctx.fill();
 
   // Draw Upload wave (Orange #ff9100)
-  const ulPoints = [25, 35, 28, 42, 22, 38, 30, 25, 36, 22, 32, 40];
   ctx.beginPath();
-  ctx.moveTo(50, h - (ulPoints[0] * 1.05));
+  ctx.moveTo(45, chartBottom - (ulPoints[0] / 150) * chartHeight);
   for (let i = 1; i < ulPoints.length; i++) {
-    const x = 50 + i * step;
-    const y = h - (ulPoints[i] * 1.05);
+    const x = 45 + i * step;
+    const y = chartBottom - (ulPoints[i] / 150) * chartHeight;
     ctx.lineTo(x, y);
   }
   ctx.strokeStyle = '#ff9100';
@@ -6364,11 +6439,11 @@ function drawNocTrafficChart() {
   ctx.stroke();
 
   // Gradient fill for Upload
-  ctx.lineTo(50 + (ulPoints.length - 1) * step, h - 15);
-  ctx.lineTo(50, h - 15);
+  ctx.lineTo(45 + (ulPoints.length - 1) * step, chartBottom);
+  ctx.lineTo(45, chartBottom);
   ctx.closePath();
-  const ulGrad = ctx.createLinearGradient(0, 0, 0, h);
-  ulGrad.addColorStop(0, 'rgba(255, 145, 0, 0.22)');
+  const ulGrad = ctx.createLinearGradient(0, 30, 0, chartBottom);
+  ulGrad.addColorStop(0, 'rgba(255, 145, 0, 0.25)');
   ulGrad.addColorStop(1, 'rgba(255, 145, 0, 0.0)');
   ctx.fillStyle = ulGrad;
   ctx.fill();
@@ -6377,15 +6452,13 @@ function drawNocTrafficChart() {
 function drawSocThreatsChart() {
   const cvs = document.getElementById('socThreatsCanvas');
   if (!cvs) return;
-  const ctx = cvs.getContext('2d');
-  const w = cvs.width;
-  const h = cvs.height;
+  const { ctx, w, h } = setupCanvasDpi(cvs);
   ctx.clearRect(0, 0, w, h);
 
   // Grid
   ctx.strokeStyle = 'rgba(96, 165, 250, 0.1)';
   ctx.lineWidth = 1;
-  for (let y = 30; y < h; y += 45) {
+  for (let y = 30; y < h - 20; y += 40) {
     ctx.beginPath();
     ctx.moveTo(35, y);
     ctx.lineTo(w - 10, y);
@@ -6394,43 +6467,48 @@ function drawSocThreatsChart() {
 
   // Y Labels
   ctx.fillStyle = '#64748b';
-  ctx.font = '10px monospace';
+  ctx.font = '500 10.5px monospace';
   ctx.fillText('300', 5, 34);
-  ctx.fillText('200', 5, 79);
-  ctx.fillText('100', 5, 124);
-  ctx.fillText('0', 15, 169);
+  ctx.fillText('200', 5, 74);
+  ctx.fillText('100', 5, 114);
+  ctx.fillText('0', 15, 154);
 
   const attempts = [80, 140, 110, 180, 240, 160, 200, 237];
   const blocked = [78, 136, 105, 175, 235, 158, 195, 235];
+  const times = ['15:50', '16:00', '16:10', '16:20', '16:30', '16:40', '16:50'];
   const step = (w - 60) / (attempts.length - 1);
+
+  // X Labels
+  ctx.fillStyle = '#64748b';
+  times.forEach((t, i) => {
+    ctx.fillText(t, 40 + i * ((w - 60) / (times.length - 1)) - 10, h - 4);
+  });
 
   // Attempts line (Blue)
   ctx.beginPath();
-  ctx.moveTo(45, h - (attempts[0] * 0.55));
+  ctx.moveTo(40, 154 - (attempts[0] / 300) * 120);
   for (let i = 1; i < attempts.length; i++) {
-    ctx.lineTo(45 + i * step, h - (attempts[i] * 0.55));
+    ctx.lineTo(40 + i * step, 154 - (attempts[i] / 300) * 120);
   }
   ctx.strokeStyle = '#00aaff';
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 2.4;
   ctx.stroke();
 
   // Blocked line (Green)
   ctx.beginPath();
-  ctx.moveTo(45, h - (blocked[0] * 0.55));
+  ctx.moveTo(40, 154 - (blocked[0] / 300) * 120);
   for (let i = 1; i < blocked.length; i++) {
-    ctx.lineTo(45 + i * step, h - (blocked[i] * 0.55));
+    ctx.lineTo(40 + i * step, 154 - (blocked[i] / 300) * 120);
   }
   ctx.strokeStyle = '#10b981';
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 2.4;
   ctx.stroke();
 }
 
 function drawDiagOscilloChart() {
   const cvs = document.getElementById('diagOscilloCanvas');
   if (!cvs) return;
-  const ctx = cvs.getContext('2d');
-  const w = cvs.width;
-  const h = cvs.height;
+  const { ctx, w, h } = setupCanvasDpi(cvs);
   ctx.clearRect(0, 0, w, h);
 
   ctx.strokeStyle = 'rgba(56, 189, 248, 0.15)';
@@ -6449,26 +6527,42 @@ function drawDiagOscilloChart() {
 
   // Draw WAN curve (18ms)
   ctx.beginPath();
-  ctx.moveTo(40, 110);
-  for (let x = 40; x < w - 10; x += 30) {
-    const jitter = Math.sin(x * 0.1) * 8 + (Math.random() * 4 - 2);
-    ctx.lineTo(x, 110 + jitter);
+  ctx.moveTo(40, 100);
+  for (let x = 40; x < w - 10; x += 25) {
+    const jitter = Math.sin(x * 0.08) * 9 + (Math.random() * 4 - 2);
+    ctx.lineTo(x, 100 + jitter);
   }
   ctx.strokeStyle = '#00e5ff';
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2.4;
   ctx.stroke();
 
   // Draw LAN curve (1ms)
   ctx.beginPath();
-  ctx.moveTo(40, 160);
-  for (let x = 40; x < w - 10; x += 30) {
-    const jitter = Math.sin(x * 0.05) * 2;
-    ctx.lineTo(x, 160 + jitter);
+  ctx.moveTo(40, 155);
+  for (let x = 40; x < w - 10; x += 25) {
+    const jitter = Math.sin(x * 0.04) * 2;
+    ctx.lineTo(x, 155 + jitter);
   }
   ctx.strokeStyle = '#10b981';
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2.4;
   ctx.stroke();
 }
+
+// Time Range Buttons handler
+document.querySelectorAll('[data-noc-range]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-noc-range]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    drawNocTrafficChart(btn.dataset.nocRange);
+  });
+});
+
+// Auto-redraw charts on window resize
+window.addEventListener('resize', () => {
+  drawNocTrafficChart(currentNocRange);
+  drawSocThreatsChart();
+  drawDiagOscilloChart();
+});
 
 // Sync podium clicks with view navigation
 document.querySelectorAll('.podium-card[data-view]').forEach(p => {
@@ -6491,7 +6585,7 @@ document.querySelectorAll('.nav button[data-view]').forEach(b => {
     if (vId === 'cybersec') {
       setTimeout(drawSocThreatsChart, 100);
     } else if (vId === 'overview') {
-      setTimeout(drawNocTrafficChart, 100);
+      setTimeout(() => drawNocTrafficChart(currentNocRange), 100);
     } else if (vId === 'diag') {
       setTimeout(drawDiagOscilloChart, 100);
     }
@@ -6501,10 +6595,10 @@ document.querySelectorAll('.nav button[data-view]').forEach(b => {
 // Initialize charts on load
 window.addEventListener('load', () => {
   setTimeout(() => {
-    drawNocTrafficChart();
+    drawNocTrafficChart(currentNocRange);
     drawSocThreatsChart();
     drawDiagOscilloChart();
-  }, 200);
+  }, 150);
 });
 
 // Internet Control Quick-Apply button

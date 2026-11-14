@@ -12,7 +12,11 @@ const SHELL_ASSETS = [
   '/favicon-32.png?v=4.3',
   '/logo-icon.png',
   '/icon-192.png?v=4.3',
-  '/icon-512.png?v=4.3'
+  '/icon-512.png?v=4.3',
+  '/banner-neon-modules.png',
+  '/banner-cyber-dash.png',
+  '/banner-network-dash.png',
+  '/monastery-bouake.png'
 ];
 
 self.addEventListener('install', (event) => {

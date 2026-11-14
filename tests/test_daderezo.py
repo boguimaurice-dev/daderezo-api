@@ -1642,6 +1642,20 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertIn("auth2faBox", ui)
         self.assertIn("totpStatusBadge", ui)
 
+    def test_33_collapsible_mobile_menu_and_desktop_independent_scroll(self):
+        """v4.9 UX: Collapsible mobile navigation drawer, desktop independent scroll & floating scroll-to-top."""
+        ui = self.client.get("/ui").text
+        # Bouton toggle de menu mobile dépliant
+        self.assertIn("mobileMenuToggleBtn", ui)
+        self.assertIn("mobileMenuToggleIcon", ui)
+        self.assertIn("mobileMenuToggleLabel", ui)
+        # Bouton flottant de retour rapide en haut de page
+        self.assertIn("scrollToTopBtn", ui)
+        self.assertIn("scroll-to-top-btn", ui)
+        # Règles CSS de défilement indépendant desktop
+        self.assertIn("overflow: hidden", ui)
+        self.assertIn("grid-template-columns: 268px minmax(0, 1fr)", ui)
+
 
 if __name__ == "__main__":
     unittest.main()

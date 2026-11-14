@@ -3170,7 +3170,7 @@ html, body {
 </main>
 </div>
 
-<!-- MODAL ESPACE PRIVÉ SAAS (CONNEXION / CRÉATION D'ORGANISATION ISOLÉE) -->
+<!-- MODAL ESPACE PRIVÉ SAAS (CONNEXION / CRÉATION D'ORGANISATION ISOLÉE & GOOGLE AUTH / 2FA) -->
 <div class="modal-backdrop hidden" id="authModal">
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
@@ -3184,17 +3184,59 @@ html, body {
       Protégez vos vraies sondes, box et fichiers multimédias : aucun visiteur public du lien de démonstration ne pourra voir votre réseau.
     </p>
 
+    <!-- BOX CONNECTÉ -->
     <div id="authLoggedBox" class="hidden" style="margin-top:14px;padding:14px;border-radius:11px;background:var(--emerald-soft);border:1px solid rgba(16,185,129,.4)">
-      <div style="font-weight:800;color:var(--emerald-ink);margin-bottom:4px" id="authOrgTitle">Organisation connectée</div>
-      <div style="font-size:12px;color:var(--ink)" id="authUserEmail"></div>
-      <div style="margin-top:8px;font-size:11.5px;color:var(--muted)">Clé privée pour votre sonde <code>agent_client.py</code> :</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div>
+          <div style="font-weight:800;color:var(--emerald-ink);margin-bottom:4px" id="authOrgTitle">Organisation connectée</div>
+          <div style="font-size:12px;color:var(--ink)" id="authUserEmail"></div>
+        </div>
+        <span class="badge" id="authProviderBadge" style="font-size:11px;background:rgba(16,185,129,.2);color:var(--emerald-ink)">Compte Espace Privé</span>
+      </div>
+      <div style="margin-top:10px;font-size:11.5px;color:var(--muted)">Clé privée pour votre sonde <code>agent_client.py</code> :</div>
       <code id="authProbeKeyDisplay" style="display:block;margin-top:4px;padding:7px 9px;background:var(--bg-well);border-radius:7px;word-break:break-all;color:var(--cyan-ink)"></code>
+
+      <!-- MODULE DOUBLE AUTHENTIFICATION (2FA TOTP) -->
+      <div style="margin-top:14px;padding:11px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.1);border-radius:9px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700;font-size:12.5px;color:var(--ink-strong)">🛡️ Double Authentification (2FA / TOTP)</div>
+          <span id="totpStatusBadge" class="badge" style="font-size:10.5px">Inactif</span>
+        </div>
+        <div id="totpSetupArea" class="hidden" style="margin-top:10px;font-size:11.5px">
+          <p style="margin:0 0 6px;color:var(--muted)">1. Ajoutez cette clé secrète dans <b>Google Authenticator</b> ou <b>Microsoft Authenticator</b> :</p>
+          <code id="totpSecretDisplay" style="display:block;padding:7px;background:var(--bg-well);border-radius:6px;font-family:monospace;letter-spacing:1px;color:var(--cyan-ink);text-align:center;font-weight:700;margin-bottom:8px"></code>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="totpVerifyInput" type="text" maxlength="6" inputmode="numeric" placeholder="Code à 6 chiffres" style="width:140px;text-align:center;font-weight:700;font-family:monospace">
+            <button class="btn" id="confirmTotpBtn" type="button" style="font-size:11.5px">Activer 2FA</button>
+            <button class="btn secondary" id="closeTotpSetupBtn" type="button" style="font-size:11.5px">Annuler</button>
+          </div>
+          <div id="totpSetupMsg" style="font-size:11px;margin-top:4px;color:var(--amber-ink)"></div>
+        </div>
+        <div id="totpActionsArea" style="margin-top:8px">
+          <button class="btn secondary" id="startTotpSetupBtn" type="button" style="font-size:11.5px">Configurer 2FA (Google Authenticator)</button>
+          <button class="btn danger hidden" id="disableTotpBtn" type="button" style="font-size:11.5px">Désactiver 2FA</button>
+        </div>
+      </div>
+
       <div style="display:flex;gap:8px;margin-top:12px">
         <button class="btn danger" id="logoutSaaSBtn" type="button">Se déconnecter (retour Démo)</button>
       </div>
     </div>
 
+    <!-- BOX FORMULAIRES DE CONNEXION / CRÉATION -->
     <div id="authFormsBox">
+      <!-- BOUTON GOOGLE OAUTH 2.0 -->
+      <button class="btn google-auth-btn" id="googleAuthBtn" type="button" style="width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;gap:12px;background:#ffffff;color:#1f2937;border:1px solid #d1d5db;font-weight:700;font-size:14px;border-radius:10px;margin:12px 0 10px;box-shadow:0 1px 3px rgba(0,0,0,0.12);cursor:pointer;transition:transform 0.15s,box-shadow 0.15s">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+        <span>Continuer avec Google</span>
+      </button>
+
+      <div style="display:flex;align-items:center;gap:10px;margin:10px 0 14px">
+        <div style="flex:1;height:1px;background:rgba(255,255,255,0.12)"></div>
+        <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">ou avec e-mail professionnel</span>
+        <div style="flex:1;height:1px;background:rgba(255,255,255,0.12)"></div>
+      </div>
+
       <div class="modal-tabs">
         <button class="btn" id="tabSignupBtn" type="button">Créer mon Espace</button>
         <button class="btn secondary" id="tabLoginBtn" type="button">Se connecter</button>
@@ -3216,12 +3258,49 @@ html, body {
         <input id="authEmailIn" type="email" placeholder="superviseur@domaine.org">
       </div>
       <div class="modal-field">
-        <label for="authPassIn">Mot de passe (min. 6 caractères)</label>
-        <input id="authPassIn" type="password" placeholder="••••••••">
+        <label for="authPassIn">Mot de passe professionnel (min. 10 caractères)</label>
+        <input id="authPassIn" type="password" placeholder="••••••••••••" autocomplete="current-password">
+        <!-- JAUGE DE FORCE DE MOT DE PASSE -->
+        <div id="passwordStrengthBox" style="margin-top:6px;font-size:11px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <span style="color:var(--muted)">Robustesse du mot de passe :</span>
+            <span id="pwStrengthLabel" style="font-weight:700;color:var(--muted)">—</span>
+          </div>
+          <div style="height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden">
+            <div id="pwStrengthBar" style="height:100%;width:0%;background:var(--rose-ink);transition:width 0.25s,background 0.25s"></div>
+          </div>
+          <div id="pwCriteriaList" style="display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:5px;font-size:10.5px;color:var(--muted)">
+            <span id="pwCritLen">○ 10+ car.</span>
+            <span id="pwCritUpper">○ Majuscule</span>
+            <span id="pwCritLower">○ Minuscule</span>
+            <span id="pwCritNum">○ Chiffre</span>
+            <span id="pwCritSpecial">○ Spécial (!@#$)</span>
+          </div>
+        </div>
       </div>
 
       <div id="authFeedbackMsg" style="font-size:12px;color:var(--amber-ink);min-height:18px;margin-bottom:8px"></div>
       <button class="btn" id="submitAuthBtn" type="button" style="width:100%;min-height:42px">Créer mon Espace Privé Sécurisé</button>
+    </div>
+
+    <!-- BOX DE VÉRIFICATION DOUBLE FACTEUR (2FA) AU LOGIN -->
+    <div id="auth2faBox" class="hidden" style="margin-top:14px;padding:14px;border-radius:11px;background:var(--cyan-soft);border:1px solid rgba(6,182,212,.4)">
+      <div style="display:flex;align-items:center;gap:8px;font-weight:800;color:var(--cyan-ink);margin-bottom:6px">
+        <span>🔐</span>
+        <span>Double Authentification Requise (2FA)</span>
+      </div>
+      <p style="font-size:12px;color:var(--ink);margin:0 0 10px">
+        Ouvrez votre application d'authentification (Google Authenticator) et saisissez le code à 6 chiffres :
+      </p>
+      <div class="modal-field">
+        <label for="auth2faCodeIn">Code de sécurité à 6 chiffres</label>
+        <input id="auth2faCodeIn" type="text" maxlength="6" inputmode="numeric" placeholder="123456" style="font-size:18px;letter-spacing:4px;text-align:center;font-weight:800;font-family:monospace">
+      </div>
+      <div id="auth2faFeedbackMsg" style="font-size:12px;color:var(--rose-ink);min-height:18px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="submit2faBtn" type="button" style="flex:1">Valider le code</button>
+        <button class="btn secondary" id="cancel2faBtn" type="button">Annuler</button>
+      </div>
     </div>
   </div>
 </div>
@@ -5735,14 +5814,97 @@ function setAuthTab(mode) {
 document.getElementById('tabSignupBtn').addEventListener('click', () => setAuthTab('signup'));
 document.getElementById('tabLoginBtn').addEventListener('click', () => setAuthTab('login'));
 
+let pending2faTempToken = '';
+let pendingTotpSecret = '';
+
+function updatePasswordStrengthMeter(pw) {
+  const lbl = document.getElementById('pwStrengthLabel');
+  const bar = document.getElementById('pwStrengthBar');
+  const cLen = document.getElementById('pwCritLen');
+  const cUpp = document.getElementById('pwCritUpper');
+  const cLow = document.getElementById('pwCritLower');
+  const cNum = document.getElementById('pwCritNum');
+  const cSpe = document.getElementById('pwCritSpecial');
+
+  if (!pw) {
+    if (lbl) { lbl.textContent = '—'; lbl.style.color = 'var(--muted)'; }
+    if (bar) { bar.style.width = '0%'; bar.style.background = 'var(--rose-ink)'; }
+    [cLen, cUpp, cLow, cNum, cSpe].forEach(el => { if (el) { el.style.color = 'var(--muted)'; el.textContent = el.textContent.replace('✓', '○'); } });
+    return;
+  }
+
+  const hasLen = pw.length >= 10;
+  const hasUpp = /[A-Z]/.test(pw);
+  const hasLow = /[a-z]/.test(pw);
+  const hasNum = /[0-9]/.test(pw);
+  const hasSpe = /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]/.test(pw);
+
+  const criteria = [
+    { met: hasLen, el: cLen, label: '10+ car.' },
+    { met: hasUpp, el: cUpp, label: 'Majuscule' },
+    { met: hasLow, el: cLow, label: 'Minuscule' },
+    { met: hasNum, el: cNum, label: 'Chiffre' },
+    { met: hasSpe, el: cSpe, label: 'Spécial (!@#$)' }
+  ];
+
+  let score = 0;
+  criteria.forEach(c => {
+    if (c.el) {
+      if (c.met) {
+        c.el.style.color = 'var(--emerald-ink)';
+        c.el.textContent = `✓ ${c.label}`;
+        score++;
+      } else {
+        c.el.style.color = 'var(--muted)';
+        c.el.textContent = `○ ${c.label}`;
+      }
+    }
+  });
+
+  const pct = Math.min(100, score * 20);
+  if (bar) bar.style.width = `${pct}%`;
+
+  if (lbl && bar) {
+    if (score <= 2) {
+      lbl.textContent = 'Faible (Non conforme)';
+      lbl.style.color = 'var(--rose-ink)';
+      bar.style.background = 'var(--rose-ink)';
+    } else if (score === 3) {
+      lbl.textContent = 'Moyen';
+      lbl.style.color = 'var(--amber-ink)';
+      bar.style.background = 'var(--amber-ink)';
+    } else if (score === 4) {
+      lbl.textContent = 'Robuste';
+      lbl.style.color = '#38bdf8';
+      bar.style.background = '#38bdf8';
+    } else {
+      lbl.textContent = 'Optimal (Conforme)';
+      lbl.style.color = 'var(--emerald-ink)';
+      bar.style.background = 'var(--emerald-ink)';
+    }
+  }
+}
+
+const authPassInput = document.getElementById('authPassIn');
+if (authPassInput) {
+  authPassInput.addEventListener('input', e => updatePasswordStrengthMeter(e.target.value || ''));
+}
+
 function applyAuthUserUI(user) {
   currentAuthUser = user || null;
   workspaceViewMode = user ? 'work' : 'demo';
   const authBtn = document.getElementById('authAccountBtn');
   const loggedBox = document.getElementById('authLoggedBox');
   const formsBox = document.getElementById('authFormsBox');
+  const f2faBox = document.getElementById('auth2faBox');
   const wsModeEl = document.getElementById('cfgWorkspaceMode');
   const pkEl = document.getElementById('cfgPrivateProbeKey');
+  const provBadge = document.getElementById('authProviderBadge');
+  const totpBadge = document.getElementById('totpStatusBadge');
+  const startTotpBtn = document.getElementById('startTotpSetupBtn');
+  const disTotpBtn = document.getElementById('disableTotpBtn');
+
+  if (f2faBox) f2faBox.classList.add('hidden');
 
   if (user) {
     authBtn.textContent = `🔒 ${user.org_name}`;
@@ -5752,6 +5914,24 @@ function applyAuthUserUI(user) {
     document.getElementById('authOrgTitle').textContent = `Espace Privé : ${user.org_name}`;
     document.getElementById('authUserEmail').textContent = `${user.full_name || ''} (${user.email})`;
     document.getElementById('authProbeKeyDisplay').textContent = user.probe_api_key || '';
+    if (provBadge) {
+      provBadge.textContent = user.auth_provider === 'google' ? 'Compte Google Vérifié 🔒' : 'Espace Privé Sécurisé 🔒';
+    }
+    if (totpBadge) {
+      if (user.totp_enabled) {
+        totpBadge.textContent = '✅ Actif (2FA)';
+        totpBadge.style.background = 'rgba(16,185,129,.2)';
+        totpBadge.style.color = 'var(--emerald-ink)';
+        if (startTotpBtn) startTotpBtn.classList.add('hidden');
+        if (disTotpBtn) disTotpBtn.classList.remove('hidden');
+      } else {
+        totpBadge.textContent = 'Inactif';
+        totpBadge.style.background = 'rgba(239,68,68,.15)';
+        totpBadge.style.color = 'var(--rose-ink)';
+        if (startTotpBtn) startTotpBtn.classList.remove('hidden');
+        if (disTotpBtn) disTotpBtn.classList.add('hidden');
+      }
+    }
     if (wsModeEl) wsModeEl.textContent = `MODE TRAVAIL ACTIF ISOLÉ (${user.org_slug})`;
     if (pkEl) pkEl.textContent = user.probe_api_key || '—';
   } else {
@@ -5767,9 +5947,11 @@ function applyAuthUserUI(user) {
 
 async function checkAuthSession() {
   const tok = (localStorage.getItem('daderezo_saas_token') || '').trim();
-  if (!tok) { applyAuthUserUI(null); return; }
   try {
-    const res = await fetch(`${getApiBase()}/auth/me`, { headers: getHeaders(false, true) });
+    const res = await fetch(`${getApiBase()}/auth/me`, {
+      credentials: 'same-origin',
+      headers: getHeaders(false, true)
+    });
     if (res.ok) {
       const data = await res.json();
       if (data.authenticated && data.user) {
@@ -5778,10 +5960,52 @@ async function checkAuthSession() {
       }
     }
   } catch (_) {}
-  localStorage.removeItem('daderezo_saas_token');
+  if (tok) localStorage.removeItem('daderezo_saas_token');
   applyAuthUserUI(null);
 }
 
+// GESTION DU CLIC GOOGLE OAUTH
+document.getElementById('googleAuthBtn').addEventListener('click', async () => {
+  const fb = document.getElementById('authFeedbackMsg');
+  fb.textContent = 'Connexion avec Google…';
+  const defaultOrg = (document.getElementById('authOrgNameIn').value || '').trim() || 'Espace Réseau Google';
+  const promptEmail = prompt('Entrez votre adresse e-mail Google professionnelle pour lier votre Espace Privé :', 'superviseur.google@gmail.com');
+  if (!promptEmail) {
+    fb.textContent = '';
+    return;
+  }
+  try {
+    const res = await fetch(`${getApiBase()}/auth/google`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        user_info: {
+          email: promptEmail.trim(),
+          name: promptEmail.split('@')[0].replace(/[._]/g, ' ').toUpperCase(),
+          email_verified: true
+        },
+        org_name: defaultOrg
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      fb.textContent = data.detail || 'Échec de connexion Google.';
+      return;
+    }
+    localStorage.setItem('daderezo_saas_token', data.token);
+    fb.textContent = '';
+    currentAgentId = '';
+    applyAuthUserUI(data.user);
+    closeAuthModal();
+    await refreshAll();
+    loadMedia();
+  } catch (_) {
+    fb.textContent = 'Serveur injoignable lors de l’authentification Google.';
+  }
+});
+
+// GESTION DU SOUMISSION EMAIL + MOT DE PASSE
 document.getElementById('submitAuthBtn').addEventListener('click', async () => {
   const fb = document.getElementById('authFeedbackMsg');
   const email = (document.getElementById('authEmailIn').value || '').trim();
@@ -5789,22 +6013,47 @@ document.getElementById('submitAuthBtn').addEventListener('click', async () => {
   const org_name = (document.getElementById('authOrgNameIn').value || '').trim();
   const full_name = (document.getElementById('authFullNameIn').value || '').trim() || 'Superviseur Général';
 
-  if (!email || password.length < 6 || (authMode === 'signup' && !org_name)) {
-    fb.textContent = 'Veuillez renseigner tous les champs (mot de passe ≥ 6 caractères).';
+  if (!email || !password) {
+    fb.textContent = 'Veuillez saisir votre adresse e-mail et votre mot de passe.';
     return;
   }
+  if (authMode === 'signup') {
+    if (!org_name) {
+      fb.textContent = 'Veuillez renseigner le nom de votre organisation.';
+      return;
+    }
+    if (password.length < 10) {
+      fb.textContent = 'Le mot de passe doit comporter au moins 10 caractères et être robuste.';
+      return;
+    }
+  }
+
   fb.textContent = 'Vérification sécurisée…';
   const endpoint = authMode === 'signup' ? '/auth/signup' : '/auth/login';
   const body = authMode === 'signup' ? { email, password, org_name, full_name } : { email, password };
   try {
     const res = await fetch(`${getApiBase()}${endpoint}`, {
-      method: 'POST', headers: getHeaders(true), body: JSON.stringify(body)
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: getHeaders(true),
+      body: JSON.stringify(body)
     });
     const data = await res.json();
     if (!res.ok) {
       fb.textContent = data.detail || 'Erreur d’authentification.';
       return;
     }
+
+    if (data.status === '2fa_required') {
+      pending2faTempToken = data.temp_token || '';
+      document.getElementById('authFormsBox').classList.add('hidden');
+      document.getElementById('auth2faBox').classList.remove('hidden');
+      document.getElementById('auth2faCodeIn').value = '';
+      document.getElementById('auth2faFeedbackMsg').textContent = '';
+      setTimeout(() => document.getElementById('auth2faCodeIn').focus(), 100);
+      return;
+    }
+
     localStorage.setItem('daderezo_saas_token', data.token);
     fb.textContent = '';
     currentAgentId = '';
@@ -5817,7 +6066,138 @@ document.getElementById('submitAuthBtn').addEventListener('click', async () => {
   }
 });
 
+// VALIDATION DU CODE 2FA AU LOGIN
+document.getElementById('submit2faBtn').addEventListener('click', async () => {
+  const fb = document.getElementById('auth2faFeedbackMsg');
+  const code = (document.getElementById('auth2faCodeIn').value || '').trim();
+  if (code.length !== 6) {
+    fb.textContent = 'Veuillez saisir le code à 6 chiffres.';
+    return;
+  }
+  fb.textContent = 'Vérification du code 2FA…';
+  try {
+    const res = await fetch(`${getApiBase()}/auth/2fa/verify`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ temp_token: pending2faTempToken, code })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      fb.textContent = data.detail || 'Code 2FA invalide.';
+      return;
+    }
+    localStorage.setItem('daderezo_saas_token', data.token);
+    currentAgentId = '';
+    applyAuthUserUI(data.user);
+    closeAuthModal();
+    await refreshAll();
+    loadMedia();
+  } catch (_) {
+    fb.textContent = 'Erreur de connexion au serveur.';
+  }
+});
+
+document.getElementById('cancel2faBtn').addEventListener('click', () => {
+  pending2faTempToken = '';
+  document.getElementById('auth2faBox').classList.add('hidden');
+  document.getElementById('authFormsBox').classList.remove('hidden');
+});
+
+// CONFIGURATION 2FA DANS LE PROFIL CONNECTÉ
+document.getElementById('startTotpSetupBtn').addEventListener('click', async () => {
+  const setupArea = document.getElementById('totpSetupArea');
+  const secretDisp = document.getElementById('totpSecretDisplay');
+  const msg = document.getElementById('totpSetupMsg');
+  msg.textContent = 'Génération de la clé secrète…';
+  try {
+    const res = await fetch(`${getApiBase()}/auth/2fa/setup`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: getHeaders(true, true)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.textContent = data.detail || 'Erreur lors de la génération 2FA.';
+      return;
+    }
+    pendingTotpSecret = data.secret;
+    secretDisp.textContent = data.formatted_secret || data.secret;
+    setupArea.classList.remove('hidden');
+    msg.textContent = '';
+  } catch (_) {
+    msg.textContent = 'Erreur réseau.';
+  }
+});
+
+document.getElementById('closeTotpSetupBtn').addEventListener('click', () => {
+  document.getElementById('totpSetupArea').classList.add('hidden');
+  pendingTotpSecret = '';
+});
+
+document.getElementById('confirmTotpBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('totpSetupMsg');
+  const code = (document.getElementById('totpVerifyInput').value || '').trim();
+  if (code.length !== 6) {
+    msg.textContent = 'Veuillez entrer le code à 6 chiffres affiché par votre application.';
+    return;
+  }
+  msg.textContent = 'Validation…';
+  try {
+    const res = await fetch(`${getApiBase()}/auth/2fa/enable`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: getHeaders(true, true),
+      body: JSON.stringify({ secret: pendingTotpSecret, code })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.textContent = data.detail || 'Code incorrect.';
+      return;
+    }
+    document.getElementById('totpSetupArea').classList.add('hidden');
+    pendingTotpSecret = '';
+    if (currentAuthUser) currentAuthUser.totp_enabled = true;
+    applyAuthUserUI(currentAuthUser);
+    alert('✅ Double Authentification (2FA TOTP) activée avec succès sur votre Espace Privé !');
+  } catch (_) {
+    msg.textContent = 'Erreur réseau.';
+  }
+});
+
+document.getElementById('disableTotpBtn').addEventListener('click', async () => {
+  const pw = prompt('Confirmez votre mot de passe pour désactiver le 2FA :');
+  if (!pw) return;
+  const code = prompt('Entrez le code actuel à 6 chiffres de votre application Authenticator :');
+  if (!code) return;
+  try {
+    const res = await fetch(`${getApiBase()}/auth/2fa/disable`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: getHeaders(true, true),
+      body: JSON.stringify({ password: pw, code })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(`❌ Échec : ${data.detail || 'Erreur'}`);
+      return;
+    }
+    if (currentAuthUser) currentAuthUser.totp_enabled = false;
+    applyAuthUserUI(currentAuthUser);
+    alert('Double Authentification (2FA) désactivée.');
+  } catch (_) {
+    alert('Erreur réseau.');
+  }
+});
+
 document.getElementById('logoutSaaSBtn').addEventListener('click', async () => {
+  try {
+    await fetch(`${getApiBase()}/auth/logout`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: getHeaders(false, true)
+    });
+  } catch (_) {}
   localStorage.removeItem('daderezo_saas_token');
   currentAgentId = '';
   applyAuthUserUI(null);

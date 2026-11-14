@@ -569,6 +569,7 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertEqual(priv_ingest.status_code, 200)
 
         # 3. Un visiteur public sur le lien NE VOIT PAS la sonde privée ni son dashboard !
+        self.client.cookies.clear()
         public_agents = self.client.get("/agents").json()
         self.assertFalse(any(a["id"] == "yamoussoukro-prive" for a in public_agents))
 
@@ -1423,6 +1424,223 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertIn('id="diag"', ui_html)
         self.assertIn("diagOscilloCanvas", ui_html)
         self.assertIn("generateIspTicketBtn", ui_html)
+
+    def test_28_google_oauth_login_and_provisioning(self):
+        """v4.8 Security: Google OAuth 2.0 / OpenID Connect login and automatic private workspace provisioning."""
+        self.client.cookies.clear()
+        g_auth = self.client.post(
+            "/auth/google",
+            json={
+                "user_info": {
+                    "email": "superviseur.google@sainte-marie.ci",
+                    "name": "Frère Responsable Réseau",
+                    "email_verified": True,
+                    "picture": "https://lh3.googleusercontent.com/a/avatar123",
+                },
+                "org_name": "Abbaye Sainte Marie Google Workspace",
+            },
+        )
+        self.assertEqual(g_auth.status_code, 200)
+        body = g_auth.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertEqual(body["auth_provider"], "google")
+        self.assertTrue(body["user"]["probe_api_key"].startswith("dzk_"))
+        self.assertEqual(body["user"]["email"], "superviseur.google@sainte-marie.ci")
+        token = body["token"]
+
+        # Cookie de session HttpOnly automatiquement posé
+        self.assertIn("daderezo_session", self.client.cookies)
+
+        # /auth/me résout automatiquement le tenant privé via cookie
+        me_res = self.client.get("/auth/me")
+        self.assertEqual(me_res.status_code, 200)
+        me_body = me_res.json()
+        self.assertTrue(me_body["authenticated"])
+        self.assertEqual(me_body["mode"], "private_org")
+        self.assertEqual(me_body["user"]["email"], "superviseur.google@sainte-marie.ci")
+
+    def test_29_password_policy_and_disposable_email_rejection(self):
+        """v4.8 Security: Enforce strict password policy (>=10 chars, upper, lower, num, spec) & ban disposable emails."""
+        self.client.cookies.clear()
+
+        # 1. Rejet mot de passe trop court (<10 caractères)
+        r_short = self.client.post(
+            "/auth/signup",
+            json={
+                "email": "test.short@mon-site.ci",
+                "password": "Short1!",
+                "full_name": "Admin",
+                "org_name": "Test Short",
+            },
+        )
+        self.assertEqual(r_short.status_code, 422)  # Pydantic schema min_length=10
+
+        # 2. Rejet mot de passe sans majuscule / sans caractère spécial
+        from api import validate_password_strength
+
+        ok_no_up, err_no_up = validate_password_strength("nouppercase123!")
+        self.assertFalse(ok_no_up)
+        self.assertIn("majuscule", err_no_up)
+
+        ok_no_spec, err_no_spec = validate_password_strength("NoSpecialChar1234")
+        self.assertFalse(ok_no_spec)
+        self.assertIn("spécial", err_no_spec)
+
+        ok_no_num, err_no_num = validate_password_strength("NoDigitsAtAllHere!")
+        self.assertFalse(ok_no_num)
+        self.assertIn("chiffre", err_no_num)
+
+        # 3. Rejet e-mail temporaire / jetable
+        r_disp = self.client.post(
+            "/auth/signup",
+            json={
+                "email": "hacker@tempmail.com",
+                "password": "PasswordSecurise2026!",
+                "full_name": "Hacker",
+                "org_name": "Hacker Org",
+            },
+        )
+        self.assertEqual(r_disp.status_code, 400)
+        self.assertIn("jetables", r_disp.json()["detail"])
+
+        r_disp2 = self.client.post(
+            "/auth/signup",
+            json={
+                "email": "spammer@mailinator.com",
+                "password": "PasswordSecurise2026!",
+                "full_name": "Spam",
+                "org_name": "Spam Org",
+            },
+        )
+        self.assertEqual(r_disp2.status_code, 400)
+
+    def test_30_two_factor_authentication_totp_flow(self):
+        """v4.8 Security: Full 2FA TOTP RFC 6238 setup, activation, 2FA-required login challenge, and verification."""
+        import api
+
+        self.client.cookies.clear()
+        signup = self.client.post(
+            "/auth/signup",
+            json={
+                "email": "admin.totp@sainte-marie.ci",
+                "password": "PasswordTotp2026!",
+                "full_name": "Admin TOTP",
+                "org_name": "Organisation Sécurisée 2FA",
+            },
+        ).json()
+        token = signup["token"]
+        auth_h = {"Authorization": f"Bearer {token}"}
+
+        # 1. Génération du secret TOTP
+        setup_res = self.client.post("/auth/2fa/setup", headers=auth_h)
+        self.assertEqual(setup_res.status_code, 200)
+        setup_body = setup_res.json()
+        secret = setup_body["secret"]
+        self.assertTrue(len(secret) >= 16)
+        self.assertIn("otpauth://totp/DADEREZO", setup_body["otpauth_url"])
+
+        # 2. Tentative d'activation avec un mauvais code (rejet 400)
+        bad_enable = self.client.post(
+            "/auth/2fa/enable", headers=auth_h, json={"secret": secret, "code": "000000"}
+        )
+        self.assertEqual(bad_enable.status_code, 400)
+
+        # 3. Activation avec un code TOTP valide calculé
+        valid_code = api.get_totp_token(secret)
+        good_enable = self.client.post(
+            "/auth/2fa/enable", headers=auth_h, json={"secret": secret, "code": valid_code}
+        )
+        self.assertEqual(good_enable.status_code, 200)
+        self.assertTrue(good_enable.json()["totp_enabled"])
+
+        # 4. Connexion par identifiants : l'API répond '2fa_required' avec temp_token
+        self.client.cookies.clear()
+        login_chal = self.client.post(
+            "/auth/login",
+            json={"email": "admin.totp@sainte-marie.ci", "password": "PasswordTotp2026!"},
+        )
+        self.assertEqual(login_chal.status_code, 200)
+        chal_body = login_chal.json()
+        self.assertEqual(chal_body["status"], "2fa_required")
+        temp_token = chal_body["temp_token"]
+
+        # 5. Échec avec faux code 2FA
+        bad_verify = self.client.post(
+            "/auth/2fa/verify", json={"temp_token": temp_token, "code": "999999"}
+        )
+        self.assertEqual(bad_verify.status_code, 401)
+
+        # 6. Succès avec code 2FA valide
+        good_verify = self.client.post(
+            "/auth/2fa/verify", json={"temp_token": temp_token, "code": api.get_totp_token(secret)}
+        )
+        self.assertEqual(good_verify.status_code, 200)
+        v_body = good_verify.json()
+        self.assertEqual(v_body["status"], "ok")
+        self.assertTrue(v_body["user"]["totp_enabled"])
+        final_token = v_body["token"]
+
+        # 7. Désactivation du 2FA
+        dis_res = self.client.post(
+            "/auth/2fa/disable",
+            headers={"Authorization": f"Bearer {final_token}"},
+            json={"password": "PasswordTotp2026!", "code": api.get_totp_token(secret)},
+        )
+        self.assertEqual(dis_res.status_code, 200)
+        self.assertFalse(dis_res.json()["totp_enabled"])
+
+    def test_31_rate_limiting_anti_bruteforce_and_httponly_cookies(self):
+        """v4.8 Security: Rate limiter blocks bruteforce attacks on /auth/login with 429 Too Many Requests."""
+        import api
+
+        self.client.cookies.clear()
+        api.auth_limiter.reset("login:testclient:brute.target@domaine.ci")
+
+        # 5 tentatives de mot de passe erroné
+        for _ in range(5):
+            r = self.client.post(
+                "/auth/login",
+                json={"email": "brute.target@domaine.ci", "password": "BadPassword123!"},
+            )
+
+        # La 6e tentative doit être immédiatement rejetée avec 429 Too Many Requests
+        lockout = self.client.post(
+            "/auth/login",
+            json={"email": "brute.target@domaine.ci", "password": "BadPassword123!"},
+        )
+        self.assertEqual(lockout.status_code, 429)
+        self.assertIn("Retry-After", lockout.headers)
+
+        # Réinitialisation
+        api.auth_limiter.reset("login:testclient:brute.target@domaine.ci")
+
+        # Test de l'endpoint de déconnexion /auth/logout
+        logout_res = self.client.post("/auth/logout")
+        self.assertEqual(logout_res.status_code, 200)
+
+    def test_32_openapi_security_schemes_and_security_headers(self):
+        """v4.8 Security: OpenAPI securitySchemes (bearerAuth, apiKeyAuth, cookieAuth) & HTTP Security Headers."""
+        # 1. Vérification OpenAPI / Swagger
+        openapi = self.client.get("/openapi.json").json()
+        sec_schemes = openapi.get("components", {}).get("securitySchemes", {})
+        self.assertIn("bearerAuth", sec_schemes)
+        self.assertIn("apiKeyAuth", sec_schemes)
+        self.assertIn("cookieAuth", sec_schemes)
+
+        # 2. Vérification des Security Headers HTTP
+        health_res = self.client.get("/health")
+        self.assertEqual(health_res.headers.get("x-content-type-options"), "nosniff")
+        self.assertEqual(health_res.headers.get("x-frame-options"), "SAMEORIGIN")
+        self.assertIn("strict-origin", health_res.headers.get("referrer-policy", ""))
+
+        # 3. Vérification des éléments d'authentification Google & 2FA dans DADEREZO.html
+        ui = self.client.get("/ui").text
+        self.assertIn("googleAuthBtn", ui)
+        self.assertIn("Continuer avec Google", ui)
+        self.assertIn("passwordStrengthBox", ui)
+        self.assertIn("pwStrengthBar", ui)
+        self.assertIn("auth2faBox", ui)
+        self.assertIn("totpStatusBadge", ui)
 
 
 if __name__ == "__main__":

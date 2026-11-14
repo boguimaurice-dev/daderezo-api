@@ -843,7 +843,7 @@ footer{
 
       <details class="faq-item" open>
         <summary>Est-ce qu’une personne ayant le lien public peut voir ou modifier mon propre système réseau ?</summary>
-        <p><b>Non, jamais.</b> Toute personne qui visite l’adresse publique ne voit que le banc d’essai isolé <code>simulation-bouake</code>. Dès que vous créez votre <b>Espace Privé</b> (<code>/ui?auth=1</code>), vos sondes, équipements, box et fichiers sont rattachés à votre organisation privée (<code>org_slug</code>) et protégés par votre jeton signé et votre clé sonde unique <code>dzk_…</code>.</p>
+        <p><b>Non, absolument jamais.</b> Toute personne qui visite l’adresse publique ne voit que le banc d’essai isolé <code>simulation-bouake</code>. Dès que vous créez ou vous connectez à votre <b>Espace Privé</b> (<code>/ui?auth=1</code> avec <b>Google OAuth 2.0</b> ou e-mail/mot de passe robuste), vos sondes, box et fichiers sont strictement cloisonnés dans votre organisation privée (<code>org_slug</code>) et protégés par un jeton signé en <b>cookie HttpOnly sécurisé</b>, une clé sonde unique <code>dzk_…</code>, le <b>Double Facteur (2FA TOTP)</b> et un <b>Rate Limiter anti-bruteforce</b>.</p>
       </details>
 
       <details class="faq-item">

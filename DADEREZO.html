@@ -1441,6 +1441,403 @@ tr[data-inspect]:hover td{
   font-size: 12.5px;
 }
 
+
+/* =====================================================================
+   OPTIMISATIONS MOBILES HAUTE PERFORMANCE (V4.9)
+   Smartphone (320px - 480px), Phablettes (481px - 768px), Tablettes (769px - 1024px)
+   ===================================================================== */
+
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 1. LAYOUT RESPONSIVE & NAVIGATION MOBILE (< 840px) */
+@media (max-width: 840px) {
+  .app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: 100%;
+  }
+
+  aside {
+    position: static;
+    height: auto;
+    width: 100%;
+    padding: 12px 14px 10px;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    gap: 8px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0;
+    width: 100%;
+  }
+
+  .brand-name {
+    display: block !important;
+    font-size: 16px;
+  }
+
+  .brand-sub {
+    display: block !important;
+    font-size: 8.5px;
+  }
+
+  .site-card, .side-bottom {
+    display: none !important;
+  }
+
+  .monastery-badge-card {
+    display: none !important;
+  }
+
+  .nav {
+    display: flex !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 2px 6px;
+    margin: 4px 0 0;
+  }
+
+  .nav button, .nav a.nav-link {
+    flex: 0 0 auto;
+    width: auto !important;
+    min-height: 36px;
+    padding: 0 12px !important;
+    white-space: nowrap;
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg-card);
+    scroll-snap-align: start;
+    justify-content: flex-start !important;
+  }
+
+  .nav-label {
+    display: inline !important;
+  }
+
+  .nav-badge {
+    display: inline-block !important;
+    font-size: 9.5px;
+    padding: 2px 6px;
+  }
+
+  main {
+    padding: 14px 12px 60px;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* 2. PODIUMS NÉON : CARROUSEL FLUIDE MOBILE (< 800px) */
+@media (max-width: 800px) {
+  .neon-podiums-stage {
+    display: flex !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 10px;
+    padding: 12px 10px 14px;
+    margin: 0 0 16px;
+    border-radius: 14px;
+  }
+
+  .podium-card {
+    flex: 0 0 135px;
+    scroll-snap-align: start;
+    min-height: 128px;
+    padding: 12px 8px 10px;
+  }
+
+  .podium-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    border-radius: 11px;
+    margin-bottom: 4px;
+  }
+
+  .podium-title {
+    font-size: 13px;
+  }
+
+  .podium-sub {
+    font-size: 9.5px;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .podium-agent-pill {
+    font-size: 8px;
+    padding: 2px 5px;
+  }
+}
+
+/* 3. EN-TÊTE & TOPLINE SUR SMARTPHONE (< 640px) */
+@media (max-width: 640px) {
+  .topline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+
+  .eyebrow {
+    font-size: 9.5px;
+  }
+
+  .top-right {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    gap: 6px;
+  }
+
+  .mode-switch-group {
+    flex-shrink: 0;
+  }
+
+  .mode-switch-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .truth-pill, .collector-pill {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    font-size: 9.5px;
+  }
+
+  .site-select {
+    height: 32px;
+    font-size: 11px;
+    padding: 0 8px;
+  }
+
+  .btn {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 11.5px;
+    flex-shrink: 0;
+  }
+
+  .heading h1 {
+    font-size: 20px;
+  }
+
+  .heading p {
+    font-size: 12px;
+  }
+}
+
+/* 4. COCKPITS NOC & SOC SUR SMARTPHONE (< 640px) */
+@media (max-width: 640px) {
+  .noc-grid-top {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .noc-kpi-card {
+    padding: 12px 14px;
+    border-radius: 12px;
+  }
+
+  .noc-kpi-val {
+    font-size: 24px;
+  }
+
+  .noc-grid-mid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .noc-chart-card, .noc-ctrl-panel {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .noc-chart-title, .noc-ctrl-head {
+    font-size: 14px;
+  }
+
+  .noc-grid-bot {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .noc-bot-card {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .donut-container {
+    justify-content: center;
+    gap: 16px;
+  }
+
+  /* CYBERSÉCURITÉ SOC */
+  .soc-grid-top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .soc-kpi-card {
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  .soc-kpi-card .noc-kpi-val {
+    font-size: 19px;
+  }
+
+  .soc-grid-mid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .soc-map-card, .soc-threats-card {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .soc-threat-item {
+    font-size: 11.5px;
+  }
+
+  .soc-grid-bot {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  /* ORCHESTRATEUR IA */
+  .sup-console {
+    padding: 14px 12px;
+    border-radius: 14px;
+  }
+
+  .sup-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .sup-identity {
+    width: 100%;
+  }
+
+  .sup-controls {
+    width: 100%;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .sup-input-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sup-input {
+    width: 100%;
+    min-height: 44px;
+    font-size: 13px;
+  }
+
+  .sup-input-row button {
+    width: 100%;
+    min-height: 38px;
+  }
+
+  .sup-chips {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+  }
+
+  .sup-chip {
+    flex-shrink: 0;
+  }
+
+  .sup-metrics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .agent-pipeline {
+    display: flex !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding-bottom: 6px;
+  }
+
+  .agent-node {
+    flex: 0 0 145px;
+    scroll-snap-align: start;
+  }
+
+  .voice-studio {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .voice-studio-controls {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  /* TABLEAUX & INSPECTEUR */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 10px;
+  }
+
+  table {
+    min-width: 540px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .toolbar input.search-in {
+    width: 100%;
+  }
+
+  .inspector-drawer {
+    width: 100vw;
+  }
+}
+
 </style>
 </head>
 <body>

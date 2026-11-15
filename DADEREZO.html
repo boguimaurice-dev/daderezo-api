@@ -1505,6 +1505,14 @@ html, body {
     -webkit-backdrop-filter: blur(14px);
     padding: 12px 0 16px;
     margin-bottom: 20px;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+    will-change: transform, opacity;
+  }
+
+  .topline.nav-hidden {
+    transform: translateY(-130%) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
 
   .brand-mobile-ctrls, .mobile-menu-toggle {
@@ -1547,6 +1555,15 @@ html, body {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease, box-shadow 0.25s ease;
+    will-change: transform;
+  }
+
+  aside.nav-hidden {
+    transform: translateY(-110%) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    box-shadow: none !important;
   }
 
   html[data-theme="light"] aside {
@@ -3532,6 +3549,70 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// --- AUTO-HIDE & AUTO-REVEAL DE LA BARRE SUPÉRIEURE (MOBILE & PC) ---
+let lastWinScrollY = 0;
+let lastMainScrollY = 0;
+const SCROLL_DELTA_MIN = 6; // Seuil minimum en pixels pour éliminer les micro-saccades
+
+function updateSmartHeaderVisibility() {
+  const asideHeader = document.querySelector('aside');
+  const toplineHeader = document.querySelector('.topline');
+  const mainEl = document.querySelector('main');
+
+  // 1. Défilement global / Mobile (< 840px)
+  window.addEventListener('scroll', () => {
+    const curY = Math.max(0, window.scrollY || window.pageYOffset || 0);
+
+    // À moins de 20px du haut : toujours affiché
+    if (curY <= 20) {
+      if (asideHeader) asideHeader.classList.remove('nav-hidden');
+      lastWinScrollY = curY;
+      return;
+    }
+
+    const diff = curY - lastWinScrollY;
+    if (Math.abs(diff) >= SCROLL_DELTA_MIN) {
+      if (diff > 0) {
+        // Défilement vers le bas -> Masquer immédiatement la barre pour donner toute la place à l'action
+        if (asideHeader && !asideHeader.querySelector('.nav.mobile-expanded')) {
+          asideHeader.classList.add('nav-hidden');
+        }
+      } else {
+        // Défilement vers le haut -> Réapparaître aussitôt
+        if (asideHeader) asideHeader.classList.remove('nav-hidden');
+      }
+      lastWinScrollY = curY;
+    }
+  }, { passive: true });
+
+  // 2. Défilement conteneur principal sur PC / Ordinateur (> 840px)
+  if (mainEl) {
+    mainEl.addEventListener('scroll', () => {
+      const curTop = Math.max(0, mainEl.scrollTop);
+
+      // À moins de 20px du haut : toujours affiché
+      if (curTop <= 20) {
+        if (toplineHeader) toplineHeader.classList.remove('nav-hidden');
+        lastMainScrollY = curTop;
+        return;
+      }
+
+      const diff = curTop - lastMainScrollY;
+      if (Math.abs(diff) >= SCROLL_DELTA_MIN) {
+        if (diff > 0) {
+          // Défilement vers le bas -> Masquer .topline pour maximiser la hauteur d'affichage
+          if (toplineHeader) toplineHeader.classList.add('nav-hidden');
+        } else {
+          // Défilement vers le haut -> Réapparaître aussitôt
+          if (toplineHeader) toplineHeader.classList.remove('nav-hidden');
+        }
+        lastMainScrollY = curTop;
+      }
+    }, { passive: true });
+  }
+}
+updateSmartHeaderVisibility();
+
 const scrollToTopBtn = document.getElementById('scrollToTopBtn');
 if (scrollToTopBtn) {
   const checkScroll = () => {
@@ -3553,6 +3634,10 @@ if (scrollToTopBtn) {
   if (mainEl) mainEl.addEventListener('scroll', checkScroll, { passive: true });
 
   scrollToTopBtn.addEventListener('click', () => {
+    const asideHeader = document.querySelector('aside');
+    const toplineHeader = document.querySelector('.topline');
+    if (asideHeader) asideHeader.classList.remove('nav-hidden');
+    if (toplineHeader) toplineHeader.classList.remove('nav-hidden');
     if (mainEl) mainEl.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
@@ -3589,6 +3674,12 @@ navButtons.forEach(btn => btn.addEventListener('click', () => {
   if (mobileMenuToggleLabel && labelEl) {
     mobileMenuToggleLabel.textContent = labelEl.textContent.split('(')[0].trim();
   }
+
+  // Révèle immédiatement les barres supérieures lors du changement d'onglet
+  const asideHeader = document.querySelector('aside');
+  const toplineHeader = document.querySelector('.topline');
+  if (asideHeader) asideHeader.classList.remove('nav-hidden');
+  if (toplineHeader) toplineHeader.classList.remove('nav-hidden');
 
   const mainEl = document.querySelector('main');
   if (mainEl && mainEl.scrollTop > 0) mainEl.scrollTo({ top: 0, behavior: 'smooth' });

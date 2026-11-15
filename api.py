@@ -63,9 +63,22 @@ app = FastAPI(
     description="Supervision réseau PWA installable, ReAct Function-Calling DeepSeek, authentification Google OAuth, 2FA TOTP, protection anti-bruteforce, cookies HttpOnly et contrôle Internet granulaire",
     version="4.8.0",
 )
+# Origines autorisées pour les requêtes CORS (mandatory credentials).
+# SECURITY: NEVER use "*" with allow_credentials=True, it lets any origin read
+# authenticated responses. Set DADEREZO_ALLOWED_ORIGINS to a concrete list in prod.
+_ALLOWED_ORIGINS = os.environ.get(
+    "DADEREZO_ALLOWED_ORIGINS",
+    "https://daderezo-api-nine.vercel.app",
+).split(",")
+ALLOWED_ORIGINS = [o.strip() for o in _ALLOWED_ORIGINS if o.strip()]
+if not ALLOWED_ORIGINS:
+    raise RuntimeError(
+        "DADEREZO_ALLOWED_ORIGINS is empty. Configure at least one trusted origin in the environment."
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -91,14 +104,60 @@ async def add_security_headers(request: Request, call_next):
 # ---------------------------------------------------------------------------
 # Protection Anti-Bruteforce & Rate Limiting (`/auth/*`)
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Protection Anti-Bruteforce & Rate Limiting (`/auth/*`)
+# ---------------------------------------------------------------------------
+try:
+    import redis as _redis_mod
+
+    _REDIS_URL = os.environ.get("DADEREZO_REDIS_URL", "redis://localhost:6379/0").strip()
+    try:
+        _redis_client = _redis_mod.from_url(_REDIS_URL)
+        _HAS_REDIS = bool(_redis_client.ping())
+    except Exception:
+        _redis_client = None
+        _HAS_REDIS = False
+except ImportError:
+    _redis_client = None
+    _HAS_REDIS = False
+
+
 class AuthRateLimiter:
-    """Rate limiter en mémoire à fenêtre glissante pour contrer les attaques par force brute."""
+    """Rate limiter anti-force brute (mémoire ou Redis si configuré).
+
+    Mode distribué via Redis : _HAS_REDIS = True.
+    Mode local : fallback pur mémoire (perdus au redémarrage).
+    """
 
     def __init__(self):
-        self._attempts: Dict[str, List[float]] = {}
-        self._locks: Dict[str, float] = {}
+        self._redis = _redis_client if _HAS_REDIS else None
+        if self._redis is None:
+            self._attempts: Dict[str, List[float]] = {}
+            self._locks: Dict[str, float] = {}
+
+    def _redis_lock_key(self, key: str) -> str:
+        return f"auth_rl_lock:{key}"
+
+    def _redis_hist_key(self, key: str) -> str:
+        return f"auth_rl_hist:{key}"
 
     def is_locked(self, key: str) -> Tuple[bool, int]:
+        if self._redis is not None:
+            try:
+                now = time.time()
+                lock_key = self._redis_lock_key(key)
+                # Prend le verrou si non détenu ou périmé
+                acquired = self._redis.set(lock_key, str(now + 900), nx=True, ex=900)
+                if acquired:
+                    return False, 0
+                stored = self._redis.get(lock_key)
+                if stored is not None and float(stored) < now:
+                    self._redis.delete(lock_key)
+                    return False, 0
+                remain = max(1, int(float(stored) - now + 900))
+                return True, remain
+            except Exception:
+                pass
         now = time.time()
         lock_until = self._locks.get(key, 0)
         if lock_until > now:
@@ -114,6 +173,24 @@ class AuthRateLimiter:
         locked, remaining = self.is_locked(key)
         if locked:
             return True, remaining
+
+        if self._redis is not None:
+            try:
+                hist_key = self._redis_hist_key(key)
+                pipe = self._redis.pipeline()
+                pipe.zremrangebyscore(hist_key, 0, now - window_seconds)
+                pipe.zadd(hist_key, {str(now): now})
+                pipe.zcard(hist_key)
+                pipe.expire(hist_key, window_seconds + 60)
+                count = pipe.execute()[2]
+                if count >= max_attempts:
+                    self._redis.setex(self._redis_lock_key(key), lock_duration, str(now + lock_duration))
+                    return True, lock_duration
+                return False, 0
+            except Exception:
+                pass
+
+        # Fallback en mémoire
         hist = [t for t in self._attempts.get(key, []) if now - t < window_seconds]
         hist.append(now)
         self._attempts[key] = hist
@@ -123,8 +200,14 @@ class AuthRateLimiter:
         return False, 0
 
     def reset(self, key: str) -> None:
-        self._attempts.pop(key, None)
-        self._locks.pop(key, None)
+        if self._redis is not None:
+            try:
+                self._redis.delete(self._redis_lock_key(key), self._redis_hist_key(key))
+            except Exception:
+                pass
+        else:
+            self._attempts.pop(key, None)
+            self._locks.pop(key, None)
 
 
 auth_limiter = AuthRateLimiter()
@@ -268,12 +351,12 @@ def get_api_key() -> str:
 
 
 def _jwt_secret() -> bytes:
-    raw = (
-        os.environ.get("DADEREZO_AUTH_SECRET", "").strip()
-        or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
-        or get_api_key()
-        or "daderezo-v4-stateless-hmac-key-2026"
-    )
+    raw = os.environ.get("DADEREZO_AUTH_SECRET", "").strip()
+    if not raw:
+        raise RuntimeError(
+            "DADEREZO_AUTH_SECRET is not set. The app cannot start with a default fallback secret: "
+            "anyone could forge signed tokens. Set DADEREZO_AUTH_SECRET in the environment before starting."
+        )
     return raw.encode("utf-8")
 
 

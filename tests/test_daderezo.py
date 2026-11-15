@@ -1655,6 +1655,15 @@ class TestApiEndpoints(unittest.TestCase):
         # Règles CSS de défilement indépendant desktop
         self.assertIn("overflow: hidden", ui)
         self.assertIn("grid-template-columns: 268px minmax(0, 1fr)", ui)
+        # Auto-hide / auto-reveal smart header rules & logic
+        self.assertIn(".topline.nav-hidden", ui)
+        self.assertIn("aside.nav-hidden", ui)
+        self.assertIn("updateSmartHeaderVisibility", ui)
+
+        # Vérification sur la page d'accueil SaaS landing.html
+        landing = self.client.get("/landing").text
+        self.assertIn("header.site-nav.nav-hidden", landing)
+        self.assertIn("initLandingSmartHeader", landing)
 
 
 if __name__ == "__main__":

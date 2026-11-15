@@ -140,11 +140,18 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
 .hidden{display:none!important}
 .container{max-width:1240px;margin:0 auto;padding:0 clamp(18px,4vw,36px)}
 
-/* STICKY SAAS HEADER */
+/* STICKY SAAS HEADER AVEC AUTO-HIDE SMART SCROLL */
 header.site-nav{
   position:sticky;top:0;z-index:50;
   background:var(--nav-bg);backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
   border-bottom:1px solid var(--line);
+  transition:transform .32s cubic-bezier(.16,1,.3,1),box-shadow .25s ease;
+  will-change:transform;
+}
+header.site-nav.nav-hidden{
+  transform:translateY(-110%)!important;
+  box-shadow:none!important;
 }
 .nav-inner{
   min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
@@ -1145,6 +1152,30 @@ runDemoAsk(null);
       setTimeout(() => { if (toast) toast.style.display = 'none'; }, 7500);
     });
   }
+})();
+
+/* AUTO-HIDE SMART HEADER AU DÉFILEMENT */
+(function initLandingSmartHeader() {
+  const siteNav = document.querySelector('header.site-nav');
+  if (!siteNav) return;
+  let lastY = 0;
+  window.addEventListener('scroll', () => {
+    const curY = Math.max(0, window.scrollY || window.pageYOffset || 0);
+    if (curY <= 20) {
+      siteNav.classList.remove('nav-hidden');
+      lastY = curY;
+      return;
+    }
+    const diff = curY - lastY;
+    if (Math.abs(diff) >= 6) {
+      if (diff > 0) {
+        siteNav.classList.add('nav-hidden');
+      } else {
+        siteNav.classList.remove('nav-hidden');
+      }
+      lastY = curY;
+    }
+  }, { passive: true });
 })();
 </script>
 </body>

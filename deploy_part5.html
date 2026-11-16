@@ -1,0 +1,25 @@
+Configuration</h2>
+    <p class="section-desc">Le fichier <code>.env</code> ou les variables d'environnement du déploiement définissent le comportement de l'API, des agents et du superviseur.</p>
+
+    <div class="card" style="margin-bottom:14px">
+      <h3 style="margin:0 0 8px;font-size:16px">Variables d'environnement (production)</h3>
+      <div class="code-block" style="max-height:320px"><code><span class="gutter">1</span> # ── Base de données (Supabase PostgreSQL 17) ────────────────
+<span class="gutter">2</span> SUPABASE_URL=https://&lt;votre-ref&gt;.supabase.co
+<span class="gutter">3</span> SUPABASE_SERVICE_ROLE_KEY=&lt;clé service_role&gt;
+
+<span class="gutter">4</span> # ── Sécurité API ────────────────────────────────────────────────
+<span class="gutter">5</span> DADEREZO_API_KEY=&lt;votre_clé_secrète&gt;
+<span class="gutter">6</span> DADEREZO_AUTH_SECRET=&lt;clé HMAC JWT (obligatoire)</span>
+
+<span class="gutter">7</span> # ── Cerveau LLM (DeepSeek) ─────────────────────────────────────
+<span class="gutter">8</span> DEEPSEEK_API_KEY=&lt;votre_clé_deepseek&gt;
+<span class="gutter">9</span> DADEREZO_LLM_MODEL=deepseek-chat
+
+<span class="gutter">10</span> # ── Gestionnaire de contenu (optionnel) ────────────────────────
+<span class="gutter">11</span> DADEREZO_LLM_PROVIDER=deepseek
+<span class="gutter">12</span> DADEREZO_SECRET_KEY=&lt;clé secrète de session&gt;</code></div>
+    </div>
+  </div>
+</section>
+</body>
+</html>

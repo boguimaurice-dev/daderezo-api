@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="DADEREZO — Guide d'installation et d'utilisation de la plateforme SaaS multi-agents de supervision et de pilotage réseau.">
+<title>DADEREZO — Installation & Utilisation</title>
+<style>
+:root{
+  --bg:#020b22; --bg-soft:#061538; --card:rgba(8,22,56,.88); --card-solid:#081840;
+  --well:rgba(2,10,30,.76); --nav-bg:rgba(3,11,34,.86);
+  --ink:#f1f6ff; --ink-dim:#cbdcff; --muted:#8ba5cf;
+  --brand:#0077ff; --brand-ink:#7cc4ff; --brand-soft:rgba(0,119,255,.18);
+  --emerald:#10b981; --emerald-ink:#6ee7b7; --emerald-soft:rgba(16,185,129,.15);
+  --cyan:#00b8ff; --cyan-ink:#6be0ff; --cyan-soft:rgba(0,184,255,.16);
+  --amber:#f59e0b; --amber-ink:#fcd34d; --amber-soft:rgba(245,158,11,.15);
+  --red:#ef4444; --red-ink:#fca5a5; --red-soft:rgba(239,68,68,.15);
+  --mono:"JetBrains Mono","Cascadia Code","Fira Code",Consolas,monospace;
+  --sans:"Space Grotesk","Inter","Segoe UI Variable",Segoe UI,system-ui,sans-serif;
+  color-scheme:dark;
+}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:15px/1.6 var(--sans); background:
+    radial-gradient(960px 500px at 14% -6%,rgba(0,119,255,.12),transparent 62%),
+    radial-gradient(880px 460px at 88% -4%,rgba(0,184,255,.10),transparent 60%),
+    linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px),var(--bg);
+  background-size:auto,auto,38px 38px,38px 38px,auto; overflow-x:hidden;
+}
+a{color:inherit;text-decoration:none}
+button,input{font:inherit}
+code,.mono{font-family:var(--mono);font-size:12.5px}
+.container{max-width:1200px;margin:0 auto;padding:0 clamp(18px,4vw,36px)}
+.hidden{display:none!important}
+
+/* Header */
+header.site-nav{position:sticky;top:0;z-index:50;background:var(--nav-bg);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.nav-inner{min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:8px 0}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:36px;height:36px;border-radius:10px;background:var(--brand-soft);border:1px solid var(--brand);display:flex;align-items:center;justify-content:center}
+.brand-name{font-weight:700;font-size:16px;letter-spacing:.5px}
+.brand-tag{font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+
+/* Hero */
+.hero{padding:48px 0 32px;position:relative}
+.hero-title{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 12px;letter-spacing:-.5px}
+.hero-sub{font-size:16px;color:var(--muted);max-width:720px;line-height:1.7}
+.hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-primary:hover{background:#0066eb}
+.btn-secondary{background:var(--card);color:var(--ink);border:1px solid var(--line-strong)}
+.btn-secondary:hover{background:var(--bg-soft)}
+.btn-ghost{background:transparent;color:var(--muted)}
+.btn-ghost:hover{color:var(--ink);background:rgba(255,255,255,.05)}
+.btn-sm{padding:6px 12px;font-size:13px;border-radius:8px}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.badge-new{background:var(--emerald-soft);color:var(--emerald-ink)}
+.badge-dev{background:var(--brand-soft);color:var(--brand-ink)}
+.badge-api{background:var(--cyan-soft);color:var(--cyan-ink)}
+.badge-demo{background:var(--amber-soft);color:var(--amber-ink)}
+
+/* Section */
+section.section{padding:40px 0}
+.section-title{font-size:26px;margin:0 0 6px;letter-spacing:-.3px}
+.section-desc{color:var(--muted);max-width:820px;margin-bottom:22px}
+.grid{display:grid;gap:16px}
+.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:900px){.grid-2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;transition:background .2s}
+.card:hover{background:rgba(8,22,56,.92)}
+.card h3{font-size:16px;margin:0 0 8px}
+.card p{color:var(--muted);font-size:14px;line-height:1.6}
+.card .tag{display:inline-block;margin-top:8px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="site-nav">
+  <div class="container nav-inner">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="brand-name">DADEREZO</div>
+        <div class="brand-tag">Installation · Utilisation · Guide</div>
+      </div>
+    </div>
+    <nav class="nav-inner nav-actions">
+      <div class="toc">
+        <a href="#overview"><span class="num">1</span> Présentation</a>
+        <a href="#architecture"><span class="num">2</span> Architecture</a>
+        <a href="#install"><span class="num">3</span> Installation</a>
+        <a href="#config"><span class="num">4</span> Configuration</a>
+        <a href="#usage"><span class="num">5</span> Utilisation</a>
+        <a href="#api"><span class="num">6</span> API</a>
+        <a href="#security"><span class="num">7</span> Sécurité</a>
+        <a href="#faq"><span class="num">8</span> FAQ</a>
+        <a href="#sources"><span class="num">9</span> Ressources</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<header class="hero container">
+  <div class="hero-badge primary">📘 Guide officiel · Installation &amp; Utilisation v4.8</div>
+  <h1 class="hero-title">DADEREZO — Guide technique d'<span style="color:var(--brand)">installation</span> et de <span style="color:var(--cyan)">utilisation</span></h1>
+  <p class="hero-sub">Plateforme SaaS multi-agents de supervision, de sécurité et de pilotage actif des réseaux locaux par IA. Suivez ce guide pour déployer, configurer et exploiter l'architecture complète en 30 minutes.</p>
+  <div class="hero-actions">
+    <a href="#install" class="btn btn-primary">📥 Installation pas à pas</a>
+    <a href="#usage" class="btn btn-secondary">🛠️ Comment utiliser</a>
+    <a href="#sources" class="btn btn-ghost">🌐 Site officiel</a>
+  </div>
+</header>
+
+<!-- 1. PRÉSENTATION -->
+<section class="section" id="overview">
+  <div class="container">
+    <h2 class="section-title">1 · Présentation</h2>
+    <p class="section-desc">DADEREZO v4.8 est une plateforme multi-agents conçue pour superviser, auditer et piloter des réseaux locaux (LAN &amp; WAN, Multi-Box Wi-Fi, Hub Multimédia) — par la voix et l'écrit — grâce à <strong>5 agents IA spécialisés</strong>.</p>
+    <div class="card" style="margin-top:14px">
+      <ul style="margin:0;padding-left:20px">
+        <li><strong>5 agents IA</strong> : SENTINEL-SEC, TOPO-SCAN, DIAG-NET, NET-CONTROL, MEDIA-HUB</li>
+        <li><strong>Contrôle Internet granulaire</strong> : Box Principale / Sous-réseau CIDR / Appareil précis</li>
+        <li><strong>Optimisation Multi-Box</strong> : Wi-Fi, QoS, DNS, MTU</li>
+        <li><strong>Partage multimédia</strong> : Cloud + LAN (même sans Internet)</li>
+        <li><strong>Isolation multi-tenant privée</strong> : clés sonde et espaces organisateurs</li>
+        <li><strong>IA générative</strong> : DeepSeek ReAct + Voice &amp; Voice (TTS/ASR)</li>
+      </ul>
+    </div>
+    <div class="grid grid-2" style="margin-top:16px">
+      <div class="card">
+        <h3>🏢 Public cible</h3>
+        <p>Écoles, communautés, centres de santé, PME multi-sites, opérateurs (rentabilité), associations.</p>
+      </div>
+      <div class="card">
+        <h3>⚙️ Stack technique</h3>
+        <p>FastAPI (Python), Supabase PostgreSQL 17, DeepSeek LLM, Contabo VPS (optionnel), Vercel (API SaaS), PWA offline.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. ARCHITECTURE -->
+<section class="section" id="architecture">
+  <div class="container">
+    <h2 class="section-title">2 · Architecture</h2>
+    <p class="section-desc">5 agents IA coordonnés par un orchestrateur, orbitant autour d'un Poste Superviseur et d'une sonde terrain. La télémétrie reste <strong>isolée</strong> par clé privée organisationnelle.</p>
+    <div class="code-block" style="max-height:300px"><code><span class="gutter">1</span> ├── agent_client.py (--task-poll 5 --media-port 8090)
+<span class="gutter">2</span> ├── storage.py (Supabase PG17 / Storage / SQLite)
+<span class="gutter">3</span> ├── agent_engine.py (5 Agents + Audit + HITL)
+<span class="gutter">4</span> │   ├── SENTINEL-SEC (Anti-injection &amp; Isolation)
+<span class="gutter">5</span> │   ├── TOPO-SCAN    (Matrice LAN vs Internet)
+<span class="gutter">6</span> │   ├── DIAG-NET     (Corrélation FAI &amp; Ticket)
+<span class="gutter">7</span> │   ├── NET-CONTROL  (Switches Internet 3 niveaux)
+<span class="gutter">8</span> │   └── MEDIA-HUB    (Docs/Images/Audios/Vidéos)
+<span class="gutter">9</span> └── api.py (Frontend, Auth, API REST, Auth)</code></div>
+
+    <h3 style="margin-top:20px">Pipeline des agents</h3>
+    <div class="arch-flow">
+      <div class="arch-row">
+        <div class="arch-box primary"><div class="title">Clients &amp; Sondes</div><div class="detail">agent_client.py, devices.json, collector.py<br><span class="mono" style="color:var(--muted)">--api --agent --api-key --task-poll 5</span></div></div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-box"><div class="title">API FastAPI (Vercel)</div><div class="detail">REST + Auth (OAuth/2FA)<br>Supabase PostgreSQL 17 + Storage</div></div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-box sec"><div class="title">Agents IA (5)</div><div class="detail">SENTINEL-SEC · TOPO-SCAN · DIAG-NET<br>NET-CONTROL · MEDIA-HUB</div></div>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:18px">
+      <div class="card">
+        <h3>🔒 SENTINEL-SEC</h3>
+        <p>Anti-injection de prompt, isolation multi-tenant, politique de sécurité.</p>
+      </div>
+      <div class="card">
+        <h3>🗺️ TOPO-SCAN</h3>
+        <p>Matrice LAN vs Internet, latence, analyse de la topologie et des alertes.</p>
+      </div>
+      <div class="card">
+        <h3>📡 DIAG-NET</h3>
+        <p>Corrélation FAI vs LAN, diagnostic, tickets opérateurs, détection de pannes.</p>
+      </div>
+      <div class="card">
+        <h3>⚡ NET-CONTROL</h3>
+        <p>Interrupteurs Internet (Box/Subnet/Zone/Device), optimisation box, reboot.</p>
+      </div>
+      <div class="card">
+        <h3>🎬 MEDIA-HUB</h3>
+        <p>Partage de documents, images, audios, vidéos sur LAN et Cloud.</p>
+      </div>
+    </div>
+  </div>
+</section>
+</body>
+</html>

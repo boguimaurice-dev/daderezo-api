@@ -1,0 +1,176 @@
+ 0 0;padding-top:6px">Variables recommandées : <code>SUPABASE_URL</code>, <code>SUPABASE_SERVICE_ROLE_KEY</code>, <code>DADEREZO_API_KEY</code>, <code>GROQ_API_KEY</code> (optionnel), <code>OPENAI_API_KEY</code> (optionnel).</p>
+      </div>
+
+      <div class="install-step">
+        <div class="num">03</div>
+        <h3>📡 Connecter la sonde terrain</h3>
+        <pre><code>python agent_client.py \
+  --api https://votre-domaine.vercel.app \
+  --agent ma-communaute \
+  --nom "Communauté de Test" \
+  --task-poll 5 \
+  --media-port 8090</code></pre>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:13px;color:var(--muted)">
+          <li>Aucune librairie Python externe sur la sonde</li>
+          <li>Hôte actif 24/7 (box, PC, Raspberry Pi…)</li>
+          <li>Clé sonde dédiée révocable par organisation</li>
+          <li>Hub multimédia LAN : <code>--media-port 8090</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. CONFIGURATION -->
+<section class="section" id="config">
+  <div class="container">
+    <h2 class="section-title">4 · Configuration</h2>
+    <p class="section-desc">Le fichier <code>.env</code> ou les variables d'environnement du déploiement définissent le comportement de l'API, des agents et du superviseur.</p>
+
+    <div class="card" style="margin-bottom:14px">
+      <h3 style="margin:0 0 8px;font-size:16px">Variables d'environnement (production)</h3>
+      <div class="code-block" style="max-height:320px"><code><span class="gutter">1</span> # ── Base de données (Supabase PostgreSQL 17) ────────────────
+<span class="gutter">2</span> SUPABASE_URL=https://&lt;votre-ref&gt;.supabase.co
+<span class="gutter">3</span> SUPABASE_SERVICE_ROLE_KEY=&lt;clé service_role&gt;
+
+<span class="gutter">4</span> # ── Sécurité API ────────────────────────────────────────────────
+<span class="gutter">5</span> DADEREZO_API_KEY=&lt;votre_clé_secrète&gt;
+<span class="gutter">6</span> DADEREZO_AUTH_SECRET=&lt;clé HMAC JWT (obligatoire)</span>
+
+<span class="gutter">7</span> # ── Cerveau LLM (DeepSeek) ─────────────────────────────────────
+<span class="gutter">8</span> DEEPSEEK_API_KEY=&lt;votre_clé_deepseek&gt;
+<span class="gutter">9</span> DADEREZO_LLM_MODEL=deepseek-chat
+
+<span class="gutter">10</span> # ── Gestionnaire de contenu (optionnel) ────────────────────────
+<span class="gutter">11</span> DADEREZO_LLM_PROVIDER=deepseek
+<span class="gutter">12</span> DADEREZO_SECRET_KEY=&lt;clé secrète de session&gt;</code></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. UTILISATION -->
+<section class="section" id="usage">
+  <div class="container">
+    <h2 class="section-title">5 · Utilisation</h2>
+    <p class="section-desc">Le Poste Superviseur Général offre un pilotage écrit et vocal, avec acceptation manuelle (HITL) pour les actions critiques.</p>
+
+    <div class="install-steps">
+      <div class="install-step">
+        <div class="num">1</div>
+        <h3>Connexion &amp; espace privé</h3>
+        <ul>
+          <li>Ouvrir <code><a href="http://localhost:8000/ui" style="color:var(--brand-ink)">http://localhost:8000/ui</a></code> (ou <code>/ui?auth=1</code>)</li>
+          <li>Créer ou se connecter à son Espace Privé (email + mot de passe + 2FA TOTP)</li>
+          <li>Recevoir la clé sonde dédiée <code>dzk_...</code> pour chaque sonde</li>
+        </ul>
+      </div>
+      <div class="install-step">
+        <div class="num">2</div>
+        <h3>Pilotage écrit &amp; vocal</h3>
+        <ul>
+          <li>Taper ou dicter des commandes : <em>« Coupe Internet sur la zone Visiteurs »</em></li>
+          <li>Aucune écriture de règles nécessaire : l'agent décompose la demande</li>
+          <li>Validation manuelle (HITL) pour les actions critiques : reboot, coupure, sync</li>
+        </ul>
+      </div>
+      <div class="install-step">
+        <div class="num">3</div>
+        <h3>Monitoring &amp; Alertes</h3>
+        <ul>
+          <li>État instantané : appareils, zones, interférence Wi-Fi</li>
+          <li>Alertes temps réel (propriétaire, Slack, Discord, Telegram, WhatsApp)</li>
+          <li>Journal d'audit et traces de décision (audit log)</li>
+        </ul>
+      </div>
+      <div class="install-step">
+        <div class="num">4</div>
+        <h3>Gestion multimédia (LAN)</h3>
+        <ul>
+          <li>Hub multimédia HTTP sur <code>--media-port 8090</code></li>
+          <li>Accessible sur le LAN même sans Internet</li>
+          <li>Partage de documents, images, sons, vidéos par zone</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. API -->
+<section class="section" id="api">
+  <div class="container">
+    <h2 class="section-title">6 · API et endpoints principaux</h2>
+    <p class="section-desc">L'API REST est documentée interactivement (Swagger UI) et accessible via l'interface de supervision ou les clients tiers.</p>
+    <table class="api-table">
+      <tr><th>Méthode</th><th>Endpoint</th><th>Description</th></tr>
+      <tr><td class="method get">GET</td><td><code>/</code></td><td>Vitrine SaaS, Démo Live &amp; Générateur de sonde</td></tr>
+      <tr><td class="method get">GET</td><td><code>/ui</code> / <code>/app</code></td><td>Poste Superviseur Général vocal &amp; écrit</td></tr>
+      <tr><td class="method get">GET</td><td><code>/simple</code></td><td>Vue légère (frontend séparé)</td></tr>
+      <tr><td class="method get">GET</td><td><code>/health</code></td><td>Statut JSON : version, pipeline d'agents, DB actif</td></tr>
+      <tr><td class="method get">GET</td><td><code>/docs</code></td><td>Documentation interactive OpenAPI / Swagger UI</td></tr>
+      <tr><td class="method get">GET</td><td><code>/probes/{agent_id}</code></td><td>Statut et télémétrie d'une sonde connectée</td></tr>
+      <tr><td class="method get">GET</td><td><code>/devices/{agent_id}</code></td><td>Tableau LAN / WAN / appareils actifs</td></tr>
+      <tr><td class="method get">GET</td><td><code>/network/policies/{agent_id}</code></td><td>Politiques de contrôle Internet (lire / écrire)</td></tr>
+      <tr><td class="method post">POST</td><td><code>/supervisor/ask</code></td><td>Demander à l'orchestrateur IA un diagnostic ou une action</td></tr>
+      <tr><td class="method get">GET</td><td><code>/supervisor/session/{session_id}</code></td><td>Historique des sessions et audit logs</td></tr>
+      <tr><td class="method post">POST</td><td><code>/auth/signup</code></td><td>Création d'un Espace Privé (organisme)</td></tr>
+      <tr><td class="method post">POST</td><td><code>/auth/login</code></td><td>Connexion (mdp + 2FA TOTP)</td></tr>
+      <tr><td class="method post">POST</td><td><code>/auth/google</code></td><td>Connexion OAuth Google (authentification étendue)</td></tr>
+      <tr><td class="method post">POST</td><td><code>/auth/2fa/*</code></td><td>Activation, vérification et désactivation de la 2FA</td></tr>
+      <tr><td class="method get">GET</td><td><code>/download/{filename}</code></td><td>Téléchargement de fichiers (agent_client.py, device.json…)</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- 7. SÉCURITÉ -->
+<section class="section" id="security">
+  <div class="container">
+    <h2 class="section-title">7 · Sécurité</h2>
+    <p class="section-desc">DADEREZO intègre des contrôles de sécurité natifs : isolation multi-tenant, 2FA, autorisation d'action, journal d'audit et clés de session révocables.</p>
+    <div class="security-grid">
+      <div class="security-item">
+        <div class="title">🔑 Isolation multi-tenant</div>
+        <p class="desc">Chaque organisation dispose de clés privées dédiées (<code>dzk_…</code>, <code>dzt_…</code> signées HMAC-SHA256). Les espaces privés sont fermés au public.</p>
+      </div>
+      <div class="security-item">
+        <div class="title">🛡️ 2FA TOTP RFC 6238</div>
+        <p class="desc">Authentification à deux facteurs par application (Google/Microsoft Authenticator). Vérification en temps réel, tolérance ±30 secondes.</p>
+      </div>
+      <div class="security-item">
+        <div class="title">🔌 Validation (HITL)</div>
+        <p class="desc">Les actions critiques (coupe Internet, reboot, sync) nécessitent une validation manuelle de l'administrateur.</p>
+      </div>
+      <div class="security-item">
+        <div class="title">📜 Journal d'audit</div>
+        <p class="desc">Toutes les actions sont tracées : identité, heure, contexte, décision. Utilisé pour les révocations et les audits.</p>
+      </div>
+      <div class="security-item">
+        <div class="title">🚫 Anti-injection</div>
+        <p class="desc">SENTINEL-SEC vérifie les politiques de sécurité et isole les tenants privés, empêchant les injections de prompt.</p>
+      </div>
+      <div class="security-item">
+        <div class="title">🧹 Rate limiting</div>
+        <p class="desc">Fenêtre glissante anti-bruteforce (5 tentatives / 15 min) sur les endpoints <code>/auth/*</code>, avec verrouillage et blacklistage.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. FAQ -->
+<section class="section" id="faq">
+  <div class="container">
+    <h2 class="section-title">8 · FAQ</h2>
+    <div class="faq-item">
+      <div class="q">Quelle est la différence entre /ui et /app ?</div>
+      <div class="a">Les deux point vers le même Poste Superviseur Général. /ui est l'ancien nom, /app est la navigation plus moderne.</div>
+    </div>
+    <div class="faq-item">
+      <div class="q">Dois-je avoir une clé sonde pour chaque poste ?</div>
+      <div class="a">Oui. Chaque sonde reçoit une clé dédiée <code>dzk_…</code>, révocable à tout moment, garantissant l'isolement de chaque environnement.</div>
+    </div>
+    <div class="faq-item">
+      <div class="q">Quelle est la latence des commandes ?</div>
+      <div class="a">En général &lt; 200 ms (Box locale ~1.2 ms, sortie FAI ~32 ms). La latence dépend de la qualité du lien entre la sonde et l'API.</div>
+    </div>
+    <div class="faq-item">
+      <div class="q">Puis-je fonctionner hors ligne ?</div>
+      <div class="a">Oui. L'API et le Hub Multimédia LAN restent access

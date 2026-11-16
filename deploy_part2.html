@@ -1,0 +1,193 @@
+gin-top:4px}
+
+/* TOC / nav */
+.toc{display:flex;flex-wrap:wrap;gap:8px 16px;padding:8px 0}
+.toc a{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);text-decoration:none;padding:6px 10px;border-radius:8px}
+.toc a:hover{color:var(--ink);background:rgba(255,255,255,.04))
+.toc a .num{font-weight:700;color:var(--brand-ink); font-family:var(--mono);font-size:11px}
+
+/* Diagram */
+.arch-flow{display:flex;flex-direction:column;gap:8px;max-width:1000px;margin:16px auto}
+.arch-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.arch-box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-size:13px}
+.arch-box .title{font-weight:600;color:var(--ink-strong)}
+.arch-box .detail{font-size:12px;color:var(--muted);line-height:1.6}
+.arch-arrow{font-size:18px;color:var(--muted);padding:0 4px}
+.arch-box.primary{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-ink)}
+.arch-box.primary .title{color:var(--brand-ink)}
+.arch-box.sec{background:rgba(0,184,255,.08);border-color:rgba(0,184,255,.3)}
+.arch-box.sec .title{color:var(--cyan-ink)}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="site-nav">
+  <div class="container nav-inner">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="brand-name">DADEREZO</div>
+        <div class="brand-tag">Installation · Utilisation · Guide</div>
+      </div>
+    </div>
+    <nav class="nav-inner nav-actions">
+      <div class="toc">
+        <a href="#overview"><span class="num">1</span> Présentation</a>
+        <a href="#architecture"><span class="num">2</span> Architecture</a>
+        <a href="#install"><span class="num">3</span> Installation</a>
+        <a href="#config"><span class="num">4</span> Configuration</a>
+        <a href="#usage"><span class="num">5</span> Utilisation</a>
+        <a href="#api"><span class="num">6</span> API</a>
+        <a href="#security"><span class="num">7</span> Sécurité</a>
+        <a href="#faq"><span class="num">8</span> FAQ</a>
+        <a href="#sources"><span class="num">9</span> Ressources</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<header class="hero container">
+  <div class="hero-badge primary">📘 Guide officiel · Installation & Utilisation v4.8</div>
+  <h1 class="hero-title">DADEREZO — Guide technique d'<span style="color:var(--brand)">installation</span> et de <span style="color:var(--cyan)">utilisation</span></h1>
+  <p class="hero-sub">Plateforme SaaS multi-agents de supervision, de sécurité et de pilotage actif des réseaux locaux par IA. Suivez ce guide pour déployer, configurer et exploiter l'architecture complète en 30 minutes.</p>
+  <div class="hero-actions">
+    <a href="#install" class="btn btn-primary">📥 Installation pas à pas</a>
+    <a href="#usage" class="btn btn-secondary">🛠️ Comment utiliser</a>
+    <a href="#sources" class="btn btn-ghost">🌐 Site officiel</a>
+  </div>
+</header>
+
+<!-- 1. PRÉSENTATION -->
+<section class="section" id="overview">
+  <div class="container">
+    <h2 class="section-title">1 · Présentation</h2>
+    <p class="section-desc">DADEREZO v4.8 est une plateforme multi-agents conçue pour superviser, auditer et piloter des réseaux locaux (LAN &amp; WAN, Multi-Box Wi-Fi, Hub Multimédia) — par la voix et l'écrit — grâce à <strong>5 agents IA spécialisés</strong>.</p>
+    <div class="card" style="margin-top:14px">
+      <ul style="margin:0;padding-left:20px">
+        <li><strong>5 agents IA</strong> : SENTINEL-SEC, TOPO-SCAN, DIAG-NET, NET-CONTROL, MEDIA-HUB</li>
+        <li><strong>Contrôle Internet granulaire</strong> : Box Principale / Sous-réseau CIDR / Appareil précis</li>
+        <li><strong>Optimisation Multi-Box</strong> : Wi-Fi, QoS, DNS, MTU</li>
+        <li><strong>Partage multimédia</strong> : Cloud + LAN (même sans Internet)</li>
+        <li><strong>Isolation multi-tenant privée</strong> : clés sonde et espaces organisateurs</li>
+        <li><strong>IA générative** : DeepSeek ReAct + Voice &amp; Voice (TTS/ASR)</li>
+      </ul>
+    </div>
+    <div class="grid grid-2" style="margin-top:16px">
+      <div class="card">
+        <h3>🏢 Public cible</h3>
+        <p>Écoles, communautés, centres de santé, PME multi-sites, opérateurs (rentabilité), associations.</p>
+      </div>
+      <div class="card">
+        <h3>⚙️ Stack technique</h3>
+        <p>FastAPI (Python), Supabase PostgreSQL 17, DeepSeek LLM, Contabo VPS (optionnel), Vercel (API SaaS), PWA offline.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. ARCHITECTURE -->
+<section class="section" id="architecture">
+  <div class="container">
+    <h2 class="section-title">2 · Architecture</h2>
+    <p class="section-desc">5 agents IA coordonnés par un orchestrateur, orbitant autour d'un Poste Superviseur et d'une sonde terrain. La télémétrie reste <strong>isolée</strong> par clé privée organisationnelle.</p>
+    <div class="code-block" style="max-height:300px"><code><span class="gutter">1</span> ├── agent_client.py (--task-poll 5 --media-port 8090)
+<span class="gutter">2</span> ├── storage.py (Supabase PG17 / Storage / SQLite)
+<span class="gutter">3</span> ├── agent_engine.py (5 Agents + Audit + HITL)
+<span class="gutter">4</span> │   ├── SENTINEL-SEC (Anti-injection & Isolation)
+<span class="gutter">5</span> │   ├── TOPO-SCAN    (Matrice LAN vs Internet)
+<span class="gutter">6</span> │   ├── DIAG-NET     (Corrélation FAI & Ticket)
+<span class="gutter">7</span> │   ├── NET-CONTROL  (Switches Internet 3 niveaux)
+<span class="gutter">8</span> │   └── MEDIA-HUB    (Docs/Images/Audios/Vidéos)
+<span class="gutter">9</span> └── api.py (Frontend, Auth, API REST, Auth)</code></div>
+
+    <h3 style="margin-top:20px">Pipeline des agents</h3>
+    <div class="arch-flow">
+      <div class="arch-row">
+        <div class="arch-box primary"><div class="title">Clients &amp; Sondes</div><div class="detail">agent_client.py, devices.json, collector.py<br><span class="mono" style="color:var(--muted)">--api --agent --api-key --task-poll 5</span></div></div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-box"><div class="title">API FastAPI (Vercel)</div><div class="detail">REST + Auth (OAuth/2FA)<br>Supabase PostgreSQL 17 + Storage</div></div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-box sec"><div class="title">Agents IA (5)</div><div class="detail">SENTINEL-SEC · TOPO-SCAN · DIAG-NET<br>NET-CONTROL · MEDIA-HUB</div></div>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:18px">
+      <div class="card">
+        <h3>🔒 SENTINEL-SEC</h3>
+        <p>Anti-injection de prompt, isolation multi-tenant, politique de sécurité.</p>
+      </div>
+      <div class="card">
+        <h3>🗺️ TOPO-SCAN</h3>
+        <p>Matrice LAN vs Internet, latence, analyse de la topologie et des alertes.</p>
+      </div>
+      <div class="card">
+        <h3>📡 DIAG-NET</h3>
+        <p>Corrélation FAI vs LAN, diagnostic, tickets opérateurs, détection de pannes.</p>
+      </div>
+      <div class="card">
+        <h3>⚡ NET-CONTROL</h3>
+        <p>Interrupteurs Internet (Box/Subnet/Zone/Device), optimisation box, reboot.</p>
+      </div>
+      <div class="card">
+        <h3>🎬 MEDIA-HUB</h3>
+        <p>Partage de documents, images, audios, vidéos sur LAN et Cloud.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. INSTALLATION -->
+<section class="section" id="install">
+  <div class="container">
+    <h2 class="section-title">3 · Installation</h2>
+    <p class="section-desc">Trois parcours selon votre contexte. La méthode <strong>Vercel + Supabase</strong> est recommandée pour un déploiement 24/7 en production.</p>
+
+    <div class="install-status">
+      <div class="item">
+        <div class="state">Étape 1 · Local</div>
+        <div class="label">Tester l'API localement</div>
+        <div class="detail">Lancement rapide pour validation de l'architecture et des agents.</div>
+      </div>
+      <div class="item">
+        <div class="state">Étape 2 · Production</div>
+        <div class="label">Déployement Vercel + Supabase</div>
+        <div class="detail">Déploiement SaaS type production, 24/7, multi-tenant avec clés individuelles.</div>
+      </div>
+      <div class="item">
+        <div class="state">Étape 3 · Sonde terrain</div>
+        <div class="label">Liaison sonde</div>
+        <div class="detail">Agent Python (agent_client.py) sur chaque poste requis, sans dépendance lourde.</div>
+      </div>
+    </div>
+
+    <div class="install-steps">
+      <div class="install-step">
+        <div class="num">01</div>
+        <h3>🚀 Démarrage rapide (local)</h3>
+        <pre><code># 1. Installer les dépendances
+pip install -r requirements.txt
+
+# 2. Lancer l'API et le superviseur
+uvicorn api:app --host 0.0.0.0 --port 8000</code></pre>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:13px;color:var(--muted)">
+          <li>Accueil &amp; Démo Live : <code><a href="http://localhost:8000/" style="color:var(--brand-ink)">/</a></code></li>
+          <li>Poste Superviseur : <code><a href="http://localhost:8000/ui" style="color:var(--brand-ink)">/ui</a></code></li>
+          <li>État JSON : <code><a href="http://localhost:8000/health" style="color:var(--brand-ink)">/health</a></code></li>
+          <li>Docs OpenAPI : <code><a href="http://localhost:8000/docs" style="color:var(--brand-ink)">/docs</a></code></li>
+        </ul>
+      </div>
+
+      <div class="install-step">
+        <div class="num">02</div>
+        <h3>☁️ Production (Vercel + Supabase)</h3>
+        <pre><code># 1. Créer un projet Supabase PostgreSQL 17
+# 2. Importer le schéma Supabase (agents, probes, devices, alerts, state, tasks, agent_sessions, agent_audit_logs, human_approvals)
+
+# 2. Importer le dépôt sur Vercel
+#    GitHub &gt; daderezo-api &gt; Vercel → configurez les variables :
+#      SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DADEREZO_API_KEY
+
+# 3. Déployer : l'API communique en HTTPS pur (port 443)</code></pre>
+        <p style="margin:8px

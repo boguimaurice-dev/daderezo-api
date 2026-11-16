@@ -6,6 +6,8 @@
       "use": "@vercel/python",
       "config": {
         "includeFiles": [
+          "audit_context.py",
+          "audit_redaction.py",
           "storage.py",
           "net_controller.py",
           "agent_engine.py",

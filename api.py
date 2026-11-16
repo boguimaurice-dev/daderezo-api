@@ -12,6 +12,7 @@ Architecture Multi-Agents :
 """
 import base64
 import io
+import jwt
 from functools import partial
 import urllib.parse
 import qrcode
@@ -384,31 +385,25 @@ def _clear_auth_cookie(response: Response) -> None:
 
 def _sign_temp_2fa_token(user: dict, ttl_seconds: int = 300, purpose: str = "2fa_verify") -> str:
     payload = {
-        "email": user["email"],
-        "auth_version": 2,
-        "purpose": purpose,
+        "email": user["email"], "auth_version": 2, "purpose": purpose,
+        "iss": "daderezo", "aud": "daderezo-2fa",
         "secret": user.get("enrollment_secret"),
         "exp": int(time.time()) + ttl_seconds,
     }
-    b64 = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")).decode("ascii").rstrip("=")
-    sig = hmac.new(_jwt_secret(), b64.encode("ascii"), hashlib.sha256).hexdigest()
-    return f"dzt2fa_{b64}.{sig}"
+    return "dzt2fa_" + jwt.encode(payload, _jwt_secret(), algorithm="HS256")
 
 
 def _verify_temp_2fa_token(token: str, purpose: str = "2fa_verify") -> Optional[dict]:
-    if not token or not token.startswith("dzt2fa_") or "." not in token:
+    if not token or not token.startswith("dzt2fa_"):
         return None
     try:
-        body_part, sig = token[7:].split(".", 1)
-        expected_sig = hmac.new(_jwt_secret(), body_part.encode("ascii"), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(sig, expected_sig):
-            return None
-        pad = "=" * ((4 - len(body_part) % 4) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(body_part + pad).decode("utf-8"))
-        if int(payload.get("exp", 0)) <= int(time.time()) or payload.get("purpose") != purpose or payload.get("auth_version") != 2:
+        payload = jwt.decode(token[7:], _jwt_secret(), algorithms=["HS256"],
+                             issuer="daderezo", audience="daderezo-2fa",
+                             options={"require": ["exp", "email", "auth_version", "purpose", "iss", "aud"]})
+        if int(payload["exp"]) <= int(time.time()) or payload["purpose"] != purpose or payload["auth_version"] != 2:
             return None
         return payload
-    except Exception:
+    except (jwt.InvalidTokenError, ValueError, TypeError):
         return None
 
 
@@ -457,32 +452,27 @@ def _verify_password(password: str, stored: str) -> bool:
 
 def _sign_saas_token(user: dict, ttl_seconds: int = 86400 * 14) -> str:
     payload = {
-        "email": user["email"],
-        "auth_version": 2,
+        "email": user["email"], "auth_version": 2,
+        "iss": "daderezo", "aud": "daderezo-session",
         "full_name": user.get("full_name") or "",
         "org_slug": user["org_slug"],
         "org_name": user.get("org_name") or user["org_slug"],
         "exp": int(time.time()) + ttl_seconds,
     }
-    b64 = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")).decode("ascii").rstrip("=")
-    sig = hmac.new(_jwt_secret(), b64.encode("ascii"), hashlib.sha256).hexdigest()
-    return f"dzt_{b64}.{sig}"
+    return "dzt_" + jwt.encode(payload, _jwt_secret(), algorithm="HS256")
 
 
 def _verify_saas_token(token: str) -> Optional[dict]:
-    if not token or not token.startswith("dzt_") or "." not in token:
+    if not token or not token.startswith("dzt_"):
         return None
     try:
-        body_part, sig = token[4:].split(".", 1)
-        expected_sig = hmac.new(_jwt_secret(), body_part.encode("ascii"), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(sig, expected_sig):
-            return None
-        pad = "=" * ((4 - len(body_part) % 4) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(body_part + pad).decode("utf-8"))
-        if int(payload.get("exp", 0)) <= int(time.time()) or payload.get("auth_version") != 2:
+        payload = jwt.decode(token[4:], _jwt_secret(), algorithms=["HS256"],
+                             issuer="daderezo", audience="daderezo-session",
+                             options={"require": ["exp", "email", "org_slug", "auth_version", "iss", "aud"]})
+        if int(payload["exp"]) <= int(time.time()) or payload["auth_version"] != 2:
             return None
         return payload
-    except Exception:
+    except (jwt.InvalidTokenError, ValueError, TypeError):
         return None
 
 

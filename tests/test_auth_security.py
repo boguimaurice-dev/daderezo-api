@@ -15,7 +15,7 @@ import storage
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("DADEREZO_DB_PATH", str(tmp_path / "auth.db"))
-    monkeypatch.setenv("DADEREZO_AUTH_SECRET", "auth-tests-only")
+    monkeypatch.setenv("DADEREZO_AUTH_SECRET", "auth-tests-only-not-for-production-2026")
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "tests.apps.googleusercontent.com")
     monkeypatch.delenv("DADEREZO_API_KEY", raising=False)
     monkeypatch.setattr(api, "auth_limiter", api.AuthRateLimiter())
@@ -176,3 +176,16 @@ def test_factor_changes_are_rate_limited(client):
     for _ in range(5):
         assert client.post("/auth/2fa/enable", json={**payload, "code": invalid}).status_code == 400
     assert client.post("/auth/2fa/enable", json=payload).status_code == 429
+
+
+def test_internal_jwt_scope_and_algorithm_are_enforced(client):
+    user = signup(client)["user"]
+    token = api._sign_saas_token(user)
+    import jwt
+    payload = jwt.decode(token[4:], options={"verify_signature": False})
+    assert api._verify_saas_token(token) is not None
+    unsigned = jwt.encode(payload, key="", algorithm="none")
+    assert api._verify_saas_token("dzt_" + unsigned) is None
+    payload["aud"] = "daderezo-2fa"
+    wrong_scope = jwt.encode(payload, api._jwt_secret(), algorithm="HS256")
+    assert api._verify_saas_token("dzt_" + wrong_scope) is None

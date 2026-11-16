@@ -9,6 +9,8 @@
 - Si GOOGLE_CLIENT_ID manque, Google est explicitement indisponible. Aucun identifiant
   factice, ni fallback user_info, n'est accepté.
 - Google respecte le 2FA DADEREZO : pas de session finale avant vérification du code.
+- Jetons internes signés/vérifiés avec PyJWT, HS256 imposé et audiences distinctes
+  pour session et 2FA, émetteur fixé, expiration/version obligatoires.
 - QR SVG généré localement avec qrcode, transporté en data URI ; aucune clé envoyée à un
   service QR externe. Secret manuel conservé comme alternative. L'activation doit utiliser
   le secret et le jeton d'enrôlement signé, liés au compte pendant 10 minutes.

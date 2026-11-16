@@ -19,3 +19,7 @@ daderezo_media_lan/
 Thumbs.db
 .vscode/
 .idea/
+
+# Local JavaScript test dependencies / scratch files
+.cache/
+node_modules/

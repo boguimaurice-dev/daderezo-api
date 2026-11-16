@@ -19,6 +19,7 @@ services:
       - DATABASE_URL=${DATABASE_URL:-}
       - DADEREZO_API_KEY=${DADEREZO_API_KEY:-changez-moi-cle-maitre}
       - DADEREZO_AUTH_SECRET=${DADEREZO_AUTH_SECRET:-changez-moi-secret-hmac}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       # Cerveau IA principal : DeepSeek V3 / R1 (si DEEPSEEK_API_KEY renseigné) ou repli Ollama local Contabo :
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - DADEREZO_LLM_PROVIDER=${DADEREZO_LLM_PROVIDER:-auto}

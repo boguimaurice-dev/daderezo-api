@@ -771,7 +771,7 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertIn("application/javascript", r_sw.headers.get("content-type", ""))
         self.assertEqual(r_sw.headers.get("service-worker-allowed"), "/")
         self.assertEqual(r_sw.headers.get("cache-control"), "no-cache")
-        self.assertIn("daderezo-shell-v4.3", r_sw.text)
+        self.assertIn("daderezo-shell-v4.9-auth", r_sw.text)
 
         # 3. Offline fallback & PWA PNG icons (GET + HEAD)
         r_off = self.client.get("/offline.html")
@@ -1425,21 +1425,22 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertIn("diagOscilloCanvas", ui_html)
         self.assertIn("generateIspTicketBtn", ui_html)
 
-    def test_28_google_oauth_login_and_provisioning(self):
-        """v4.8 Security: Google OAuth 2.0 / OpenID Connect login and automatic private workspace provisioning."""
+    @patch.dict(os.environ, {"GOOGLE_CLIENT_ID": "test.apps.googleusercontent.com"})
+    @patch("api.google_id_token.verify_oauth2_token")
+    def test_28_google_oauth_login_and_provisioning(self, verifier):
+        """Only a server-verified Google ID token can provision a workspace."""
         self.client.cookies.clear()
-        g_auth = self.client.post(
-            "/auth/google",
-            json={
-                "user_info": {
-                    "email": "superviseur.google@sainte-marie.ci",
-                    "name": "Frère Responsable Réseau",
-                    "email_verified": True,
-                    "picture": "https://lh3.googleusercontent.com/a/avatar123",
-                },
-                "org_name": "Abbaye Sainte Marie Google Workspace",
-            },
-        )
+        config = self.client.get("/auth/google/config").json()
+        verifier.return_value = {
+            "email": "superviseur.google@sainte-marie.ci", "email_verified": True,
+            "name": "Frère Responsable Réseau", "sub": "google-test-subject",
+            "iss": "https://accounts.google.com", "aud": "test.apps.googleusercontent.com",
+            "nonce": config["nonce"],
+        }
+        g_auth = self.client.post("/auth/google", json={
+            "id_token": "verified-by-mock-google-id-token",
+            "org_name": "Abbaye Sainte Marie Google Workspace",
+        })
         self.assertEqual(g_auth.status_code, 200)
         body = g_auth.json()
         self.assertEqual(body["status"], "ok")
@@ -1541,14 +1542,14 @@ class TestApiEndpoints(unittest.TestCase):
 
         # 2. Tentative d'activation avec un mauvais code (rejet 400)
         bad_enable = self.client.post(
-            "/auth/2fa/enable", headers=auth_h, json={"secret": secret, "code": "000000"}
+            "/auth/2fa/enable", headers=auth_h, json={"secret": secret, "enrollment_token": setup_body["enrollment_token"], "code": "000000"}
         )
         self.assertEqual(bad_enable.status_code, 400)
 
         # 3. Activation avec un code TOTP valide calculé
         valid_code = api.get_totp_token(secret)
         good_enable = self.client.post(
-            "/auth/2fa/enable", headers=auth_h, json={"secret": secret, "code": valid_code}
+            "/auth/2fa/enable", headers=auth_h, json={"secret": secret, "enrollment_token": setup_body["enrollment_token"], "code": valid_code}
         )
         self.assertEqual(good_enable.status_code, 200)
         self.assertTrue(good_enable.json()["totp_enabled"])

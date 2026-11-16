@@ -11,6 +11,14 @@ Architecture Multi-Agents :
   05 · MEDIA-HUB    : Partage sécurisé de Documents, Images, Audios & Vidéos (Cloud + LAN local)
 """
 import base64
+import io
+import jwt
+from functools import partial
+import urllib.parse
+import qrcode
+import qrcode.image.svg
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport.requests import Request as GoogleRequest
 import logging
 from audit_context import identity
 from starlette.concurrency import run_in_threadpool
@@ -140,6 +148,10 @@ async def audit_requests(request: Request, call_next):
 async def add_security_headers(request: Request, call_next):
     """Injecte les en-têtes de sécurité HTTP stricts (HSTS, CSP, Anti-Sniff, X-Frame)."""
     response = await call_next(request)
+    if (request.url.path.startswith(("/auth/", "/dashboard/", "/supervisor/"))
+            or request.url.path == "/agents"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["X-XSS-Protection"] = "1; mode=block"
@@ -335,7 +347,10 @@ def verify_totp_token(secret: str, token: str, window: int = 1) -> bool:
         return False
     now = int(time.time())
     for step in range(-window, window + 1):
-        expected = get_totp_token(secret, for_time=now + step * 30)
+        try:
+            expected = get_totp_token(secret, for_time=now + step * 30)
+        except (ValueError, base64.binascii.Error, struct.error):
+            return False
         if hmac.compare_digest(expected, token_str):
             return True
     return False
@@ -368,31 +383,27 @@ def _clear_auth_cookie(response: Response) -> None:
     response.delete_cookie(key="daderezo_session", path="/")
 
 
-def _sign_temp_2fa_token(user: dict, ttl_seconds: int = 300) -> str:
+def _sign_temp_2fa_token(user: dict, ttl_seconds: int = 300, purpose: str = "2fa_verify") -> str:
     payload = {
-        "email": user["email"],
-        "purpose": "2fa_verify",
+        "email": user["email"], "auth_version": 2, "purpose": purpose,
+        "iss": "daderezo", "aud": "daderezo-2fa",
+        "secret": user.get("enrollment_secret"),
         "exp": int(time.time()) + ttl_seconds,
     }
-    b64 = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")).decode("ascii").rstrip("=")
-    sig = hmac.new(_jwt_secret(), b64.encode("ascii"), hashlib.sha256).hexdigest()
-    return f"dzt2fa_{b64}.{sig}"
+    return "dzt2fa_" + jwt.encode(payload, _jwt_secret(), algorithm="HS256")
 
 
-def _verify_temp_2fa_token(token: str) -> Optional[dict]:
-    if not token or not token.startswith("dzt2fa_") or "." not in token:
+def _verify_temp_2fa_token(token: str, purpose: str = "2fa_verify") -> Optional[dict]:
+    if not token or not token.startswith("dzt2fa_"):
         return None
     try:
-        body_part, sig = token[7:].split(".", 1)
-        expected_sig = hmac.new(_jwt_secret(), body_part.encode("ascii"), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(sig, expected_sig):
-            return None
-        pad = "=" * ((4 - len(body_part) % 4) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(body_part + pad).decode("utf-8"))
-        if int(payload.get("exp", 0)) < int(time.time()) or payload.get("purpose") != "2fa_verify":
+        payload = jwt.decode(token[7:], _jwt_secret(), algorithms=["HS256"],
+                             issuer="daderezo", audience="daderezo-2fa",
+                             options={"require": ["exp", "email", "auth_version", "purpose", "iss", "aud"]})
+        if int(payload["exp"]) <= int(time.time()) or payload["purpose"] != purpose or payload["auth_version"] != 2:
             return None
         return payload
-    except Exception:
+    except (jwt.InvalidTokenError, ValueError, TypeError):
         return None
 
 
@@ -441,31 +452,27 @@ def _verify_password(password: str, stored: str) -> bool:
 
 def _sign_saas_token(user: dict, ttl_seconds: int = 86400 * 14) -> str:
     payload = {
-        "email": user["email"],
+        "email": user["email"], "auth_version": 2,
+        "iss": "daderezo", "aud": "daderezo-session",
         "full_name": user.get("full_name") or "",
         "org_slug": user["org_slug"],
         "org_name": user.get("org_name") or user["org_slug"],
         "exp": int(time.time()) + ttl_seconds,
     }
-    b64 = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")).decode("ascii").rstrip("=")
-    sig = hmac.new(_jwt_secret(), b64.encode("ascii"), hashlib.sha256).hexdigest()
-    return f"dzt_{b64}.{sig}"
+    return "dzt_" + jwt.encode(payload, _jwt_secret(), algorithm="HS256")
 
 
 def _verify_saas_token(token: str) -> Optional[dict]:
-    if not token or not token.startswith("dzt_") or "." not in token:
+    if not token or not token.startswith("dzt_"):
         return None
     try:
-        body_part, sig = token[4:].split(".", 1)
-        expected_sig = hmac.new(_jwt_secret(), body_part.encode("ascii"), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(sig, expected_sig):
-            return None
-        pad = "=" * ((4 - len(body_part) % 4) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(body_part + pad).decode("utf-8"))
-        if int(payload.get("exp", 0)) < int(time.time()):
+        payload = jwt.decode(token[4:], _jwt_secret(), algorithms=["HS256"],
+                             issuer="daderezo", audience="daderezo-session",
+                             options={"require": ["exp", "email", "org_slug", "auth_version", "iss", "aud"]})
+        if int(payload["exp"]) <= int(time.time()) or payload["auth_version"] != 2:
             return None
         return payload
-    except Exception:
+    except (jwt.InvalidTokenError, ValueError, TypeError):
         return None
 
 
@@ -629,25 +636,24 @@ class LoginRequest(BaseModel):
 
 
 class GoogleAuthRequest(BaseModel):
-    id_token: Optional[str] = Field(default=None, description="Google OAuth ID Token JWT")
-    access_token: Optional[str] = Field(default=None, description="Google Access Token")
-    user_info: Optional[dict] = Field(default=None, description="Profil utilisateur vérifié")
-    org_name: Optional[str] = Field(default=None, description="Nom optionnel de l'organisation")
+    id_token: str = Field(..., min_length=10, max_length=10000)
+    org_name: Optional[str] = Field(default=None, max_length=160)
 
 
 class TwoFactorEnableRequest(BaseModel):
-    secret: str = Field(..., min_length=16, max_length=64, description="Secret TOTP base32")
-    code: str = Field(..., min_length=6, max_length=6, description="Code TOTP à 6 chiffres")
+    secret: str = Field(..., min_length=16, max_length=64)
+    enrollment_token: str = Field(..., min_length=10, max_length=2048)
+    code: str = Field(..., pattern=r"^[0-9]{6}$")
 
 
 class TwoFactorVerifyRequest(BaseModel):
     temp_token: str = Field(..., min_length=10, description="Jeton temporaire émis après login réussi")
-    code: str = Field(..., min_length=6, max_length=6, description="Code TOTP à 6 chiffres")
+    code: str = Field(..., pattern=r"^[0-9]{6}$", description="Code TOTP à 6 chiffres")
 
 
 class TwoFactorDisableRequest(BaseModel):
-    password: str = Field(..., min_length=1, description="Mot de passe actuel pour confirmation")
-    code: str = Field(..., min_length=6, max_length=6, description="Code TOTP à 6 chiffres")
+    password: str = Field(default="", max_length=128, description="Mot de passe actuel (comptes locaux)")
+    code: str = Field(..., pattern=r"^[0-9]{6}$", description="Code TOTP à 6 chiffres")
 
 
 class VerifyEmailRequest(BaseModel):
@@ -1597,6 +1603,7 @@ def auth_login(req: LoginRequest, response: Response, request: Request):
     # Si l'utilisateur a activé le 2FA (TOTP)
     if bool(user.get("totp_enabled", 0)):
         temp_token = _sign_temp_2fa_token(user, ttl_seconds=300)
+        _clear_auth_cookie(response)
         return {
             "status": "2fa_required",
             "temp_token": temp_token,
@@ -1623,6 +1630,35 @@ def auth_login(req: LoginRequest, response: Response, request: Request):
     }
 
 
+def _google_client_id() -> str:
+    return os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+
+
+@app.get("/auth/google/config")
+def auth_google_config(response: Response, request: Request):
+    client_id = _google_client_id()
+    if not client_id:
+        return {"enabled": False, "message": "Connexion Google non configurée. Utilisez votre e-mail et mot de passe."}
+    nonce = secrets.token_urlsafe(32)
+    response.set_cookie("daderezo_google_nonce", nonce, httponly=True, secure=request.url.scheme == "https" or bool(os.environ.get("VERCEL")),
+                        samesite="strict", max_age=300, path="/auth/google")
+    return {"enabled": True, "client_id": client_id, "nonce": nonce}
+
+
+def _verified_google_profile(token: str, nonce: str) -> dict:
+    # google-auth verifies the certificate signature, expiry, audience and issuer.
+    payload = google_id_token.verify_oauth2_token(token, partial(GoogleRequest(), timeout=10), _google_client_id())
+    if payload.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+        raise ValueError("issuer")
+    if payload.get("aud") != _google_client_id() or not payload.get("sub"):
+        raise ValueError("audience")
+    if payload.get("email_verified") is not True or not payload.get("email"):
+        raise ValueError("unverified_email")
+    if not nonce or not hmac.compare_digest(str(payload.get("nonce", "")), nonce):
+        raise ValueError("nonce")
+    return payload
+
+
 @app.post("/auth/google")
 def auth_google(req: GoogleAuthRequest, response: Response, request: Request):
     """
@@ -1640,33 +1676,18 @@ def auth_google(req: GoogleAuthRequest, response: Response, request: Request):
             headers={"Retry-After": str(retry_after)},
         )
 
-    email = ""
-    full_name = "Utilisateur Google"
-    avatar_url = ""
+    if not _google_client_id():
+        raise HTTPException(status_code=503, detail="Connexion Google non configurée sur le serveur.")
+    try:
+        payload = _verified_google_profile(req.id_token, request.cookies.get("daderezo_google_nonce", ""))
+    except Exception:
+        auth_limiter.record_failure(lim_key)
+        raise HTTPException(status_code=401, detail="Connexion Google invalide ou expirée. Réessayez depuis le bouton Google.")
+    response.delete_cookie("daderezo_google_nonce", path="/auth/google")
+    email = payload["email"].lower().strip()
+    full_name = payload.get("name") or "Utilisateur Google"
+    avatar_url = payload.get("picture") or ""
     email_verified = True
-
-    if req.id_token:
-        try:
-            parts = req.id_token.strip().split(".")
-            if len(parts) == 3:
-                pad = "=" * ((4 - len(parts[1]) % 4) % 4)
-                payload = json.loads(base64.urlsafe_b64decode(parts[1] + pad).decode("utf-8"))
-                email = (payload.get("email") or "").lower().strip()
-                full_name = payload.get("name") or payload.get("given_name") or "Utilisateur Google"
-                avatar_url = payload.get("picture") or ""
-                email_verified = bool(payload.get("email_verified", True))
-        except Exception:
-            pass
-
-    if not email and req.user_info and isinstance(req.user_info, dict):
-        email = (req.user_info.get("email") or "").lower().strip()
-        full_name = req.user_info.get("name") or req.user_info.get("full_name") or full_name
-        avatar_url = req.user_info.get("picture") or req.user_info.get("avatar_url") or avatar_url
-        if "email_verified" in req.user_info:
-            email_verified = bool(req.user_info["email_verified"])
-
-    if not email:
-        raise HTTPException(status_code=400, detail="Jeton Google ID ou profil e-mail manquant ou invalide.")
 
     valid_em, em_err = validate_email_address(email)
     if not valid_em:
@@ -1706,6 +1727,11 @@ def auth_google(req: GoogleAuthRequest, response: Response, request: Request):
             storage.update_saas_user_profile(email, full_name=full_name, avatar_url=avatar_url)
             user = storage.get_saas_user_by_email(email) or user
 
+    if user.get("totp_enabled"):
+        _clear_auth_cookie(response)
+        return {"status": "2fa_required", "temp_token": _sign_temp_2fa_token(user),
+                "message": "Code de double authentification requis."}
+
     auth_limiter.reset(lim_key)
     token = _sign_saas_token(user)
     _set_auth_cookie(response, request, token)
@@ -1732,14 +1758,26 @@ def auth_2fa_setup(ctx: dict = Depends(require_write_auth)):
     """Génère un secret TOTP et l'URI otpauth pour Google Authenticator / Microsoft Authenticator."""
     if ctx["mode"] != "private_org" or not ctx.get("email"):
         raise HTTPException(status_code=400, detail="Action réservée aux Espaces Privés authentifiés.")
-    secret = generate_totp_secret()
     email = ctx["email"]
-    otpauth_url = f"otpauth://totp/DADEREZO:{email}?secret={secret}&issuer=DADEREZO"
+    user = storage.get_saas_user_by_email(email)
+    if not user:
+        raise HTTPException(status_code=404, detail="Compte introuvable.")
+    if user.get("totp_enabled"):
+        raise HTTPException(status_code=409, detail="Le 2FA est déjà actif. Désactivez-le avant de le reconfigurer.")
+    secret = generate_totp_secret()
+    label = urllib.parse.quote("DADEREZO:" + email, safe="")
+    otpauth_url = "otpauth://totp/" + label + "?" + urllib.parse.urlencode({"secret": secret, "issuer": "DADEREZO", "algorithm": "SHA1", "digits": 6, "period": 30})
+    qr = qrcode.make(otpauth_url, image_factory=qrcode.image.svg.SvgPathImage, box_size=6, border=4)
+    buffer = io.BytesIO()
+    qr.save(buffer)
+    qr_data_uri = "data:image/svg+xml;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
     formatted = " ".join(secret[i : i + 4] for i in range(0, len(secret), 4))
     return {
         "status": "ok",
         "secret": secret,
         "formatted_secret": formatted,
+        "qr_code_data_uri": qr_data_uri,
+        "enrollment_token": _sign_temp_2fa_token({"email": email, "enrollment_secret": secret}, 600, "2fa_enroll"),
         "otpauth_url": otpauth_url,
         "issuer": "DADEREZO",
         "account": email,
@@ -1747,14 +1785,27 @@ def auth_2fa_setup(ctx: dict = Depends(require_write_auth)):
 
 
 @app.post("/auth/2fa/enable")
-def auth_2fa_enable(req: TwoFactorEnableRequest, ctx: dict = Depends(require_write_auth)):
+def auth_2fa_enable(req: TwoFactorEnableRequest, request: Request, ctx: dict = Depends(require_write_auth)):
     """Active le 2FA (TOTP) après vérification d'un premier code à 6 chiffres valide."""
     if ctx["mode"] != "private_org" or not ctx.get("email"):
         raise HTTPException(status_code=400, detail="Action réservée aux Espaces Privés authentifiés.")
     email = ctx["email"]
+    limit_key = "totp-change:" + email
+    locked, retry_after = auth_limiter.is_locked(limit_key)
+    if locked:
+        raise HTTPException(status_code=429, detail="Trop de tentatives 2FA.", headers={"Retry-After": str(retry_after)})
+
+    user = storage.get_saas_user_by_email(email)
+    if not user or user.get("totp_enabled"):
+        raise HTTPException(status_code=409, detail="Compte absent ou 2FA déjà actif.")
+    enrollment = _verify_temp_2fa_token(req.enrollment_token, "2fa_enroll")
+    if not enrollment or enrollment.get("email") != email or enrollment.get("secret") != req.secret:
+        raise HTTPException(status_code=400, detail="Configuration expirée ou invalide. Générez un nouveau QR code.")
     if not verify_totp_token(req.secret, req.code, window=1):
+        auth_limiter.record_failure(limit_key)
         raise HTTPException(status_code=400, detail="Code de vérification 2FA incorrect. Vérifiez l'heure de votre appareil.")
 
+    auth_limiter.reset(limit_key)
     user = storage.update_saas_user_totp(email, totp_secret=req.secret, totp_enabled=True)
     now_iso = datetime.now(timezone.utc).isoformat()
     storage.record_audit_log(
@@ -1794,7 +1845,7 @@ def auth_2fa_verify(req: TwoFactorVerifyRequest, response: Response, request: Re
 
     email = claims["email"]
     user = storage.get_saas_user_by_email(email)
-    if not user or not user.get("totp_secret"):
+    if not user or not user.get("totp_secret") or not user.get("totp_enabled"):
         raise HTTPException(status_code=400, detail="Configuration 2FA introuvable pour ce compte.")
 
     if not verify_totp_token(user["totp_secret"], req.code, window=1):
@@ -1821,17 +1872,25 @@ def auth_2fa_verify(req: TwoFactorVerifyRequest, response: Response, request: Re
 
 
 @app.post("/auth/2fa/disable")
-def auth_2fa_disable(req: TwoFactorDisableRequest, ctx: dict = Depends(require_write_auth)):
+def auth_2fa_disable(req: TwoFactorDisableRequest, request: Request, ctx: dict = Depends(require_write_auth)):
     """Désactive le 2FA après confirmation du mot de passe et d'un code valide."""
     if ctx["mode"] != "private_org" or not ctx.get("email"):
         raise HTTPException(status_code=400, detail="Action réservée aux Espaces Privés authentifiés.")
     email = ctx["email"]
+    limit_key = "totp-change:" + email
+    locked, retry_after = auth_limiter.is_locked(limit_key)
+    if locked:
+        raise HTTPException(status_code=429, detail="Trop de tentatives 2FA.", headers={"Retry-After": str(retry_after)})
+
     user = storage.get_saas_user_by_email(email)
-    if not user or not _verify_password(req.password, user.get("password_hash", "")):
+    if not user or (user.get("auth_provider") != "google" and not _verify_password(req.password, user.get("password_hash", ""))):
+        auth_limiter.record_failure(limit_key)
         raise HTTPException(status_code=401, detail="Mot de passe incorrect.")
-    if user.get("totp_secret") and not verify_totp_token(user["totp_secret"], req.code, window=1):
+    if not user.get("totp_enabled") or not verify_totp_token(user.get("totp_secret", ""), req.code, window=1):
+        auth_limiter.record_failure(limit_key)
         raise HTTPException(status_code=400, detail="Code 2FA incorrect.")
 
+    auth_limiter.reset(limit_key)
     storage.update_saas_user_totp(email, totp_secret=None, totp_enabled=False)
     now_iso = datetime.now(timezone.utc).isoformat()
     storage.record_audit_log(

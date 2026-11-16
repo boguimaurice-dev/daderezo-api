@@ -13,7 +13,7 @@ from audit_context import identity
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     monkeypatch.setenv("DADEREZO_DB_PATH", str(tmp_path / "audit.db"))
-    monkeypatch.setenv("DADEREZO_AUTH_SECRET", "isolated-test-secret")
+    monkeypatch.setenv("DADEREZO_AUTH_SECRET", "isolated-test-secret-not-for-production-2026")
     monkeypatch.delenv("DADEREZO_API_KEY", raising=False)
     storage.init_db()
     return tmp_path

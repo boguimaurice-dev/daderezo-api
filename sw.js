@@ -1,6 +1,6 @@
 /* Daderezo PWA Service Worker v4.2 — Résilience Hors-Ligne & Cache Intelligent */
-const CACHE_SHELL = 'daderezo-shell-v4.3';
-const CACHE_DATA = 'daderezo-telemetry-v4.3';
+const CACHE_SHELL = 'daderezo-shell-v4.9-auth';
+const CACHE_DATA = 'daderezo-telemetry-v4.9-auth';
 
 const SHELL_ASSETS = [
   '/',
@@ -85,31 +85,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Télémétrie lecture seule -> Network-First avec dernier état connu en cas de coupure FAI
-  if (
-    url.pathname === '/health' ||
-    url.pathname === '/agents' ||
-    url.pathname.startsWith('/dashboard/') ||
-    url.pathname === '/supervisor/overview'
-  ) {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res && res.ok && !req.headers.get('authorization')) {
-            const copy = res.clone();
-            caches.open(CACHE_DATA).then((c) => c.put(req, copy));
-          }
-          return res;
-        })
-        .catch(async () => {
-          const dataCache = await caches.open(CACHE_DATA);
-          const cached = await dataCache.match(req);
-          if (cached) return cached;
-          return new Response(JSON.stringify({ status: 'offline', offline_cached: true }), {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        })
-    );
+  // Cookie-authenticated telemetry must never enter shared browser caches.
+  // A different account could otherwise see the previous tenant's offline data.
+  if (url.pathname === '/health' || url.pathname === '/agents' ||
+      url.pathname.startsWith('/dashboard/') || url.pathname === '/supervisor/overview') {
+    event.respondWith(fetch(req, { cache: 'no-store' }).catch(() =>
+      new Response(JSON.stringify({ status: 'offline', offline_cached: false }), {
+        status: 503, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+      })));
   }
 });

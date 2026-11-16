@@ -75,7 +75,8 @@ puis recréez les services. Ne recopiez pas leurs valeurs dans le chat.
 ```sql
 SELECT count(*) AS candidats_a_purger
 FROM public.agent_audit_logs
-WHERE ts < ((now() AT TIME ZONE 'UTC' - interval '90 days')::text);
+WHERE ts < (to_char((now() AT TIME ZONE 'UTC') - interval '90 days',
+                    'YYYY-MM-DD"T"HH24:MI:SS.US') || '+00:00');
 ```
 
 Les horodatages sont stockés en texte. Les nouvelles entrées sont en UTC ISO 8601 ;

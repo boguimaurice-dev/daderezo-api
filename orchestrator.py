@@ -6,6 +6,8 @@ Coordonne le collecteur, régénère le tableau de bord local et traite tasks.js
 Aucune modification de configuration réseau n'est effectuée.
 """
 import argparse
+import logging
+from logging.handlers import RotatingFileHandler
 from datetime import datetime, timezone
 import json
 import os
@@ -26,8 +28,14 @@ def now() -> str:
 
 def log(msg: str) -> None:
     line = f"{now()} | {msg}"
-    with open(LOG, "a", encoding="utf-8") as f:
-        f.write(line + "\n")
+    logger = logging.getLogger("daderezo.local.orchestrator")
+    if not logger.handlers:
+        handler = RotatingFileHandler(LOG, maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8")
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+    logger.info(line)
     print(line)
 
 

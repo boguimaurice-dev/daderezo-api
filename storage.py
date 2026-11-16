@@ -13,6 +13,9 @@ import base64
 import json
 import os
 import sqlite3
+from audit_redaction import redact
+from datetime import datetime, timedelta, timezone
+from audit_context import current
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -252,6 +255,14 @@ def init_db() -> None:
             f"storage_mode TEXT NOT NULL DEFAULT 'inline', storage_key TEXT, content_b64 TEXT, "
             f"uploaded_by TEXT DEFAULT 'Superviseur Général', created_at TEXT NOT NULL)"
         )
+
+        for column in ("tenant_id", "actor", "request_id"):
+            if is_pg:
+                c.execute(f"ALTER TABLE agent_audit_logs ADD COLUMN IF NOT EXISTS {column} TEXT")
+            else:
+                _ensure_sqlite_column(c, "agent_audit_logs", column, "TEXT")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_audit_tenant_id ON agent_audit_logs (tenant_id, id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_audit_ts ON agent_audit_logs (ts)")
 
         if not is_pg:
             _ensure_sqlite_column(c, "agents", "org_slug", "TEXT DEFAULT 'public-demo'")
@@ -804,23 +815,24 @@ def list_tasks_raw(agent_id: str, limit: int = 10) -> List[dict]:
     return [dict(zip(cols, r)) for r in rows]
 
 
-def ack_task_row(agent_id: str, task_id: int, result_msg: str, now_iso: str) -> None:
+def ack_task_row(agent_id: str, task_id: int, result_msg: str, now_iso: str) -> bool:
     if get_backend_mode() == "supabase":
         q_ag = urllib.parse.quote(agent_id)
-        _sb().request(
+        rows = _sb().request(
             "PATCH",
             "tasks",
             f"id=eq.{int(task_id)}&agent_id=eq.{q_ag}",
             {"status": "done", "completed_at": now_iso, "result": result_msg[:500]},
-            prefer="return=minimal",
+            prefer="return=representation",
         )
-        return
+        return bool(rows)
     with _sql_cursor() as (_, c, ph):
         c.execute(
             f"UPDATE tasks SET status = 'done', completed_at = {ph}, result = {ph} "
             f"WHERE id = {ph} AND agent_id = {ph}",
             (now_iso, result_msg[:500], task_id, agent_id),
         )
+        return c.rowcount > 0
 
 
 # ---------------------------------------------------------------------------
@@ -1236,41 +1248,43 @@ def record_audit_log(
     status: str,
     duration_ms: int,
     details: str,
+    tenant_id: Optional[str] = None,
 ) -> None:
+    ctx = current()
+    details = redact(details)
+    row = dict(ts=ts, session_id=redact(session_id)[:512], agent_name=redact(agent_name)[:100],
+               action_type=redact(action_type)[:100], tool_name=redact(tool_name)[:200], status=redact(status)[:40],
+               duration_ms=int(duration_ms), details=details[:1000],
+               tenant_id=tenant_id or ctx["org_slug"], actor=redact(ctx.get("actor", "system"))[:200],
+               request_id=ctx.get("request_id", ""))
     if get_backend_mode() == "supabase":
-        _sb().request(
-            "POST",
-            "agent_audit_logs",
-            "",
-            {
-                "ts": ts,
-                "session_id": session_id,
-                "agent_name": agent_name,
-                "action_type": action_type,
-                "tool_name": tool_name,
-                "status": status,
-                "duration_ms": int(duration_ms),
-                "details": details[:1000],
-            },
-            prefer="return=minimal",
-        )
+        _sb().request("POST", "agent_audit_logs", "", row, prefer="return=minimal")
         return
     with _sql_cursor() as (_, c, ph):
-        c.execute(
-            f"INSERT INTO agent_audit_logs (ts, session_id, agent_name, action_type, tool_name, status, duration_ms, details) "
-            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})",
-            (ts, session_id, agent_name, action_type, tool_name, status, int(duration_ms), details[:1000]),
-        )
+        c.execute(f"INSERT INTO agent_audit_logs ({','.join(row)}) VALUES ({','.join([ph]*len(row))})", tuple(row.values()))
 
 
-def list_audit_logs(limit: int = 30) -> List[dict]:
+def list_audit_logs(limit: int = 30, tenant_id: str = "system") -> List[dict]:
+    limit = max(1, min(int(limit), 1000))
     if get_backend_mode() == "supabase":
-        return _sb().request("GET", "agent_audit_logs", f"order=id.desc&limit={int(limit)}") or []
+        tenant = urllib.parse.quote(tenant_id, safe="")
+        return _sb().request("GET", "agent_audit_logs", f"tenant_id=eq.{tenant}&order=id.desc&limit={limit}") or []
     with _sql_cursor() as (_, c, ph):
-        c.execute(f"SELECT * FROM agent_audit_logs ORDER BY id DESC LIMIT {ph}", (limit,))
-        rows = c.fetchall()
+        c.execute(f"SELECT * FROM agent_audit_logs WHERE tenant_id={ph} ORDER BY id DESC LIMIT {ph}", (tenant_id, limit))
         cols = [d[0] for d in c.description]
-    return [dict(zip(cols, r)) for r in rows]
+        return [dict(zip(cols, r)) for r in c.fetchall()]
+
+
+def purge_audit_logs(days: int = 90) -> None:
+    """Run daily via scheduler; global retention, never invoked from public routes."""
+    if days < 90:
+        raise ValueError("Audit retention must be at least 90 days")
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    if get_backend_mode() == "supabase":
+        _sb().request("DELETE", "agent_audit_logs", "ts=lt." + urllib.parse.quote(cutoff, safe=""), prefer="return=minimal")
+    else:
+        with _sql_cursor() as (_, c, ph):
+            c.execute(f"DELETE FROM agent_audit_logs WHERE ts < {ph}", (cutoff,))
 
 
 def create_human_approval(ts: str, session_id: str, agent_id: str, action: str, reason: str) -> dict:

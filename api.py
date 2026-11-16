@@ -11,6 +11,9 @@ Architecture Multi-Agents :
   05 · MEDIA-HUB    : Partage sécurisé de Documents, Images, Audios & Vidéos (Cloud + LAN local)
 """
 import base64
+import logging
+from audit_context import identity
+from starlette.concurrency import run_in_threadpool
 from datetime import datetime, timezone
 import hashlib
 import hmac
@@ -86,6 +89,54 @@ app.add_middleware(
 
 
 @app.middleware("http")
+async def audit_requests(request: Request, call_next):
+    request_id = secrets.token_hex(16)
+    ctx = {"org_slug": "system", "actor": "anonymous", "request_id": request_id}
+    marker = identity.set(ctx)
+    started = time.perf_counter()
+    status = 500
+    try:
+        try:
+            resolved = await run_in_threadpool(resolve_tenant_context,
+                request.headers.get("x-api-key"), request.headers.get("authorization"),
+                request.cookies.get("daderezo_session"))
+            if resolved["authenticated"] or not request.url.path.startswith("/auth/"):
+                ctx.update(resolved)
+        except HTTPException:
+            pass  # Normal authentication dependency returns the appropriate status.
+        response = await call_next(request)
+        status = response.status_code
+        response.headers["X-Request-ID"] = request_id
+        return response
+    except Exception as exc:
+        # No body, headers, query string or exception text: they may contain secrets.
+        logging.getLogger("daderezo.errors").error(
+            "request_failed request_id=%s exception_type=%s", request_id, type(exc).__name__)
+        return JSONResponse(status_code=500, content={"detail": "Erreur interne", "request_id": request_id},
+                            headers={"X-Request-ID": request_id})
+    finally:
+        route = request.scope.get("route")
+        path = getattr(route, "path", "unmatched")
+        auth_event = path in {"/auth/login", "/auth/google", "/auth/2fa/verify", "/auth/logout", "/auth/signup"}
+        if auth_event or status >= 400:
+            outcome = "BLOCKED" if status == 429 else ("ERROR" if status >= 400 else "OK")
+            try:
+                # Blocking persistence runs outside the event loop.
+                await run_in_threadpool(
+                    storage.record_audit_log, datetime.now(timezone.utc).isoformat(),
+                    "http-" + request_id, "AUTH" if auth_event else "API",
+                    "authentication" if auth_event else "http_error", path,
+                    outcome, int((time.perf_counter()-started)*1000),
+                    json.dumps({"method": request.method, "http_status": status,
+                                "peer_ip": request.client.host if request.client else None,
+                                "session_issued": bool(ctx.get("session_issued"))}))
+            except Exception as exc:
+                logging.getLogger("daderezo.audit").error(
+                    "audit_write_failed request_id=%s exception_type=%s", request_id, type(exc).__name__)
+        identity.reset(marker)
+
+
+@app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Injecte les en-têtes de sécurité HTTP stricts (HSTS, CSP, Anti-Sniff, X-Frame)."""
     response = await call_next(request)
@@ -131,9 +182,8 @@ class AuthRateLimiter:
 
     def __init__(self):
         self._redis = _redis_client if _HAS_REDIS else None
-        if self._redis is None:
-            self._attempts: Dict[str, List[float]] = {}
-            self._locks: Dict[str, float] = {}
+        self._attempts: Dict[str, List[float]] = {}
+        self._locks: Dict[str, float] = {}
 
     def _redis_lock_key(self, key: str) -> str:
         return f"auth_rl_lock:{key}"
@@ -146,16 +196,14 @@ class AuthRateLimiter:
             try:
                 now = time.time()
                 lock_key = self._redis_lock_key(key)
-                # Prend le verrou si non détenu ou périmé
-                acquired = self._redis.set(lock_key, str(now + 900), nx=True, ex=900)
-                if acquired:
-                    return False, 0
                 stored = self._redis.get(lock_key)
-                if stored is not None and float(stored) < now:
+                if stored is None:
+                    return False, 0
+                remain = int(float(stored) - now)
+                if remain <= 0:
                     self._redis.delete(lock_key)
                     return False, 0
-                remain = max(1, int(float(stored) - now + 900))
-                return True, remain
+                return True, max(1, remain)
             except Exception:
                 pass
         now = time.time()
@@ -205,9 +253,8 @@ class AuthRateLimiter:
                 self._redis.delete(self._redis_lock_key(key), self._redis_hist_key(key))
             except Exception:
                 pass
-        else:
-            self._attempts.pop(key, None)
-            self._locks.pop(key, None)
+        self._attempts.pop(key, None)
+        self._locks.pop(key, None)
 
 
 auth_limiter = AuthRateLimiter()
@@ -296,6 +343,9 @@ def verify_totp_token(secret: str, token: str, window: int = 1) -> bool:
 
 def _set_auth_cookie(response: Response, request: Optional[Request], token: str) -> None:
     """Définit le cookie de session sécurisé HttpOnly + SameSite=Lax."""
+    claims = _verify_saas_token(token)
+    if claims and identity.get() is not None:
+        identity.get().update(org_slug=claims["org_slug"], actor=claims.get("email", "user"), session_issued=True)
     is_secure = False
     if request:
         scheme = request.url.scheme or ""
@@ -647,7 +697,7 @@ class SupervisorAskRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=1500)
     agent_id: Optional[str] = Field(default=None)
     scope: str = Field(default="site")
-    session_id: Optional[str] = Field(default="default-supervisor")
+    session_id: Optional[str] = Field(default="default-supervisor", max_length=128)
     voice_mode: bool = Field(default=False)
 
 
@@ -2485,7 +2535,11 @@ def ack_diagnostic_task(agent_id: str, task_id: int, result: str = "OK", ctx: di
     init_db()
     _ensure_agent_tenant_access(agent_id, ctx)
     now_iso = datetime.now(timezone.utc).isoformat()
-    storage.ack_task_row(agent_id, task_id, result, now_iso)
+    if not storage.ack_task_row(agent_id, task_id, result, now_iso):
+        raise HTTPException(status_code=404, detail="Tâche introuvable pour cette sonde.")
+    storage.record_audit_log(
+        now_iso, f"task-{task_id}", "PROBE", "task_ack", "ack_task",
+        "REPORTED", 0, f"agent_id={agent_id}; task_id={task_id}; probe_report={result[:600]}")
     return {"status": "acknowledged", "task_id": task_id}
 
 
@@ -2668,11 +2722,12 @@ def supervisor_ask(
     if req.agent_id and req.agent_id.lower() != "all":
         _ensure_agent_tenant_access(req.agent_id, ctx)
 
-    return agent_engine.run_multi_agent_mission(
+    public_session = (req.session_id or "default-supervisor").strip() or "default-supervisor"
+    result = agent_engine.run_multi_agent_mission(
         question_raw=req.question,
         target_agent_id=req.agent_id,
         scope=req.scope,
-        session_id=req.session_id or "default-supervisor",
+        session_id=ctx["org_slug"] + ":" + public_session,
         can_write=ctx["can_write"],
         fetch_dashboards_fn=_make_dashboards_fetcher(ctx),
         org_slug=ctx["org_slug"],
@@ -2682,6 +2737,10 @@ def supervisor_ask(
         llm_provider=x_llm_provider,
         voice_mode=req.voice_mode,
     )
+    # Keep the internal tenant namespace out of the client protocol; otherwise the
+    # frontend re-sends it and a new prefix is added on every conversation turn.
+    result["session_id"] = public_session
+    return result
 
 
 @app.post("/supervisor/llm-check")
@@ -2707,20 +2766,7 @@ def supervisor_audit(limit: int = Query(default=25, ge=1, le=100), ctx: dict = D
         for p in storage.list_human_approvals(status="pending", limit=25)
         if (p.get("agent_id") in allowed_ids) or (ctx["org_slug"] == "public-demo" and p.get("agent_id") == "simulation-bouake")
     ]
-    raw_logs = storage.list_audit_logs(limit=max(limit * 2, 50))
-    if ctx["org_slug"] != "public-demo":
-        org_tag = ctx["org_slug"].lower()
-        org_name_tag = (ctx.get("org_name") or "").lower()
-        filtered_logs = [
-            l for l in raw_logs
-            if org_tag in str(l.get("session_id", "")).lower()
-            or org_tag in str(l.get("details", "")).lower()
-            or (org_name_tag and org_name_tag in str(l.get("details", "")).lower())
-            or any(aid.lower() in str(l.get("details", "")).lower() for aid in allowed_ids)
-        ]
-        audit_logs = filtered_logs[:limit]
-    else:
-        audit_logs = raw_logs[:limit]
+    audit_logs = storage.list_audit_logs(limit=limit, tenant_id=ctx["org_slug"])
     return {
         "db_backend": storage.get_backend_mode(),
         "workspace_mode": ctx["mode"],
@@ -2734,7 +2780,10 @@ def supervisor_session_history(
     session_id: str, limit: int = Query(default=12, ge=1, le=50), ctx: dict = Depends(require_read_auth)
 ):
     init_db()
-    return {"session_id": session_id, "turns": storage.get_session_turns(session_id, limit=limit)}
+    public_session = session_id.strip() or "default-supervisor"
+    if len(public_session) > 128:
+        raise HTTPException(status_code=422, detail="Identifiant de session trop long.")
+    return {"session_id": public_session, "turns": storage.get_session_turns(ctx["org_slug"] + ":" + public_session, limit=limit)}
 
 
 @app.post("/supervisor/approve/{approval_id}")

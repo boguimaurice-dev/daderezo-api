@@ -3184,7 +3184,7 @@ html, body {
       <div class="panel-head">
         <div>
           <h2>Journal d’Audit Multi-Agents (SENTINEL · TOPO · DIAG · NET-CONTROL · MEDIA)</h2>
-          <p>Preuve vérifiable des outils appelés, temps d’exécution et décisions de sécurité.</p>
+          <p>Connexions, erreurs, outils appelés et décisions. QUEUED : commande envoyée ; REPORTED : retour déclaré par la sonde, pas une vérification indépendante.</p>
         </div>
         <span class="tag ok" id="auditCountTag">0 trace</span>
       </div>
@@ -4574,7 +4574,7 @@ async function loadAuditLogs() {
         <span class="sev ${esc(st)}">${esc(l.agent_name)} · ${esc(l.status)}</span>
         <div style="flex:1">
           <div><code style="color:var(--cyan-ink)">${esc(l.tool_name)}</code> — ${esc(l.details)}</div>
-          <div class="alert-meta">${esc(ts)} · ${Number(l.duration_ms || 1)} ms · session ${esc(l.session_id || '')} · <span style="color:var(--cyan-ink)">🔍 Inspecter ↗</span></div>
+          <div class="alert-meta">${esc(ts)} · ${Number(l.duration_ms || 1)} ms · ${esc(l.actor || '')} · requête ${esc(l.request_id || '')} · session ${esc(l.session_id || '')} · <span style="color:var(--cyan-ink)">🔍 Inspecter ↗</span></div>
         </div>
       </div>`;
     }).join('');

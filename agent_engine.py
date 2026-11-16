@@ -11,6 +11,7 @@ DADEREZO v4.1 — Moteur Multi-Agents Autonome, Mémoire Multi-Tours & Contrôle
 """
 from datetime import datetime, timezone
 import json
+import logging
 import os
 import re
 import time
@@ -1274,7 +1275,7 @@ def run_multi_agent_mission(
 ) -> dict:
     """Exécute la chaîne des 5 agents spécialisés avec sécurité, mémoire multi-tours, contrôle actif et audit complet."""
     now_iso = datetime.now(timezone.utc).isoformat()
-    sid = (session_id or "default-supervisor").strip()[:80]
+    sid = (session_id or "default-supervisor").strip()
     q_clean = question_raw.strip()
     q = normalize_fr(q_clean)
 
@@ -1293,8 +1294,8 @@ def run_multi_agent_mission(
         agent_trace.append(entry)
         try:
             storage.record_audit_log(now_iso, sid, agent_name, action_type, tool_name, status, dur, details)
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.getLogger("daderezo.audit").error("agent_audit_write_failed exception_type=%s", type(exc).__name__)
 
     history = storage.get_session_turns(sid, limit=10)
     prev_ctx = _extract_last_context(history)

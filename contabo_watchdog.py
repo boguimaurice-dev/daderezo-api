@@ -145,7 +145,7 @@ def evaluate_once(enable_ai_enrichment: bool = True) -> List[Dict[str, Any]]:
                 ai_note = _ai_enrich_incident(site_lbl, "probe_offline", ctx_summary)
                 if ai_note:
                     msg += f"\n🤖 Diagnostic IA : {ai_note}"
-            storage.record_audit_log(now_iso, "contabo-watchdog", "SENTINEL-SEC", "watchdog", "probe_heartbeat", "OFFLINE", 1, msg)
+            storage.record_audit_log(now_iso, "contabo-watchdog", "SENTINEL-SEC", "watchdog", "probe_heartbeat", "OFFLINE", 1, msg, tenant_id=ag.get("org_slug") or "system")
             _send_notification(msg)
             emitted.append({"agent_id": aid, "kind": "probe_offline", "message": msg})
         elif probe_state == "online":
@@ -160,7 +160,7 @@ def evaluate_once(enable_ai_enrichment: bool = True) -> List[Dict[str, Any]]:
                 ai_note = _ai_enrich_incident(site_lbl, "wan_down", ctx_summary)
                 if ai_note:
                     msg += f"\n🤖 Diagnostic IA : {ai_note}"
-            storage.record_audit_log(now_iso, "contabo-watchdog", "DIAG-NET", "watchdog", "wan_monitor", "WAN_DOWN", 1, msg)
+            storage.record_audit_log(now_iso, "contabo-watchdog", "DIAG-NET", "watchdog", "wan_monitor", "WAN_DOWN", 1, msg, tenant_id=ag.get("org_slug") or "system")
             _send_notification(msg)
             emitted.append({"agent_id": aid, "kind": "wan_down", "message": msg})
         elif wan_state == "ok":
@@ -176,7 +176,7 @@ def evaluate_once(enable_ai_enrichment: bool = True) -> List[Dict[str, Any]]:
                 ai_note = _ai_enrich_incident(site_lbl, "security_alert", {**ctx_summary, "detail": detail})
                 if ai_note:
                     msg += f"\n🤖 Diagnostic IA : {ai_note}"
-            storage.record_audit_log(now_iso, "contabo-watchdog", "SENTINEL-SEC", "watchdog", "mac_watch", "INTRUSION", 1, msg)
+            storage.record_audit_log(now_iso, "contabo-watchdog", "SENTINEL-SEC", "watchdog", "mac_watch", "INTRUSION", 1, msg, tenant_id=ag.get("org_slug") or "system")
             _send_notification(msg)
             emitted.append({"agent_id": aid, "kind": "security_alert", "message": msg})
 

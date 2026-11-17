@@ -1760,6 +1760,8 @@ html, body {
     gap: 6px;
   }
 
+  #logoutTopBtn{order:-1;flex-shrink:0;min-height:44px}
+
   .mode-switch-group {
     flex-shrink: 0;
   }
@@ -2124,6 +2126,8 @@ html, body {
       </div>
       <button class="btn secondary" id="themeToggleBtn" type="button" title="Basculer entre le mode clair et le mode sombre">☀️ Clair</button>
       <button class="btn secondary" id="authAccountBtn" type="button" title="Se connecter ou gérer votre Espace Privé">🔐 Espace Privé</button>
+      <button class="btn danger hidden" id="logoutTopBtn" type="button" title="Fermer votre session et revenir à l’accueil">Se déconnecter</button>
+      <span id="logoutFeedback" role="status" aria-live="polite"></span>
       <select id="agentSelect" class="site-select" aria-label="Sélectionner le site supervisé">
         <option value="">Chargement des sondes…</option>
       </select>
@@ -3416,7 +3420,7 @@ html, body {
       </div>
 
       <div style="display:flex;gap:8px;margin-top:12px">
-        <button class="btn danger" id="logoutSaaSBtn" type="button">Se déconnecter (retour Démo)</button>
+        <button class="btn danger" id="logoutSaaSBtn" type="button">Se déconnecter (retour Accueil)</button>
       </div>
     </div>
 
@@ -3712,6 +3716,10 @@ function getApiBase() {
   return '';
 }
 
+function workspaceFetch(url, options = {}) {
+  return fetch(url, { ...options, credentials: workspaceViewMode === 'work' ? 'same-origin' : 'omit' });
+}
+
 let runtimeApiKeyOverride = '';
 let runtimeLlmKeyOverride = '';
 try {
@@ -3986,7 +3994,7 @@ if (testLlmBtn) {
     testLlmBtn.disabled = true;
     if (st) st.textContent = '⏳ Vérification en direct auprès du fournisseur IA…';
     try {
-      const r = await fetch(`${getApiBase()}/supervisor/llm-check`, { method: 'POST', headers: getHeaders(false) });
+      const r = await workspaceFetch(`${getApiBase()}/supervisor/llm-check`, { method: 'POST', headers: getHeaders(false) });
       const d = await r.json();
       if (d.ok) {
         if (st) st.textContent = `✅ Connecté : ${d.provider.toUpperCase()} (${d.model}) · ${d.latency_ms} ms · Function-Calling: ${d.supports_tools ? 'OUI' : 'Raisonnement'}`;
@@ -4320,7 +4328,7 @@ async function refreshAll() {
   applyWorkspaceChrome();
 
   try {
-    const agentsRes = await fetch(`${base}/agents`, { headers: getHeaders() });
+    const agentsRes = await workspaceFetch(`${base}/agents`, { headers: getHeaders() });
     if (!agentsRes.ok) throw new Error(`HTTP ${agentsRes.status}`);
     const allAgents = await agentsRes.json();
     isStandaloneMode = false;
@@ -4351,7 +4359,7 @@ async function refreshAll() {
       return `<option value="${esc(a.id)}" ${a.id === currentAgentId ? 'selected' : ''}>${esc(prefix + (a.nom || a.id))} (${a.status === 'online' ? 'en ligne' : 'hors ligne'})</option>`;
     }).join('');
 
-    const dashRes = await fetch(`${base}/dashboard/${encodeURIComponent(currentAgentId)}`, { headers: getHeaders() });
+    const dashRes = await workspaceFetch(`${base}/dashboard/${encodeURIComponent(currentAgentId)}`, { headers: getHeaders() });
     if (!dashRes.ok) throw new Error(`HTTP ${dashRes.status}`);
     const data = await dashRes.json();
     updateUI(data);
@@ -4561,7 +4569,7 @@ async function loadAuditLogs() {
   const tagEl = document.getElementById('auditCountTag');
   if (isStandaloneMode) return;
   try {
-    const res = await fetch(`${getApiBase()}/supervisor/audit?limit=30`, { headers: getHeaders() });
+    const res = await workspaceFetch(`${getApiBase()}/supervisor/audit?limit=30`, { headers: getHeaders() });
     if (!res.ok) return;
     const data = await res.json();
     const logs = data.audit_logs || [];
@@ -4598,7 +4606,7 @@ document.getElementById('scanBtn').addEventListener('click', async () => {
   const orig = btn.textContent;
   try {
     if (!isStandaloneMode) {
-      const res = await fetch(`${getApiBase()}/tasks/${encodeURIComponent(currentAgentId)}`, {
+      const res = await workspaceFetch(`${getApiBase()}/tasks/${encodeURIComponent(currentAgentId)}`, {
         method: 'POST', headers: getHeaders(true), body: JSON.stringify({ action: 'scan' })
       });
       btn.textContent = res.ok ? '✓ Scan envoyé' : 'Clé requise';
@@ -4631,7 +4639,7 @@ document.querySelectorAll('[data-scenario]').forEach(btn => {
         applyStandaloneScenario(scenario);
         await refreshAll();
       } else {
-        const res = await fetch(`${getApiBase()}/demo/scenario/${encodeURIComponent(scenario)}`, {
+        const res = await workspaceFetch(`${getApiBase()}/demo/scenario/${encodeURIComponent(scenario)}`, {
           method: 'POST', headers: getHeaders(true)
         });
         if (res.ok) {
@@ -5080,7 +5088,7 @@ async function decideHitl(decision) {
     return;
   }
   try {
-    const res = await fetch(`${getApiBase()}/supervisor/approve/${encodeURIComponent(currentApprovalId)}`, {
+    const res = await workspaceFetch(`${getApiBase()}/supervisor/approve/${encodeURIComponent(currentApprovalId)}`, {
       method: 'POST',
       headers: getHeaders(true),
       body: JSON.stringify({ decision })
@@ -5153,9 +5161,9 @@ async function askSupervisor(questionOverride, fromVoice = false, silentRefresh 
       body: reqBody,
       ...(abortCtrl ? { signal: abortCtrl.signal } : {})
     };
-    let res = await fetch(`${getApiBase()}/supervisor/ask`, fetchOpts);
+    let res = await workspaceFetch(`${getApiBase()}/supervisor/ask`, fetchOpts);
     if (!res.ok && isWork && !(abortCtrl && abortCtrl.signal.aborted)) {
-      res = await fetch(`${getApiBase()}/supervisor/ask`, fetchOpts);
+      res = await workspaceFetch(`${getApiBase()}/supervisor/ask`, fetchOpts);
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
@@ -5795,7 +5803,7 @@ async function applyInternetPolicy(scopeType, targetValue, internetEnabled) {
   if (!currentAgentId || isStandaloneMode) return;
   const previewEl = document.getElementById('lastRouterCmdPreview');
   try {
-    const res = await fetch(`${getApiBase()}/network/policies/${encodeURIComponent(currentAgentId)}`, {
+    const res = await workspaceFetch(`${getApiBase()}/network/policies/${encodeURIComponent(currentAgentId)}`, {
       method: 'POST',
       headers: getHeaders(true),
       body: JSON.stringify({
@@ -5925,7 +5933,7 @@ function renderBoxesGrid(boxes) {
       btn.disabled = true;
       btn.textContent = 'Application…';
       try {
-        const res = await fetch(`${getApiBase()}/boxes/${encodeURIComponent(currentAgentId)}/config`, {
+        const res = await workspaceFetch(`${getApiBase()}/boxes/${encodeURIComponent(currentAgentId)}/config`, {
           method: 'POST', headers: getHeaders(true), body: JSON.stringify(payload)
         });
         if (res.ok) await loadBoxes();
@@ -5942,7 +5950,7 @@ function renderBoxesGrid(boxes) {
       btn.disabled = true;
       btn.textContent = 'Ordre envoyé…';
       try {
-        await fetch(`${getApiBase()}/boxes/${encodeURIComponent(currentAgentId)}/reboot`, {
+        await workspaceFetch(`${getApiBase()}/boxes/${encodeURIComponent(currentAgentId)}/reboot`, {
           method: 'POST', headers: getHeaders(true), body: JSON.stringify({ box_ip: ip })
         });
       } finally {
@@ -5958,7 +5966,7 @@ async function loadBoxes() {
     return;
   }
   try {
-    const res = await fetch(`${getApiBase()}/boxes/${encodeURIComponent(currentAgentId)}`, { headers: getHeaders() });
+    const res = await workspaceFetch(`${getApiBase()}/boxes/${encodeURIComponent(currentAgentId)}`, { headers: getHeaders() });
     if (res.ok) {
       const data = await res.json();
       cachedBoxes = data.boxes || [];
@@ -5974,7 +5982,7 @@ document.getElementById('optimizeAllBoxesBtn').addEventListener('click', async (
   btn.disabled = true;
   btn.textContent = '⚡ Calcul & optimisation…';
   try {
-    const res = await fetch(`${getApiBase()}/boxes/${encodeURIComponent(currentAgentId)}/optimize-all`, {
+    const res = await workspaceFetch(`${getApiBase()}/boxes/${encodeURIComponent(currentAgentId)}/optimize-all`, {
       method: 'POST', headers: getHeaders(true)
     });
     if (res.ok) {
@@ -6045,7 +6053,7 @@ function renderMediaGrid() {
   container.querySelectorAll('[data-del-media]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-del-media');
-      const res = await fetch(`${getApiBase()}/media/${encodeURIComponent(id)}`, {
+      const res = await workspaceFetch(`${getApiBase()}/media/${encodeURIComponent(id)}`, {
         method: 'DELETE', headers: getHeaders()
       });
       if (res.ok) loadMedia();
@@ -6064,7 +6072,7 @@ async function loadMedia() {
   const mediaAid = getEffectiveMediaAgentId();
   if (!mediaAid) return;
   try {
-    const res = await fetch(`${getApiBase()}/media/${encodeURIComponent(mediaAid)}`, { headers: getHeaders() });
+    const res = await workspaceFetch(`${getApiBase()}/media/${encodeURIComponent(mediaAid)}`, { headers: getHeaders() });
     if (res.ok) {
       cachedMedia = await res.json();
       const badge = document.getElementById('navMediaCount');
@@ -6104,7 +6112,7 @@ document.getElementById('uploadMediaBtn').addEventListener('click', () => {
   const reader = new FileReader();
   reader.onload = async () => {
     try {
-      const res = await fetch(`${getApiBase()}/media/${encodeURIComponent(getEffectiveMediaAgentId())}`, {
+      const res = await workspaceFetch(`${getApiBase()}/media/${encodeURIComponent(getEffectiveMediaAgentId())}`, {
         method: 'POST',
         headers: getHeaders(true),
         body: JSON.stringify({
@@ -6235,6 +6243,7 @@ if (authPassInput) {
 function applyAuthUserUI(user) {
   clearTotpSetup();
   currentAuthUser = user || null;
+  document.getElementById('logoutTopBtn').classList.toggle('hidden', !user);
   workspaceViewMode = user ? 'work' : 'demo';
   const authBtn = document.getElementById('authAccountBtn');
   const loggedBox = document.getElementById('authLoggedBox');
@@ -6299,6 +6308,11 @@ async function checkAuthSession() {
       const data = await res.json();
       if (data.authenticated && data.user) {
         applyAuthUserUI(data.user);
+        if (new URLSearchParams(window.location.search).get('demo') === '1') {
+          workspaceViewMode = 'demo';
+          currentAgentId = '';
+          applyWorkspaceChrome();
+        }
         return;
       }
     }
@@ -6564,24 +6578,44 @@ document.getElementById('disableTotpBtn').addEventListener('click', async () => 
   }
 });
 
-document.getElementById('logoutSaaSBtn').addEventListener('click', async () => {
+let logoutInProgress = false;
+async function logoutSaaS() {
+  if (logoutInProgress) return;
+  logoutInProgress = true;
+  const buttons = ['logoutTopBtn', 'logoutSaaSBtn'].map(id => document.getElementById(id));
+  const feedback = document.getElementById('logoutFeedback');
+  buttons.forEach(button => { button.disabled = true; });
+  feedback.textContent = 'Déconnexion…';
   try {
-    await fetch(`${getApiBase()}/auth/logout`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: getHeaders(false, true)
+    const response = await fetch(`${getApiBase()}/auth/logout`, {
+      method: 'POST', credentials: 'same-origin', headers: getHeaders(false, true)
     });
-  } catch (_) {}
-  localStorage.removeItem('daderezo_saas_token');
-  currentAgentId = '';
-  applyAuthUserUI(null);
-  closeAuthModal();
-  await refreshAll();
-  loadMedia();
-});
+    if (!response.ok) throw new Error('logout failed');
+    localStorage.removeItem('daderezo_saas_token');
+    localStorage.removeItem('daderezo_agent_id');
+    runtimeApiKeyOverride = '';
+    runtimeLlmKeyOverride = '';
+    currentAgentId = '';
+    sessionId = generateSecureSessionId();
+    localStorage.setItem('daderezo_session_id', sessionId);
+    applyAuthUserUI(null);
+    closeAuthModal();
+    feedback.textContent = 'Déconnexion réussie.';
+    window.location.assign('/');
+  } catch (_) {
+    feedback.textContent = 'Déconnexion non confirmée. Vérifiez votre connexion et réessayez.';
+    alert(feedback.textContent);
+  } finally {
+    logoutInProgress = false;
+    buttons.forEach(button => { button.disabled = false; });
+  }
+}
+document.getElementById('logoutSaaSBtn').addEventListener('click', logoutSaaS);
+document.getElementById('logoutTopBtn').addEventListener('click', logoutSaaS);
 
 const _urlParams = new URLSearchParams(window.location.search);
 if (_urlParams.get('auth') === '1') {
+  setAuthTab(_urlParams.get('tab') === 'login' ? 'login' : 'signup');
   openAuthModal();
 }
 if (_urlParams.get('focus') === 'voice') {
@@ -6841,7 +6875,7 @@ async function runDrawerAiResearch(questionText, resultContainer) {
   }
 
   try {
-    const res = await fetch(`${getApiBase()}/supervisor/ask`, {
+    const res = await workspaceFetch(`${getApiBase()}/supervisor/ask`, {
       method: 'POST',
       headers: getHeaders(true),
       body: JSON.stringify({

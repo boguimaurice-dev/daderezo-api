@@ -1,6 +1,6 @@
 /* Daderezo PWA Service Worker v4.2 — Résilience Hors-Ligne & Cache Intelligent */
-const CACHE_SHELL = 'daderezo-shell-v4.9-auth';
-const CACHE_DATA = 'daderezo-telemetry-v4.9-auth';
+const CACHE_SHELL = 'daderezo-shell-v4.10-cta-logout';
+const CACHE_DATA = 'daderezo-telemetry-v4.10-cta-logout';
 
 const SHELL_ASSETS = [
   '/',

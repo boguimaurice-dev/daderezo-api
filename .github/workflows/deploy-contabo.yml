@@ -44,7 +44,9 @@ jobs:
       - name: Vérification DOM des parcours Google, QR 2FA et accueil
         run: |
           npm install --prefix .cache/auth-ui --no-package-lock --no-audit --no-fund jsdom@26.1.0
-          NODE_PATH=.cache/auth-ui/node_modules node tests/auth_ui.cjs
+          for scenario in default login signup demo; do
+            NODE_PATH=.cache/auth-ui/node_modules node tests/auth_ui.cjs "$scenario"
+          done
 
   deploy-contabo:
     name: Déploiement Push vers VPS Contabo (si secrets SSH configurés)

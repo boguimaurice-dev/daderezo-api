@@ -150,7 +150,7 @@ def test_home_links_and_no_shared_private_cache():
     assert "accounts.google.com/gsi/client" in html
     sw = (root / "sw.js").read_text()
     assert "dataCache.match" not in sw
-    assert "daderezo-shell-v4.9-auth" in sw
+    assert "daderezo-shell-v4.10-cta-logout" in sw
 
 
 def test_legacy_sessions_rejected_after_insecure_google_flow_removed(client):

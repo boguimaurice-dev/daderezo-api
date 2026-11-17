@@ -264,17 +264,26 @@ def init_db() -> None:
         c.execute("CREATE INDEX IF NOT EXISTS idx_audit_tenant_id ON agent_audit_logs (tenant_id, id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_audit_ts ON agent_audit_logs (ts)")
 
+        # Existing PostgreSQL installations need the same account upgrades as SQLite.
+        # Supabase is upgraded explicitly by the versioned SQL migration.
+        for column, definition in {
+            "auth_provider": "TEXT DEFAULT 'local'",
+            "is_email_verified": "INTEGER DEFAULT 0",
+            "totp_secret": "TEXT",
+            "totp_enabled": "INTEGER DEFAULT 0",
+            "avatar_url": "TEXT",
+        }.items():
+            if is_pg:
+                c.execute(f"ALTER TABLE saas_users ADD COLUMN IF NOT EXISTS {column} {definition}")
+            else:
+                _ensure_sqlite_column(c, "saas_users", column, definition)
+
         if not is_pg:
             _ensure_sqlite_column(c, "agents", "org_slug", "TEXT DEFAULT 'public-demo'")
             _ensure_sqlite_column(c, "tasks", "payload_json", "TEXT DEFAULT '{}'")
             _ensure_sqlite_column(c, "probes", "name", "TEXT")
             _ensure_sqlite_column(c, "probes", "zone", "TEXT")
             _ensure_sqlite_column(c, "probes", "latency_ms", "REAL")
-            _ensure_sqlite_column(c, "saas_users", "auth_provider", "TEXT DEFAULT 'local'")
-            _ensure_sqlite_column(c, "saas_users", "is_email_verified", "INTEGER DEFAULT 1")
-            _ensure_sqlite_column(c, "saas_users", "totp_secret", "TEXT")
-            _ensure_sqlite_column(c, "saas_users", "totp_enabled", "INTEGER DEFAULT 0")
-            _ensure_sqlite_column(c, "saas_users", "avatar_url", "TEXT")
 
 
 def _as_bool(v: Any) -> bool:

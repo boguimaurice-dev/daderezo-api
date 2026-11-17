@@ -14,6 +14,18 @@ jobs:
   verify:
     name: Tests Unitaires & Intégration
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: daderezo_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-only-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d daderezo_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,6 +38,8 @@ jobs:
       - name: Exécution de la suite de tests DADEREZO
         env:
           DADEREZO_AUTH_SECRET: ci-test-secret-not-for-production
+          DADEREZO_TEST_POSTGRES_URL: postgresql://postgres@127.0.0.1:5432/daderezo_test
+          PGPASSWORD: ci-only-test-password
         run: python -m pytest -q
       - name: Vérification DOM des parcours Google, QR 2FA et accueil
         run: |

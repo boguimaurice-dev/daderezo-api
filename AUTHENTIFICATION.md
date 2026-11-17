@@ -88,3 +88,26 @@ récupération administrateur vérifiée, pas un contournement public du 2FA.
   connexion au compte Google dans un navigateur avec le client OAuth de production.
 - Dépendances de test : requirements-dev.txt + jsdom@26.1.0 (installation dans .cache/auth-ui).
   `NODE_PATH=.cache/auth-ui/node_modules node tests/auth_ui.cjs`.
+
+## Incident : « Erreur interne » après le bouton Google
+
+La base Supabase distante utilisait encore la table saas_users historique à huit colonnes.
+Les cinq colonnes du profil Google et du facteur TOTP étaient absentes : un PATCH avatar_url
+ou un INSERT de compte Google pouvait échouer avant l'apparition du challenge 2FA.
+
+Migration distante `saas_users_google_totp_columns` appliquée et relue : auth_provider,
+is_email_verified, avatar_url, totp_secret et totp_enabled présents, avec les types utilisés
+par storage.py (indicateurs entiers 0/1). Cache PostgREST notifié pour rechargement.
+Aucun compte, mot de passe, clé de sonde ou facteur existant n'a été modifié.
+Les anciens comptes dont le statut d'e-mail est inconnu ne sont pas déclarés vérifiés
+par défaut. Les rôles Supabase anon/authenticated ne peuvent plus lire saas_users ;
+la session DADEREZO passe par l'API avec sa clé service_role, dont les droits restent présents.
+
+Le correctif de base est utilisable immédiatement par l'API déjà déployée. La migration
+versionnée est dans migrations/20261116_saas_users_google_totp.sql pour les autres installations.
+storage.init_db() met également à niveau les anciennes tables PostgreSQL directes, comme SQLite.
+CI inclut désormais PostgreSQL 17 et deux tests d'intégration dans des schémas temporaires :
+upgrade automatique et SQL de production exécuté deux fois, avec préservation du facteur existant.
+Localement, ces deux tests sont ignorés si DADEREZO_TEST_POSTGRES_URL n'est pas renseigné.
+La connexion réelle de l'utilisateur reste à retester ; aucun code Authenticator ni secret
+ne doit être partagé pour ce diagnostic.

@@ -771,7 +771,7 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertIn("application/javascript", r_sw.headers.get("content-type", ""))
         self.assertEqual(r_sw.headers.get("service-worker-allowed"), "/")
         self.assertEqual(r_sw.headers.get("cache-control"), "no-cache")
-        self.assertIn("daderezo-shell-v4.9-auth", r_sw.text)
+        self.assertIn("daderezo-shell-v4.10-cta-logout", r_sw.text)
 
         # 3. Offline fallback & PWA PNG icons (GET + HEAD)
         r_off = self.client.get("/offline.html")
